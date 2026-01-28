@@ -72,11 +72,11 @@ whispem-lang/
 ## 🤍 Why this project exists
 
 Whispem exists as a space to:
-    •    explore how programming languages are designed
+- explore how programming languages are designed
     
-    •    understand the trade-offs behind design decisions
+- understand the trade-offs behind design decisions
     
-    •    learn by building
+- learn by building
 
 ⸻
 
