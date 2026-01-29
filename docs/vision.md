@@ -1,116 +1,53 @@
 # Whispem — Vision
 
-Whispem is an experimental programming language born from a desire to explore simplicity, clarity, and expressiveness in code.
+Whispem is a personal and experimental programming language.
 
-This document describes the *intent* behind Whispem.  
-It is not a specification, and it is not a promise of stability.  
-It is a guiding vision.
-
----
-
-## Why Whispem exists
-
-Modern programming languages are powerful, but often complex.  
-Whispem exists as a space to step back and ask simpler questions:
-
-- What is the minimum needed to express an idea clearly?
-- How much structure is enough — and when does it become noise?
-- Can a language encourage calm, readable code?
-
-Whispem is an exploration of these questions.
+Its purpose is not performance, popularity, or completeness,
+but understanding, intention, and clarity.
 
 ---
 
-## Core values
+## Core Principles
 
-### Clarity over cleverness
+### Simplicity over power
 
-Code written in Whispem should favor readability and intent over trickery or obscure optimizations.
-
-If something is hard to read, it is probably not Whispem.
-
----
-
-### Fewer concepts, stronger foundations
-
-Whispem aims to rely on a small number of core concepts that compose well together.
-
-New features must justify their existence by:
-- reducing overall complexity, or
-- increasing expressive power without adding cognitive load.
+Whispem favors a small set of clear, understandable features over a large and
+complex feature set.
 
 ---
 
-### Expressiveness with restraint
+### Explicit behavior
 
-Whispem values expressiveness, but not at the cost of clarity.
-
-The goal is not to be terse for its own sake, but to allow ideas to be expressed naturally and directly.
-
----
-
-### Explicit over implicit
-
-Whenever possible, Whispem prefers explicit behavior to hidden magic.
-
-The language should help the programmer understand *what happens*, not guess.
+Code should do exactly what it appears to do.
+There is no hidden behavior and no implicit magic.
 
 ---
 
-### Experimental by design
+### Minimal syntax
 
-Whispem is intentionally experimental.
-
-Breaking changes are acceptable.
-Ideas may be introduced, refined, or removed.
-The language is expected to evolve as understanding deepens.
+Every keyword and construct must have a clear reason to exist.
+If a feature is not essential, it does not belong in the language.
 
 ---
 
-## What Whispem is not
+### Learnability
 
-Whispem does **not** aim to:
-
-- Replace existing mainstream languages
-- Be the fastest language
-- Solve every problem domain
-- Achieve mass adoption quickly
-
-Whispem values coherence over ambition.
+Whispem is designed so that its entire implementation can be read and understood.
+The language itself is part of the learning process.
 
 ---
 
-## Intended use
+## What Whispem Is Not
 
-Whispem is intended for:
-- learning and experimentation
-- language design exploration
-- small tools or scripts
-- expressing ideas clearly
-
-Any real-world usage is a bonus, not a requirement.
+- Not a production-ready language
+- Not optimized for performance
+- Not designed to replace existing tools
 
 ---
 
-## Long-term direction (tentative)
+## Direction
 
-Over time, Whispem may explore:
-- a small but expressive type system
-- predictable semantics
-- minimal runtime abstractions
-- a simple and transparent execution model
+Whispem evolves slowly and deliberately.
+Each new feature must preserve the language’s clarity and educational value.
 
-These directions are exploratory, not commitments.
-
----
-
-## A living document
-
-This vision is expected to evolve.
-
-As Whispem grows, this document may change to reflect new insights, constraints, or goals.
-
----
-
-> Whispem is not a language that demands attention.  
-> It is a language that whispers, and lets ideas speak.
+Whispem is meant to remain small enough to fit entirely in its creator’s head.
