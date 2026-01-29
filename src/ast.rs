@@ -1,24 +1,17 @@
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Expr {
     Number(f64),
+    String(String),
     Variable(String),
     Binary {
         left: Box<Expr>,
-        op: Operator,
+        op: char,
         right: Box<Expr>,
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Stmt {
-    Let { name: String, value: Expr },
+    Let(String, Expr),
     Print(Expr),
-}
-
-#[derive(Debug, Clone)]
-pub enum Operator {
-    Plus,
-    Minus,
-    Star,
-    Slash,
 }
