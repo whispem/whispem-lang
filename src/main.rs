@@ -3,9 +3,9 @@ use std::fs;
 
 mod lexer;
 mod parser;
-mod ast;
 mod interpreter;
 mod token;
+mod ast;
 
 use lexer::Lexer;
 use parser::Parser;
@@ -24,10 +24,15 @@ fn main() {
     let source = fs::read_to_string(filename)
         .expect("Failed to read source file");
 
-    let lexer = Lexer::new(&source);
-    let mut parser = Parser::new(lexer);
-    let program = parser.parse_program();
+    // 1. Lexer → tokens
+    let mut lexer = Lexer::new(&source);
+    let tokens = lexer.tokenize();
 
+    // 2. Parser → AST / statements
+    let mut parser = Parser::new(tokens);
+    let statements = parser.parse();
+
+    // 3. Interpreter → execute
     let mut interpreter = Interpreter::new();
-    interpreter.execute(program);
+    interpreter.execute(statements);
 }
