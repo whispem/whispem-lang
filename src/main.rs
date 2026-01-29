@@ -1,3 +1,6 @@
+use std::env;
+use std::fs;
+
 mod lexer;
 mod parser;
 mod ast;
@@ -9,26 +12,22 @@ use parser::Parser;
 use interpreter::Interpreter;
 
 fn main() {
-    let source = r#"
-# Whispem v0.2 example
-let name = "Whispem"
-print name
-"#;
+    let args: Vec<String> = env::args().collect();
 
-    let mut lexer = Lexer::new(source);
-    let mut tokens = Vec::new();
-
-    loop {
-        let token = lexer.next_token();
-        if token == token::Token::EOF {
-            break;
-        }
-        tokens.push(token);
+    if args.len() < 2 {
+        println!("Whispem");
+        return;
     }
 
-    let mut parser = Parser::new(tokens);
-    let ast = parser.parse();
+    let filename = &args[1];
+
+    let source = fs::read_to_string(filename)
+        .expect("Failed to read source file");
+
+    let lexer = Lexer::new(&source);
+    let mut parser = Parser::new(lexer);
+    let program = parser.parse_program();
 
     let mut interpreter = Interpreter::new();
-    interpreter.execute(ast);
+    interpreter.execute(program);
 }
