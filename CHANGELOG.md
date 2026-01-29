@@ -1,21 +1,24 @@
 # Changelog
 
-All notable changes to Whispem are documented in this file.
+---
+
+## v0.3.0
+
+- Added execution of source files (.wsp)
+- Added CLI argument handling
+- Interpreter now executes real programs
+- Updated documentation
 
 ---
 
 ## v0.2.0
 
-- Added string literals
-- Added comments using `#`
-- Introduced a structured lexer, parser, and interpreter
-- Added documentation files (syntax, examples, vision)
-- Improved project organization
+- Structured lexer, parser, and interpreter
+- Added strings and comments
+- Initial documentation
 
 ---
 
 ## v0.1.0
 
-- Initial experimental release
-- Minimal interpreter
-- Numeric values and print statement
+- Initial proof of concept
