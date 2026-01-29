@@ -1,78 +1,103 @@
-#[derive(Debug, Clone, PartialEq)]
-pub enum Token {
-    Let,
-    Print,
-    Ident(String),
-    Number(f64),
-    Plus,
-    Minus,
-    Star,
-    Slash,
-    Equal,
-    LParen,
-    RParen,
-    EOF,
-}
+use crate::token::Token;
 
 pub struct Lexer {
-    chars: Vec<char>,
-    pos: usize,
+    input: Vec<char>,
+    position: usize,
 }
 
 impl Lexer {
     pub fn new(input: &str) -> Self {
         Self {
-            chars: input.chars().collect(),
-            pos: 0,
+            input: input.chars().collect(),
+            position: 0,
         }
     }
 
-    fn peek(&self) -> Option<char> {
-        self.chars.get(self.pos).copied()
+    fn current_char(&self) -> Option<char> {
+        self.input.get(self.position).copied()
     }
 
     fn advance(&mut self) {
-        self.pos += 1;
+        self.position += 1;
     }
 
     pub fn next_token(&mut self) -> Token {
-        while let Some(c) = self.peek() {
-            return match c {
-                ' ' | '\n' | '\t' => {
+        while let Some(ch) = self.current_char() {
+            match ch {
+                ' ' | '\t' => self.advance(),
+
+                '\n' => {
                     self.advance();
-                    continue;
+                    return Token::Newline;
                 }
-                '+' => { self.advance(); Token::Plus }
-                '-' => { self.advance(); Token::Minus }
-                '*' => { self.advance(); Token::Star }
-                '/' => { self.advance(); Token::Slash }
-                '=' => { self.advance(); Token::Equal }
-                '(' => { self.advance(); Token::LParen }
-                ')' => { self.advance(); Token::RParen }
-                '0'..='9' => return self.number(),
-                'a'..='z' | 'A'..='Z' | '_' => return self.ident(),
-                _ => panic!("Unexpected character: {}", c),
-            };
+
+                '#' => {
+                    // Comment: skip until end of line
+                    while let Some(c) = self.current_char() {
+                        if c == '\n' {
+                            break;
+                        }
+                        self.advance();
+                    }
+                }
+
+                '=' => {
+                    self.advance();
+                    return Token::Equals;
+                }
+
+                '+' => {
+                    self.advance();
+                    return Token::Plus;
+                }
+
+                '-' => {
+                    self.advance();
+                    return Token::Minus;
+                }
+
+                '*' => {
+                    self.advance();
+                    return Token::Star;
+                }
+
+                '/' => {
+                    self.advance();
+                    return Token::Slash;
+                }
+
+                '"' => return self.read_string(),
+
+                c if c.is_ascii_digit() => return self.read_number(),
+
+                c if c.is_alphabetic() || c == '_' => return self.read_identifier(),
+
+                _ => self.advance(),
+            }
         }
+
         Token::EOF
     }
 
-    fn number(&mut self) -> Token {
-        let mut num = String::new();
-        while let Some(c) = self.peek() {
+    fn read_number(&mut self) -> Token {
+        let mut number = String::new();
+
+        while let Some(c) = self.current_char() {
             if c.is_ascii_digit() || c == '.' {
-                num.push(c);
+                number.push(c);
                 self.advance();
             } else {
                 break;
             }
         }
-        Token::Number(num.parse().unwrap())
+
+        Token::Number(number.parse().unwrap())
     }
 
-    fn ident(&mut self) -> Token {
+    fn read_identifier(&mut self) -> Token {
         let mut ident = String::new();
-        while let Some(c) = self.peek() {
+
+        while let Some(c) = self.current_char() {
             if c.is_alphanumeric() || c == '_' {
                 ident.push(c);
                 self.advance();
@@ -84,7 +109,23 @@ impl Lexer {
         match ident.as_str() {
             "let" => Token::Let,
             "print" => Token::Print,
-            _ => Token::Ident(ident),
+            _ => Token::Identifier(ident),
         }
+    }
+
+    fn read_string(&mut self) -> Token {
+        self.advance(); // skip opening quote
+        let mut value = String::new();
+
+        while let Some(c) = self.current_char() {
+            if c == '"' {
+                self.advance();
+                break;
+            }
+            value.push(c);
+            self.advance();
+        }
+
+        Token::String(value)
     }
 }
