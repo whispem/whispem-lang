@@ -1,50 +1,47 @@
-use crate::ast::*;
+use crate::ast::{Expr, Stmt};
 use std::collections::HashMap;
 
 pub struct Interpreter {
-    env: HashMap<String, f64>,
+    variables: HashMap<String, Value>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Value {
+    Number(f64),
+    String(String),
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            env: HashMap::new(),
+            variables: HashMap::new(),
         }
     }
 
-    pub fn run(&mut self, stmts: Vec<Stmt>) {
-        for stmt in stmts {
-            self.exec(stmt);
-        }
-    }
-
-    fn exec(&mut self, stmt: Stmt) {
-        match stmt {
-            Stmt::Let { name, value } => {
-                let v = self.eval(value);
-                self.env.insert(name, v);
-            }
-            Stmt::Print(expr) => {
-                let v = self.eval(expr);
-                println!("{}", v);
-            }
-        }
-    }
-
-    fn eval(&mut self, expr: Expr) -> f64 {
-        match expr {
-            Expr::Number(n) => n,
-            Expr::Variable(name) => *self.env.get(&name).expect("Undefined variable"),
-            Expr::Binary { left, op, right } => {
-                let l = self.eval(*left);
-                let r = self.eval(*right);
-                match op {
-                    Operator::Plus => l + r,
-                    Operator::Minus => l - r,
-                    Operator::Star => l * r,
-                    Operator::Slash => l / r,
+    pub fn execute(&mut self, statements: Vec<Stmt>) {
+        for stmt in statements {
+            match stmt {
+                Stmt::Let(name, expr) => {
+                    let value = self.eval(expr);
+                    self.variables.insert(name, value);
+                }
+                Stmt::Print(expr) => {
+                    let value = self.eval(expr);
+                    match value {
+                        Value::Number(n) => println!("{}", n),
+                        Value::String(s) => println!("{}", s),
+                    }
                 }
             }
+        }
+    }
+
+    fn eval(&self, expr: Expr) -> Value {
+        match expr {
+            Expr::Number(n) => Value::Number(n),
+            Expr::String(s) => Value::String(s),
+            Expr::Variable(name) => self.variables.get(&name).unwrap().clone(),
+            _ => panic!("Unsupported expression"),
         }
     }
 }
