@@ -1,14 +1,8 @@
-use crate::ast::{Expr, Stmt};
 use std::collections::HashMap;
+use crate::ast::{Program, Statement, Expression};
 
 pub struct Interpreter {
-    variables: HashMap<String, Value>,
-}
-
-#[derive(Debug, Clone)]
-pub enum Value {
-    Number(f64),
-    String(String),
+    variables: HashMap<String, f64>,
 }
 
 impl Interpreter {
@@ -18,30 +12,31 @@ impl Interpreter {
         }
     }
 
-    pub fn execute(&mut self, statements: Vec<Stmt>) {
-        for stmt in statements {
-            match stmt {
-                Stmt::Let(name, expr) => {
-                    let value = self.eval(expr);
-                    self.variables.insert(name, value);
-                }
-                Stmt::Print(expr) => {
-                    let value = self.eval(expr);
-                    match value {
-                        Value::Number(n) => println!("{}", n),
-                        Value::String(s) => println!("{}", s),
-                    }
-                }
+    pub fn execute(&mut self, program: Program) {
+        for statement in program.statements {
+            self.execute_statement(statement);
+        }
+    }
+
+    fn execute_statement(&mut self, statement: Statement) {
+        match statement {
+            Statement::Let(name, expr) => {
+                let value = self.evaluate_expression(expr);
+                self.variables.insert(name, value);
+            }
+            Statement::Print(expr) => {
+                let value = self.evaluate_expression(expr);
+                println!("{}", value);
             }
         }
     }
 
-    fn eval(&self, expr: Expr) -> Value {
+    fn evaluate_expression(&self, expr: Expression) -> f64 {
         match expr {
-            Expr::Number(n) => Value::Number(n),
-            Expr::String(s) => Value::String(s),
-            Expr::Variable(name) => self.variables.get(&name).unwrap().clone(),
-            _ => panic!("Unsupported expression"),
+            Expression::Number(value) => value,
+            Expression::Variable(name) => {
+                *self.variables.get(&name).unwrap_or(&0.0)
+            }
         }
     }
 }
