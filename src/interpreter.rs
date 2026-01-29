@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::ast::{Program, Statement, Expression};
+use crate::ast::{Statement, Expression};
 
 pub struct Interpreter {
     variables: HashMap<String, f64>,
@@ -12,29 +12,29 @@ impl Interpreter {
         }
     }
 
-    pub fn execute(&mut self, program: Program) {
-        for statement in program.statements {
-            self.execute_statement(statement);
+    pub fn execute(&mut self, statements: Vec<Statement>) {
+        for stmt in statements {
+            self.execute_statement(stmt);
         }
     }
 
-    fn execute_statement(&mut self, statement: Statement) {
-        match statement {
+    fn execute_statement(&mut self, stmt: Statement) {
+        match stmt {
             Statement::Let(name, expr) => {
-                let value = self.evaluate_expression(expr);
+                let value = self.eval(expr);
                 self.variables.insert(name, value);
             }
             Statement::Print(expr) => {
-                let value = self.evaluate_expression(expr);
+                let value = self.eval(expr);
                 println!("{}", value);
             }
         }
     }
 
-    fn evaluate_expression(&self, expr: Expression) -> f64 {
+    fn eval(&self, expr: Expression) -> f64 {
         match expr {
-            Expression::Number(value) => value,
-            Expression::Variable(name) => {
+            Expression::Number(n) => n,
+            Expression::Identifier(name) => {
                 *self.variables.get(&name).unwrap_or(&0.0)
             }
         }
