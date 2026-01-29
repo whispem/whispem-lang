@@ -1,96 +1,126 @@
 # Whispem
 
-**Whispem** is an experimental, open-source programming language created to explore ideas around simplicity, readability, and expressiveness.
+Whispem is an experimental programming language created as a personal exploration
+of language design and implementation.
 
-Whispem is not intended (at least for now) to compete with existing languages. 
-It is primarily a personal and technical exploration of programming language design.
+The project focuses on understanding how a programming language works internally:
+from reading source code, to interpreting its meaning, to executing instructions.
 
----
-
-## ✨ Philosophy
-
-Whispem is guided by a small set of core principles:
-
-- **Clarity first**: code should be easy to read and reason about.
-- **Less, but better**: a small number of well-defined concepts.
-- **Expressiveness**: say more with less.
-- **Experimental by nature**: design decisions are not fixed and may evolve.
-- **Intellectual enjoyment**: Whispem is also a creative project.
+Whispem prioritizes clarity, simplicity, and intention over performance or feature
+completeness.
 
 ---
 
-## 🎯 Goals
+## Status
 
-- Design a simple and expressive syntax
-- Explore language semantics and design trade-offs
-- Implement a minimal interpreter or compiler
-- Document technical and conceptual decisions
-
----
-
-## 🚧 Project status
-
-> ⚠️ **Work in progress**
-
-Whispem is in a very early stage. 
-Syntax, semantics, and implementation details may change frequently.
-
-No stability guarantees are provided.
+- Version: v0.2.0
+- Stability: Experimental
+- Project type: Personal language experiment
+- Implementation language: Rust
 
 ---
 
-## 🧠 Inspirations (non-exhaustive)
+## Philosophy
 
-Whispem draws inspiration from:
-- Rust (clarity and rigor)
-- Lua (simplicity)
-- Lisp (expressiveness)
-- Experimental languages and DSLs
+Whispem is built on a few simple ideas:
 
----
+- Code should be easy to read and reason about
+- The language should be small enough to understand entirely
+- Every feature must be intentional
+- Learning is more important than optimization
 
-## 🛠️ Implementation (tentative)
-
-- Implementation language: *to be determined* (likely Rust)
-- Parsing: *to be determined*
-- Target: interpreter and/or compiled backend
-
-All of these choices may evolve as the project grows.
+Whispem is not meant to replace existing languages.
+It exists to explore how languages are made.
 
 ---
 
-## 📁 Project structure (planned)
+## Language Features (v0.2.0)
 
-```text
-whispem-lang/
-├── docs/
-├── examples/
-├── src/
-├── README.md
+- Variable declarations with `let`
+- Immutable variables
+- Numeric values
+- String literals
+- A `print` statement
+- Line-based syntax
+- Comments using `#`
+- Direct interpretation (no compilation step)
+
+---
+
+## Example
+
+```whispem
+# Whispem example
+let name = "Whispem"
+print name
 ```
 
-## 🤍 Why this project exists
+## Output
 
-Whispem exists as a space to:
-- explore how programming languages are designed
-    
-- understand the trade-offs behind design decisions
-    
-- learn by building
+    Whispem
 
-⸻
+---
 
-## 📜 License
+## Syntax Overview
 
-License to be defined (likely MIT or Apache-2.0).
+### Variables
 
-⸻
+Variables are declared using `let`.
 
-## 🌱 Contributing
+    let x = 10
+    let message = "Hello"
 
-Contributions are welcome, but the project remains experimental and primarily personal.
-Thoughtful discussions and constructive feedback are appreciated.
+Variables are immutable in this version.
 
-⸻
+---
 
-Whispem is a language in progress. It whispers rather than shouts.
+### Print
+
+The `print` statement evaluates and outputs a value.
+
+    print x
+    print message
+
+---
+
+### Types
+
+Whispem currently supports:
+
+- Number (floating-point)
+- String
+
+---
+
+### Comments
+
+Comments begin with `#` and continue until the end of the line.
+
+    # This is a comment
+    let version = "0.2.0"
+
+---
+
+## Limitations
+
+Whispem v0.2.0 does not support:
+
+- Arithmetic expressions  
+- Conditionals  
+- Loops  
+- Functions  
+- Advanced error reporting  
+
+These limitations are intentional.
+
+---
+
+## Vision
+
+Whispem is designed to remain small, understandable, and deliberate.
+
+Future versions may introduce new features gradually, but only if they preserve
+the language’s clarity and learning value.
+
+The goal is not to build a powerful tool, but a language that can be fully
+understood by its creator.
