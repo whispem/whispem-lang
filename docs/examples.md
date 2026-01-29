@@ -1,33 +1,19 @@
 # Whispem — Examples
 
-This document contains small examples demonstrating Whispem v0.2.0.
+Examples compatible with Whispem v0.3.0.
 
 ---
 
-## Hello World
+## Basic variable
 
-    print "Hello, Whispem"
-
----
-
-## Variables
-
-    let name = "Whispem"
-    print name
+    let x = 42
+    print x
 
 ---
 
-## Numbers
+## Multiple statements
 
-    let year = 2026
-    print year
-
----
-
-## Comments
-
-    # Define a variable
-    let version = "0.2.0"
-
-    # Print it
-    print version
+    let a = 1
+    let b = 2
+    print a
+    print b
