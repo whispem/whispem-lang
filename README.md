@@ -1,115 +1,74 @@
 # Whispem
 
-Whispem is an experimental programming language created as a personal exploration
-of language design and implementation.
+Whispem is an experimental programming language built as a personal exploration
+of language design and interpretation.
 
-The project focuses on understanding how a programming language works internally:
-from reading source code, to interpreting its meaning, to executing instructions.
-
-Whispem prioritizes clarity, simplicity, and intention over performance or feature
-completeness.
+The goal of Whispem is to understand how a programming language works internally,
+from source code to execution, while remaining small, readable, and deliberate.
 
 ---
 
 ## Status
 
-- Version: v0.2.0
+- Version: v0.3.0
 - Stability: Experimental
-- Project type: Personal language experiment
+- Project type: Personal language project
 - Implementation language: Rust
 
 ---
 
-## Philosophy
+## Features (v0.3.0)
 
-Whispem is built on a few simple ideas:
-
-- Code should be easy to read and reason about
-- The language should be small enough to understand entirely
-- Every feature must be intentional
-- Learning is more important than optimization
-
-Whispem is not meant to replace existing languages.
-It exists to explore how languages are made.
-
----
-
-## Language Features (v0.2.0)
-
-- Variable declarations with `let`
+- Variable declarations using `let`
 - Immutable variables
 - Numeric values
-- String literals
-- A `print` statement
+- `print` statement
 - Line-based syntax
 - Comments using `#`
+- Execution of source files (`.wsp`)
 - Direct interpretation (no compilation step)
 
 ---
 
 ## Example
 
-```whispem
-# Whispem example
-let name = "Whispem"
-print name
-```
-
-## Output
-
-    Whispem
-
----
-
-## Syntax Overview
-
-### Variables
-
-Variables are declared using `let`.
+Source file:
 
     let x = 10
-    let message = "Hello"
-
-Variables are immutable in this version.
-
----
-
-### Print
-
-The `print` statement evaluates and outputs a value.
-
     print x
-    print message
+
+Command:
+
+    cargo run examples/hello.wsp
+
+Output:
+
+    10
 
 ---
 
-### Types
+## How It Works
 
-Whispem currently supports:
+Whispem follows a classic language pipeline:
 
-- Number (floating-point)
-- String
+1. Read source file
+2. Lexical analysis (tokens)
+3. Parsing (AST)
+4. Interpretation (execution)
 
----
-
-### Comments
-
-Comments begin with `#` and continue until the end of the line.
-
-    # This is a comment
-    let version = "0.2.0"
+Each step is implemented explicitly and kept minimal.
 
 ---
 
 ## Limitations
 
-Whispem v0.2.0 does not support:
+Whispem v0.3.0 does not support:
 
-- Arithmetic expressions  
-- Conditionals  
-- Loops  
-- Functions  
-- Advanced error reporting  
+- Arithmetic expressions
+- Conditionals
+- Loops
+- Functions
+- Advanced error reporting
 
 These limitations are intentional.
 
@@ -117,10 +76,7 @@ These limitations are intentional.
 
 ## Vision
 
-Whispem is designed to remain small, understandable, and deliberate.
+Whispem is designed to remain understandable in its entirety.
 
-Future versions may introduce new features gradually, but only if they preserve
-the language’s clarity and learning value.
-
-The goal is not to build a powerful tool, but a language that can be fully
-understood by its creator.
+Each version adds one small, deliberate improvement, prioritizing learning
+and clarity over power or completeness.
