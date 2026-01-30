@@ -1,5 +1,4 @@
-# Whispem v0.4.0 example
+# Whispem v0.5.0 example
 
-let x = 10
-let y = x + 5 * 2
-print y
+let x = (10 + 5) * 2
+print x
