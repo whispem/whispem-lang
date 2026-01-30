@@ -12,20 +12,30 @@ impl Parser {
     }
 
     fn current(&self) -> &Token {
-        self.tokens.get(self.position).unwrap()
+        self.tokens
+            .get(self.position)
+            .unwrap_or(&Token::EOF)
     }
 
     fn advance(&mut self) {
         self.position += 1;
     }
 
-    fn consume(&mut self, token: Token) {
-        if *self.current() == token {
+    fn consume(&mut self, expected: Token) {
+        if *self.current() == expected {
             self.advance();
         } else {
-            panic!("Unexpected token: {:?}", self.current());
+            panic!(
+                "Expected {:?}, found {:?}",
+                expected,
+                self.current()
+            );
         }
     }
+
+    // =========================
+    // Entry point
+    // =========================
 
     pub fn parse_program(&mut self) -> Vec<Stmt> {
         let mut statements = Vec::new();
@@ -41,6 +51,10 @@ impl Parser {
         statements
     }
 
+    // =========================
+    // Statements
+    // =========================
+
     fn parse_statement(&mut self) -> Stmt {
         match self.current() {
             Token::Let => self.parse_let(),
@@ -51,31 +65,35 @@ impl Parser {
     }
 
     fn parse_let(&mut self) -> Stmt {
-        self.advance();
+        self.advance(); // consume 'let'
+
         let name = if let Token::Identifier(name) = self.current() {
             name.clone()
         } else {
-            panic!("Expected identifier");
+            panic!("Expected identifier after let");
         };
+
         self.advance();
         self.consume(Token::Equals);
+
         let expr = self.parse_expression();
         Stmt::Let(name, expr)
     }
 
     fn parse_print(&mut self) -> Stmt {
-        self.advance();
+        self.advance(); // consume 'print'
         let expr = self.parse_expression();
         Stmt::Print(expr)
     }
 
     fn parse_if(&mut self) -> Stmt {
-        self.advance();
+        self.advance(); // consume 'if'
+
         let condition = self.parse_expression();
         let then_branch = self.parse_block();
 
         let else_branch = if *self.current() == Token::Else {
-            self.advance();
+            self.advance(); // consume 'else'
             Some(self.parse_block())
         } else {
             None
@@ -90,19 +108,24 @@ impl Parser {
 
     fn parse_block(&mut self) -> Vec<Stmt> {
         self.consume(Token::LeftBrace);
-        let mut stmts = Vec::new();
+
+        let mut statements = Vec::new();
 
         while *self.current() != Token::RightBrace {
             if *self.current() == Token::Newline {
                 self.advance();
                 continue;
             }
-            stmts.push(self.parse_statement());
+            statements.push(self.parse_statement());
         }
 
         self.consume(Token::RightBrace);
-        stmts
+        statements
     }
+
+    // =========================
+    // Expressions
+    // =========================
 
     fn parse_expression(&mut self) -> Expr {
         self.parse_comparison()
@@ -123,6 +146,7 @@ impl Parser {
             let op = format!("{:?}", self.current());
             self.advance();
             let right = self.parse_term();
+
             expr = Expr::Binary {
                 left: Box::new(expr),
                 op,
@@ -134,36 +158,37 @@ impl Parser {
     }
 
     fn parse_term(&mut self) -> Expr {
-    match self.current() {
-        Token::Number(n) => {
-            let v = *n;
-            self.advance();
-            Expr::Number(v)
+        match self.current() {
+            Token::Number(n) => {
+                let v = *n;
+                self.advance();
+                Expr::Number(v)
+            }
+            Token::String(s) => {
+                let v = s.clone();
+                self.advance();
+                Expr::String(v)
+            }
+            Token::True => {
+                self.advance();
+                Expr::Bool(true)
+            }
+            Token::False => {
+                self.advance();
+                Expr::Bool(false)
+            }
+            Token::Identifier(name) => {
+                let v = name.clone();
+                self.advance();
+                Expr::Variable(v)
+            }
+            Token::LParen => {
+                self.advance(); // consume '('
+                let expr = self.parse_expression();
+                self.consume(Token::RParen);
+                expr
+            }
+            _ => panic!("Unexpected expression: {:?}", self.current()),
         }
-        Token::String(s) => {
-            let v = s.clone();
-            self.advance();
-            Expr::String(v)
-        }
-        Token::True => {
-            self.advance();
-            Expr::Bool(true)
-        }
-        Token::False => {
-            self.advance();
-            Expr::Bool(false)
-        }
-        Token::Identifier(name) => {
-            let v = name.clone();
-            self.advance();
-            Expr::Variable(v)
-        }
-        Token::LParen => {
-            self.advance(); 
-            let expr = self.parse_expression();
-            self.consume(Token::RParen); 
-            expr
-        }
-        _ => panic!("Unexpected expression: {:?}", self.current()),
     }
 }
