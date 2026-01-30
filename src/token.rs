@@ -2,6 +2,11 @@
 pub enum Token {
     Let,
     Print,
+    If,
+    Else,
+
+    True,
+    False,
 
     Identifier(String),
     Number(f64),
@@ -11,10 +16,17 @@ pub enum Token {
     Minus,
     Star,
     Slash,
-    Equals,
 
-    LParen,
-    RParen,
+    Equals,
+    EqualEqual,
+    BangEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+
+    LeftBrace,
+    RightBrace,
 
     Newline,
     EOF,
