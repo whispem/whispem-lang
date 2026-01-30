@@ -32,13 +32,22 @@ impl Lexer {
                 }
 
                 '#' => {
-                    // Comment: skip until end of line
                     while let Some(c) = self.current_char() {
                         if c == '\n' {
                             break;
                         }
                         self.advance();
                     }
+                }
+
+                '(' => {
+                    self.advance();
+                    return Token::LParen;
+                }
+
+                ')' => {
+                    self.advance();
+                    return Token::RParen;
                 }
 
                 '=' => {
@@ -114,7 +123,7 @@ impl Lexer {
     }
 
     fn read_string(&mut self) -> Token {
-        self.advance(); // skip opening quote
+        self.advance();
         let mut value = String::new();
 
         while let Some(c) = self.current_char() {
