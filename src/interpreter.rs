@@ -2,20 +2,20 @@ use crate::ast::{Expr, Stmt};
 use std::collections::HashMap;
 
 pub struct Interpreter {
-    env: HashMap<String, Value>,
+    variables: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone)]
 enum Value {
     Number(f64),
-    String(String),
     Bool(bool),
+    String(String),
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            env: HashMap::new(),
+            variables: HashMap::new(),
         }
     }
 
@@ -28,24 +28,20 @@ impl Interpreter {
     fn execute_stmt(&mut self, stmt: Stmt) {
         match stmt {
             Stmt::Let(name, expr) => {
-                let value = self.eval_expr(expr);
-                self.env.insert(name, value);
+                let value = self.eval(expr);
+                self.variables.insert(name, value);
             }
             Stmt::Print(expr) => {
-                let value = self.eval_expr(expr);
-                match value {
-                    Value::Number(n) => println!("{}", n),
-                    Value::String(s) => println!("{}", s),
-                    Value::Bool(b) => println!("{}", b),
-                }
+                let value = self.eval(expr);
+                println!("{}", self.format_value(value));
             }
             Stmt::If {
                 condition,
                 then_branch,
                 else_branch,
             } => {
-                let cond = self.eval_expr(condition);
-                if matches!(cond, Value::Bool(true)) {
+                let cond = self.eval(condition);
+                if self.is_truthy(&cond) {
                     for stmt in then_branch {
                         self.execute_stmt(stmt);
                     }
@@ -58,23 +54,62 @@ impl Interpreter {
         }
     }
 
-    fn eval_expr(&mut self, expr: Expr) -> Value {
+    fn eval(&mut self, expr: Expr) -> Value {
         match expr {
             Expr::Number(n) => Value::Number(n),
             Expr::String(s) => Value::String(s),
             Expr::Bool(b) => Value::Bool(b),
-            Expr::Variable(name) => self.env.get(&name).unwrap().clone(),
+            Expr::Variable(name) => self
+                .variables
+                .get(&name)
+                .cloned()
+                .unwrap_or_else(|| panic!("Undefined variable {}", name)),
             Expr::Binary { left, op, right } => {
-                let l = self.eval_expr(*left);
-                let r = self.eval_expr(*right);
+                let l = self.eval(*left);
+                let r = self.eval(*right);
+                self.eval_binary(l, op, r)
+            }
+        }
+    }
 
-                match (l, r, op.as_str()) {
-                    (Value::Number(a), Value::Number(b), "Less") => Value::Bool(a < b),
-                    (Value::Number(a), Value::Number(b), "Greater") => Value::Bool(a > b),
-                    (Value::Number(a), Value::Number(b), "EqualEqual") => Value::Bool(a == b),
-                    _ => panic!("Unsupported binary operation"),
+    fn eval_binary(&self, left: Value, op: String, right: Value) -> Value {
+        match (left, op.as_str(), right) {
+            (Value::Number(a), "+", Value::Number(b)) => Value::Number(a + b),
+            (Value::Number(a), "-", Value::Number(b)) => Value::Number(a - b),
+            (Value::Number(a), "*", Value::Number(b)) => Value::Number(a * b),
+            (Value::Number(a), "/", Value::Number(b)) => Value::Number(a / b),
+
+            (Value::Number(a), "<", Value::Number(b)) => Value::Bool(a < b),
+            (Value::Number(a), "<=", Value::Number(b)) => Value::Bool(a <= b),
+            (Value::Number(a), ">", Value::Number(b)) => Value::Bool(a > b),
+            (Value::Number(a), ">=", Value::Number(b)) => Value::Bool(a >= b),
+
+            (Value::Number(a), "==", Value::Number(b)) => Value::Bool(a == b),
+            (Value::Number(a), "!=", Value::Number(b)) => Value::Bool(a != b),
+
+            _ => panic!("Unsupported binary operation"),
+        }
+    }
+
+    fn is_truthy(&self, value: &Value) -> bool {
+        match value {
+            Value::Bool(b) => *b,
+            Value::Number(n) => *n != 0.0,
+            Value::String(s) => !s.is_empty(),
+        }
+    }
+
+    fn format_value(&self, value: Value) -> String {
+        match value {
+            Value::Number(n) => {
+                if n.fract() == 0.0 {
+                    format!("{}", n as i64)
+                } else {
+                    n.to_string()
                 }
             }
+            Value::Bool(b) => b.to_string(),
+            Value::String(s) => s,
         }
     }
 }
