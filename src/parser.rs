@@ -12,9 +12,7 @@ impl Parser {
     }
 
     fn current(&self) -> &Token {
-        self.tokens
-            .get(self.position)
-            .unwrap_or(&Token::EOF)
+        self.tokens.get(self.position).unwrap_or(&Token::EOF)
     }
 
     fn advance(&mut self) {
@@ -124,7 +122,7 @@ impl Parser {
     }
 
     // =========================
-    // Expressions
+    // Expressions (precedence)
     // =========================
 
     fn parse_expression(&mut self) -> Expr {
@@ -132,7 +130,7 @@ impl Parser {
     }
 
     fn parse_comparison(&mut self) -> Expr {
-        let mut expr = self.parse_term();
+        let mut expr = self.parse_addition();
 
         while matches!(
             self.current(),
@@ -144,6 +142,54 @@ impl Parser {
                 | Token::BangEqual
         ) {
             let op = format!("{:?}", self.current());
+            self.advance();
+            let right = self.parse_addition();
+
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
+        }
+
+        expr
+    }
+
+    fn parse_addition(&mut self) -> Expr {
+        let mut expr = self.parse_multiplication();
+
+        while matches!(self.current(), Token::Plus | Token::Minus) {
+            let op = match self.current() {
+                Token::Plus => "+",
+                Token::Minus => "-",
+                _ => unreachable!(),
+            }
+            .to_string();
+
+            self.advance();
+            let right = self.parse_multiplication();
+
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
+        }
+
+        expr
+    }
+
+    fn parse_multiplication(&mut self) -> Expr {
+        let mut expr = self.parse_term();
+
+        while matches!(self.current(), Token::Star | Token::Slash) {
+            let op = match self.current() {
+                Token::Star => "*",
+                Token::Slash => "/",
+                _ => unreachable!(),
+            }
+            .to_string();
+
             self.advance();
             let right = self.parse_term();
 
@@ -183,7 +229,7 @@ impl Parser {
                 Expr::Variable(v)
             }
             Token::LParen => {
-                self.advance(); // consume '('
+                self.advance(); // '('
                 let expr = self.parse_expression();
                 self.consume(Token::RParen);
                 expr
