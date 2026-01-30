@@ -25,6 +25,9 @@ pub enum Token {
     Greater,
     GreaterEqual,
 
+    LParen,
+    RParen,
+
     LeftBrace,
     RightBrace,
 
