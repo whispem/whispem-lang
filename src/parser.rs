@@ -134,31 +134,36 @@ impl Parser {
     }
 
     fn parse_term(&mut self) -> Expr {
-        match self.current() {
-            Token::Number(n) => {
-                let v = *n;
-                self.advance();
-                Expr::Number(v)
-            }
-            Token::String(s) => {
-                let v = s.clone();
-                self.advance();
-                Expr::String(v)
-            }
-            Token::True => {
-                self.advance();
-                Expr::Bool(true)
-            }
-            Token::False => {
-                self.advance();
-                Expr::Bool(false)
-            }
-            Token::Identifier(name) => {
-                let v = name.clone();
-                self.advance();
-                Expr::Variable(v)
-            }
-            _ => panic!("Unexpected expression: {:?}", self.current()),
+    match self.current() {
+        Token::Number(n) => {
+            let v = *n;
+            self.advance();
+            Expr::Number(v)
         }
+        Token::String(s) => {
+            let v = s.clone();
+            self.advance();
+            Expr::String(v)
+        }
+        Token::True => {
+            self.advance();
+            Expr::Bool(true)
+        }
+        Token::False => {
+            self.advance();
+            Expr::Bool(false)
+        }
+        Token::Identifier(name) => {
+            let v = name.clone();
+            self.advance();
+            Expr::Variable(v)
+        }
+        Token::LParen => {
+            self.advance(); 
+            let expr = self.parse_expression();
+            self.consume(Token::RParen); 
+            expr
+        }
+        _ => panic!("Unexpected expression: {:?}", self.current()),
     }
 }
