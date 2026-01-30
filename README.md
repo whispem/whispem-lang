@@ -1,172 +1,148 @@
 # Whispem
 
-**Whispem** is a minimal interpreted programming language designed for clarity, simplicity, and experimentation.  
-It features a clean syntax, variable bindings, arithmetic expressions with operator precedence, and explicit grouping using parentheses.
+Whispem is a minimalist interpreted programming language designed for clarity,
+expressiveness, and calm readability.
 
-> Whispem is implemented in Rust, but **Whispem itself is a standalone language**, independent of Rust in its design and usage.
+It focuses on a simple syntax, explicit logic, and a smooth learning curve,
+while remaining powerful enough to express real control flow and computation.
+
+Whispem is implemented in Rust, but Whispem itself is a standalone language.
 
 ---
 
 ## Features
 
-- Simple and readable syntax
-- Variable declarations with `let`
+- Variables with `let`
 - Arithmetic expressions
-  - `+`, `-`, `*`, `/`
-  - Correct operator precedence
-  - Explicit grouping with parentheses `( )`
-- String and number literals
-- `print` statement
-- Line-based syntax
-- Comments using `#`
-- Deterministic execution model
+- Boolean values (`true`, `false`)
+- Comparisons (`<`, `>`, `<=`, `>=`, `==`, `!=`)
+- Conditional execution (`if / else`)
+- Block syntax with `{ }`
+- Line-based syntax (no semicolons)
+- Interpreter-based execution
 
 ---
 
-## Example
+## Installation
 
-### `examples/hello.wsp`
-
-```wsp
-# Whispem v0.5.0 example
-
-let x = (10 + 5) * 2
-print x
-```
-
-### Output
-
-```text
-30
-```
-
----
-
-## Language Overview
-
-### Variables
-
-```wsp
-let a = 42
-let name = "Whispem"
-```
-
-### Arithmetic Expressions
-
-```wsp
-let result = 10 + 5 * 2
-print result
-```
-
-### Parentheses
-
-```wsp
-let value = (10 + 5) * 2
-print value
-```
-
-Multiplication and division have higher precedence than addition and subtraction.  
-Parentheses allow explicit grouping of expressions.
-
-### Printing
-
-```wsp
-print "Hello, world!"
-print value
-```
-
-### Comments
-
-```wsp
-# This is a comment
-let x = 1
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Rust (stable)
-- Cargo
-
-### Clone the repository
+Clone the repository:
 
 ```bash
 git clone https://github.com/whispem/whispem-lang.git
 cd whispem-lang
 ```
 
-### Build the project
+---
+
+## Build the project
 
 ```bash
 cargo build
 ```
 
-### Run a Whispem file
+---
+
+## Running a Whispem program
+
+Run a `.wsp` file with:
 
 ```bash
 cargo run examples/hello.wsp
 ```
 
----
+If no file is provided:
 
-## Project Structure
+```bash
+cargo run
+```
+
+Output:
 
 ```text
-whispem-lang/
-├── src/
-│   ├── ast.rs          # Abstract Syntax Tree definitions
-│   ├── interpreter.rs # Expression and statement evaluator
-│   ├── lexer.rs       # Tokenizer
-│   ├── parser.rs      # Parser with operator precedence and parentheses
-│   ├── token.rs       # Token definitions
-│   └── main.rs        # Entry point
-├── examples/
-│   └── hello.wsp
-├── CHANGELOG.md
-├── Cargo.toml
-└── README.md
+Whispem
 ```
 
 ---
 
-## Current Status
+## Example
 
-**Version:** `0.5.0`
+```wsp
+let x = 10
+let y = 20
 
-Whispem is in early development but already provides a solid and consistent core language.  
-Expressions, operator precedence, and grouping are fully supported.
+if x < y {
+    print y
+} else {
+    print x
+}
+```
 
-This project is suitable for:
-- Learning how programming languages work
-- Experimenting with interpreters and parsers
-- Educational and exploratory use
+Output:
+
+```text
+20
+```
+
+---
+
+## Documentation
+
+All documentation is written in Markdown and lives in the repository:
+
+- `docs/syntax.md` — language syntax and grammar
+- `docs/vision.md` — philosophy and long-term vision
+- `examples/` — runnable Whispem programs
+
+---
+
+## Project status
+
+**Current version:** v0.6.0
+
+Whispem now includes:
+- variables
+- expressions
+- booleans
+- comparisons
+- conditional control flow (`if / else`)
+
+This version marks the transition from an experimental project
+to a fully expressive interpreted language core.
+
+---
+
+## Design goals
+
+Whispem is designed to be:
+
+- simple to read
+- easy to reason about
+- small enough to understand entirely
+- expressive without being verbose
+
+Every feature must justify its existence.
 
 ---
 
 ## Roadmap
 
-Planned future features include:
+Planned features include:
 
-- Boolean values and comparisons
-- Conditional statements (`if`)
 - Functions
-- Variable scope
-- Error diagnostics and reporting
-- Extended standard library
+- Return values
+- Loops
+- A small standard library
+- Better error reporting
+
+---
+
+## Why “Whispem”?
+
+Because the language is meant to whisper intent,
+not shout complexity.
 
 ---
 
 ## License
 
-This project is open-source and available under the MIT License.
-
----
-
-## 💜 Author
-
-Created with curiosity and intent by **Emilie**.
-
-> Whispem is small by design — every feature exists because it is understood.
+MIT
