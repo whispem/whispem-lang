@@ -1,97 +1,36 @@
 # Changelog
 
-All notable changes to **Whispem** will be documented in this file.
+## v0.6.0 — Control Flow
 
-This project follows [Semantic Versioning](https://semver.org/).
+- Added boolean values
+- Added comparison operators
+- Added `if / else` control flow
+- Introduced block syntax
+- Updated documentation
+- Stabilized interpreter core
 
----
+## v0.5.0 — Expressions
 
-## [0.5.0] - 2026-01-30
+- Operator precedence
+- Parentheses support
+- Improved expression parsing
 
-### Added
-- Parentheses support in expressions
-- Explicit expression grouping
-- Nested arithmetic expressions
+## v0.4.0 — CLI Improvements
 
-### Improved
-- Expression parser robustness
-- Language mathematical correctness
+- File-based execution
+- Cleaner CLI output
 
----
+## v0.3.0 — Variables
 
-## [0.4.0] - 2026-01-30
+- `let` bindings
+- Basic interpreter execution
 
-### Added
-- Proper arithmetic expression parsing
-- Operator precedence support (`*` / `/` before `+` / `-`)
-- Fully functional binary expressions
-- Improved expression evaluation
+## v0.2.0 — Lexer & Tokens
 
-### Changed
-- Parser rewritten to support precedence-based expressions
+- Tokenizer implementation
+- Basic language structure
 
-### Fixed
-- Incorrect evaluation of compound arithmetic expressions
+## v0.1.0 — Initial release
 
----
-
-## [0.3.0] - 2026-01-29
-
-### Added
-- Execution of `.wsp` source files via CLI
-- File-based program loading
-- Basic interpreter implementation
-- Variable storage and resolution
-- Support for `let` statements
-- Support for `print` statements
-- Comment support using `#`
-- String and number literals
-- Binary expressions in the AST
-- Basic runtime environment
-
-### Changed
-- CLI behavior: running without arguments now prints `Whispem`
-- Improved separation between lexer, parser, AST, and interpreter
-
-### Fixed
-- Proper handling of newlines and comments
-- Lexer stability for strings and identifiers
-
-### Known limitations
-- No operator precedence yet
-- Expressions are partially supported
-- No runtime error handling
-- Strings are not fully evaluated
-
----
-
-## [0.2.0] - 2026-01-29
-
-### Added
-- Abstract Syntax Tree (AST) structure
-- Initial parser implementation
-- Support for variable declarations
-- Support for numeric literals
-- Support for basic expressions
-- Example `.wsp` file
-
-### Changed
-- Internal architecture aligned around AST nodes
-- Improved token handling
-
-### Fixed
-- Minor lexer inconsistencies
-
----
-
-## [0.1.0] - 2026-01-28
-
-### Added
-- Initial project setup
-- Core project structure
-- Lexer implementation
-- Token definitions
-- Basic CLI entry point
-- First executable binary
-
----
+- Project initialization
+- First executable prototype
