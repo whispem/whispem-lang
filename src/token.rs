@@ -2,14 +2,20 @@
 pub enum Token {
     Let,
     Print,
+
     Identifier(String),
     Number(f64),
     String(String),
-    Equals,
+
     Plus,
     Minus,
     Star,
     Slash,
+    Equals,
+
+    LParen,
+    RParen,
+
     Newline,
     EOF,
 }
