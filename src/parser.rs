@@ -12,143 +12,153 @@ impl Parser {
     }
 
     fn current(&self) -> &Token {
-        self.tokens.get(self.position).unwrap_or(&Token::EOF)
+        self.tokens.get(self.position).unwrap()
     }
 
     fn advance(&mut self) {
         self.position += 1;
     }
 
+    fn consume(&mut self, token: Token) {
+        if *self.current() == token {
+            self.advance();
+        } else {
+            panic!("Unexpected token: {:?}", self.current());
+        }
+    }
+
     pub fn parse_program(&mut self) -> Vec<Stmt> {
         let mut statements = Vec::new();
 
-        while !matches!(self.current(), Token::EOF) {
-            if let Some(stmt) = self.parse_statement() {
-                statements.push(stmt);
-            } else {
+        while *self.current() != Token::EOF {
+            if *self.current() == Token::Newline {
                 self.advance();
+                continue;
             }
+            statements.push(self.parse_statement());
         }
 
         statements
     }
 
-    fn parse_statement(&mut self) -> Option<Stmt> {
+    fn parse_statement(&mut self) -> Stmt {
         match self.current() {
-            Token::Let => {
-                self.advance();
-                if let Token::Identifier(name) = self.current().clone() {
-                    self.advance();
-                    self.advance(); // =
-                    let expr = self.parse_expression();
-                    Some(Stmt::Let(name, expr))
-                } else {
-                    None
-                }
-            }
-
-            Token::Print => {
-                self.advance();
-                let expr = self.parse_expression();
-                Some(Stmt::Print(expr))
-            }
-
-            _ => None,
+            Token::Let => self.parse_let(),
+            Token::Print => self.parse_print(),
+            Token::If => self.parse_if(),
+            _ => panic!("Unexpected statement: {:?}", self.current()),
         }
+    }
+
+    fn parse_let(&mut self) -> Stmt {
+        self.advance();
+        let name = if let Token::Identifier(name) = self.current() {
+            name.clone()
+        } else {
+            panic!("Expected identifier");
+        };
+        self.advance();
+        self.consume(Token::Equals);
+        let expr = self.parse_expression();
+        Stmt::Let(name, expr)
+    }
+
+    fn parse_print(&mut self) -> Stmt {
+        self.advance();
+        let expr = self.parse_expression();
+        Stmt::Print(expr)
+    }
+
+    fn parse_if(&mut self) -> Stmt {
+        self.advance();
+        let condition = self.parse_expression();
+        let then_branch = self.parse_block();
+
+        let else_branch = if *self.current() == Token::Else {
+            self.advance();
+            Some(self.parse_block())
+        } else {
+            None
+        };
+
+        Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+        }
+    }
+
+    fn parse_block(&mut self) -> Vec<Stmt> {
+        self.consume(Token::LeftBrace);
+        let mut stmts = Vec::new();
+
+        while *self.current() != Token::RightBrace {
+            if *self.current() == Token::Newline {
+                self.advance();
+                continue;
+            }
+            stmts.push(self.parse_statement());
+        }
+
+        self.consume(Token::RightBrace);
+        stmts
     }
 
     fn parse_expression(&mut self) -> Expr {
-        self.parse_additive()
+        self.parse_comparison()
     }
 
-    fn parse_additive(&mut self) -> Expr {
-        let mut expr = self.parse_multiplicative();
+    fn parse_comparison(&mut self) -> Expr {
+        let mut expr = self.parse_term();
 
-        loop {
-            match self.current() {
-                Token::Plus => {
-                    self.advance();
-                    let right = self.parse_multiplicative();
-                    expr = Expr::Binary {
-                        left: Box::new(expr),
-                        op: '+',
-                        right: Box::new(right),
-                    };
-                }
-                Token::Minus => {
-                    self.advance();
-                    let right = self.parse_multiplicative();
-                    expr = Expr::Binary {
-                        left: Box::new(expr),
-                        op: '-',
-                        right: Box::new(right),
-                    };
-                }
-                _ => break,
-            }
+        while matches!(
+            self.current(),
+            Token::Less
+                | Token::LessEqual
+                | Token::Greater
+                | Token::GreaterEqual
+                | Token::EqualEqual
+                | Token::BangEqual
+        ) {
+            let op = format!("{:?}", self.current());
+            self.advance();
+            let right = self.parse_term();
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
         }
 
         expr
     }
 
-    fn parse_multiplicative(&mut self) -> Expr {
-        let mut expr = self.parse_primary();
-
-        loop {
-            match self.current() {
-                Token::Star => {
-                    self.advance();
-                    let right = self.parse_primary();
-                    expr = Expr::Binary {
-                        left: Box::new(expr),
-                        op: '*',
-                        right: Box::new(right),
-                    };
-                }
-                Token::Slash => {
-                    self.advance();
-                    let right = self.parse_primary();
-                    expr = Expr::Binary {
-                        left: Box::new(expr),
-                        op: '/',
-                        right: Box::new(right),
-                    };
-                }
-                _ => break,
-            }
-        }
-
-        expr
-    }
-
-    fn parse_primary(&mut self) -> Expr {
-        match self.current().clone() {
+    fn parse_term(&mut self) -> Expr {
+        match self.current() {
             Token::Number(n) => {
+                let v = *n;
                 self.advance();
-                Expr::Number(n)
+                Expr::Number(v)
             }
-
             Token::String(s) => {
+                let v = s.clone();
                 self.advance();
-                Expr::String(s)
+                Expr::String(v)
             }
-
+            Token::True => {
+                self.advance();
+                Expr::Bool(true)
+            }
+            Token::False => {
+                self.advance();
+                Expr::Bool(false)
+            }
             Token::Identifier(name) => {
+                let v = name.clone();
                 self.advance();
-                Expr::Variable(name)
+                Expr::Variable(v)
             }
-
-            Token::LParen => {
-                self.advance();
-                let expr = self.parse_expression();
-                self.advance(); // )
-                expr
-            }
-
-            _ => {
-                self.advance();
-                Expr::Number(0.0)
-            }
+            _ => panic!("Unexpected expression: {:?}", self.current()),
         }
     }
 }
