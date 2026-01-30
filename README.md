@@ -1,82 +1,149 @@
 # Whispem
 
-Whispem is an experimental programming language built as a personal exploration
-of language design and interpretation.
+**Whispem** is a minimal interpreted programming language designed for clarity, simplicity, and experimentation.  
+It features a clean syntax, variable bindings, arithmetic expressions with proper operator precedence, and basic output capabilities.
 
-The goal of Whispem is to understand how a programming language works internally,
-from source code to execution, while remaining small, readable, and deliberate.
-
----
-
-## Status
-
-- Version: v0.3.0
-- Stability: Experimental
-- Project type: Personal language project
-- Implementation language: Rust
+> Whispem is implemented in Rust, but **Whispem itself is a standalone language**, independent of Rust in its design and philosophy.
 
 ---
 
-## Features (v0.3.0)
+## Features
 
-- Variable declarations using `let`
-- Immutable variables
-- Numeric values
+- Simple and readable syntax
+- Variable declarations with `let`
+- Arithmetic expressions
+  - `+`, `-`, `*`, `/`
+  - Correct operator precedence
+- String and number literals
 - `print` statement
 - Line-based syntax
 - Comments using `#`
-- Execution of source files (`.wsp`)
-- Direct interpretation (no compilation step)
+- Deterministic execution model
 
 ---
 
 ## Example
 
-Source file:
+### `examples/hello.wsp`
 
-    let x = 10
-    print x
+```wsp
+# Whispem v0.4.0 example
 
-Command:
+let x = 10
+let y = x + 5 * 2
+print y
 
-    cargo run examples/hello.wsp
+### Output
 
-Output:
+```text
+20
+```
 
-    10
+## Language Overview
 
----
+### Variables
 
-## How It Works
+```wsp
+let a = 42
+let name = "Whispem"
+```
 
-Whispem follows a classic language pipeline:
+### Arithmetic Expressions
 
-1. Read source file
-2. Lexical analysis (tokens)
-3. Parsing (AST)
-4. Interpretation (execution)
+```wsp
+let result = 10 + 5 * 2
+print result
+```
 
-Each step is implemented explicitly and kept minimal.
+Multiplication and division have higher precedence than addition and subtraction.
 
----
+### Printing
 
-## Limitations
+```wsp
+print "Hello, world!"
+print result
+```
 
-Whispem v0.3.0 does not support:
+### Comments
 
-- Arithmetic expressions
-- Conditionals
-- Loops
+```wsp
+# This is a comment
+let x = 1
+```
+
+## Getting Started
+
+### Prerequisites
+
+- Rust (stable)
+- Cargo
+
+### Clone the repository
+
+```bash
+git clone https://github.com/whispem/whispem-lang.git
+cd whispem-lang
+```
+
+### Build the project
+
+```bash
+cargo build
+```
+
+### Run a Whispem file
+
+```bash
+cargo run examples/hello.wsp
+```
+
+## Project Structure
+
+```text
+whispem-lang/
+├── src/
+│   ├── ast.rs          # Abstract Syntax Tree definitions
+│   ├── interpreter.rs # Expression and statement evaluator
+│   ├── lexer.rs       # Tokenizer
+│   ├── parser.rs      # Parser with operator precedence
+│   ├── token.rs       # Token definitions
+│   └── main.rs        # Entry point
+├── examples/
+│   └── hello.wsp
+├── CHANGELOG.md
+├── Cargo.toml
+└── README.md
+```
+
+## Current Status
+
+**Version:** `0.4.0`
+
+Whispem is currently in early development.  
+The core language features are stable, and the interpreter is fully functional for small programs.
+
+This project is suitable for:
+- Learning how programming languages work
+- Experimenting with interpreters and parsers
+- Educational and exploratory use
+
+## Roadmap
+
+Planned future features include:
+
+- Parentheses in expressions
+- Boolean values and comparisons
+- Conditional statements (`if`)
 - Functions
-- Advanced error reporting
+- Error diagnostics and reporting
+- Extended standard library
 
-These limitations are intentional.
+## License
 
----
+This project is open-source and available under the MIT License.
 
-## Vision
+## 💜 Author
 
-Whispem is designed to remain understandable in its entirety.
+Created with curiosity and intent by **Emilie**.
 
-Each version adds one small, deliberate improvement, prioritizing learning
-and clarity over power or completeness.
+> Whispem is small by design — every feature exists because it is understood.
