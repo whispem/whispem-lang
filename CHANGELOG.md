@@ -6,6 +6,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.5.0] - 2026-01-30
+
+### Added
+- Parentheses support in expressions
+- Explicit expression grouping
+- Nested arithmetic expressions
+
+### Improved
+- Expression parser robustness
+- Language mathematical correctness
+
+---
+
 ## [0.4.0] - 2026-01-30
 
 ### Added
