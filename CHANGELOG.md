@@ -6,6 +6,22 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.4.0] - 2026-01-30
+
+### Added
+- Proper arithmetic expression parsing
+- Operator precedence support (`*` / `/` before `+` / `-`)
+- Fully functional binary expressions
+- Improved expression evaluation
+
+### Changed
+- Parser rewritten to support precedence-based expressions
+
+### Fixed
+- Incorrect evaluation of compound arithmetic expressions
+
+---
+
 ## [0.3.0] - 2026-01-29
 
 ### Added
