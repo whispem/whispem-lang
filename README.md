@@ -1,9 +1,9 @@
 # Whispem
 
 **Whispem** is a minimal interpreted programming language designed for clarity, simplicity, and experimentation.  
-It features a clean syntax, variable bindings, arithmetic expressions with proper operator precedence, and basic output capabilities.
+It features a clean syntax, variable bindings, arithmetic expressions with operator precedence, and explicit grouping using parentheses.
 
-> Whispem is implemented in Rust, but **Whispem itself is a standalone language**, independent of Rust in its design and philosophy.
+> Whispem is implemented in Rust, but **Whispem itself is a standalone language**, independent of Rust in its design and usage.
 
 ---
 
@@ -14,6 +14,7 @@ It features a clean syntax, variable bindings, arithmetic expressions with prope
 - Arithmetic expressions
   - `+`, `-`, `*`, `/`
   - Correct operator precedence
+  - Explicit grouping with parentheses `( )`
 - String and number literals
 - `print` statement
 - Line-based syntax
@@ -27,17 +28,19 @@ It features a clean syntax, variable bindings, arithmetic expressions with prope
 ### `examples/hello.wsp`
 
 ```wsp
-# Whispem v0.4.0 example
+# Whispem v0.5.0 example
 
-let x = 10
-let y = x + 5 * 2
-print y
+let x = (10 + 5) * 2
+print x
+```
 
 ### Output
 
 ```text
-20
+30
 ```
+
+---
 
 ## Language Overview
 
@@ -55,13 +58,21 @@ let result = 10 + 5 * 2
 print result
 ```
 
-Multiplication and division have higher precedence than addition and subtraction.
+### Parentheses
+
+```wsp
+let value = (10 + 5) * 2
+print value
+```
+
+Multiplication and division have higher precedence than addition and subtraction.  
+Parentheses allow explicit grouping of expressions.
 
 ### Printing
 
 ```wsp
 print "Hello, world!"
-print result
+print value
 ```
 
 ### Comments
@@ -70,6 +81,8 @@ print result
 # This is a comment
 let x = 1
 ```
+
+---
 
 ## Getting Started
 
@@ -97,6 +110,8 @@ cargo build
 cargo run examples/hello.wsp
 ```
 
+---
+
 ## Project Structure
 
 ```text
@@ -105,7 +120,7 @@ whispem-lang/
 │   ├── ast.rs          # Abstract Syntax Tree definitions
 │   ├── interpreter.rs # Expression and statement evaluator
 │   ├── lexer.rs       # Tokenizer
-│   ├── parser.rs      # Parser with operator precedence
+│   ├── parser.rs      # Parser with operator precedence and parentheses
 │   ├── token.rs       # Token definitions
 │   └── main.rs        # Entry point
 ├── examples/
@@ -115,32 +130,40 @@ whispem-lang/
 └── README.md
 ```
 
+---
+
 ## Current Status
 
-**Version:** `0.4.0`
+**Version:** `0.5.0`
 
-Whispem is currently in early development.  
-The core language features are stable, and the interpreter is fully functional for small programs.
+Whispem is in early development but already provides a solid and consistent core language.  
+Expressions, operator precedence, and grouping are fully supported.
 
 This project is suitable for:
 - Learning how programming languages work
 - Experimenting with interpreters and parsers
 - Educational and exploratory use
 
+---
+
 ## Roadmap
 
 Planned future features include:
 
-- Parentheses in expressions
 - Boolean values and comparisons
 - Conditional statements (`if`)
 - Functions
+- Variable scope
 - Error diagnostics and reporting
 - Extended standard library
+
+---
 
 ## License
 
 This project is open-source and available under the MIT License.
+
+---
 
 ## 💜 Author
 
