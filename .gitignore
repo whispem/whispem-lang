@@ -1,0 +1,8 @@
+# Rust
+/target/
+
+# Rust analyzer
+/.rustc_info.json
+
+# macOS
+.DS_Store
