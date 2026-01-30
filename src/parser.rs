@@ -8,38 +8,21 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Self {
-            tokens,
-            position: 0,
-        }
+        Self { tokens, position: 0 }
     }
 
     fn current(&self) -> &Token {
-        self.tokens.get(self.position).unwrap()
+        self.tokens.get(self.position).unwrap_or(&Token::EOF)
     }
 
     fn advance(&mut self) {
-        if self.position < self.tokens.len() {
-            self.position += 1;
-        }
+        self.position += 1;
     }
 
-    fn consume_newlines(&mut self) {
-        while matches!(self.current(), Token::Newline) {
-            self.advance();
-        }
-    }
-
-    pub fn parse(&mut self) -> Vec<Stmt> {
+    pub fn parse_program(&mut self) -> Vec<Stmt> {
         let mut statements = Vec::new();
 
         while !matches!(self.current(), Token::EOF) {
-            self.consume_newlines();
-
-            if matches!(self.current(), Token::EOF) {
-                break;
-            }
-
             if let Some(stmt) = self.parse_statement() {
                 statements.push(stmt);
             } else {
@@ -54,22 +37,14 @@ impl Parser {
         match self.current() {
             Token::Let => {
                 self.advance();
-
-                let name = if let Token::Identifier(name) = self.current() {
-                    name.clone()
+                if let Token::Identifier(name) = self.current().clone() {
+                    self.advance();
+                    self.advance(); // =
+                    let expr = self.parse_expression();
+                    Some(Stmt::Let(name, expr))
                 } else {
-                    return None;
-                };
-
-                self.advance();
-
-                if !matches!(self.current(), Token::Equals) {
-                    return None;
+                    None
                 }
-                self.advance();
-
-                let expr = self.parse_expression();
-                Some(Stmt::Let(name, expr))
             }
 
             Token::Print => {
@@ -82,78 +57,92 @@ impl Parser {
         }
     }
 
-    // ─────────────────────────────────────────────
-    // Expression parsing with precedence (v0.4.0)
-    // ─────────────────────────────────────────────
-
     fn parse_expression(&mut self) -> Expr {
-        self.parse_term()
+        self.parse_additive()
     }
 
-    fn parse_term(&mut self) -> Expr {
-        let mut expr = self.parse_factor();
+    fn parse_additive(&mut self) -> Expr {
+        let mut expr = self.parse_multiplicative();
 
-        while matches!(self.current(), Token::Plus | Token::Minus) {
-            let op = match self.current() {
-                Token::Plus => '+',
-                Token::Minus => '-',
-                _ => unreachable!(),
-            };
-
-            self.advance();
-            let right = self.parse_factor();
-
-            expr = Expr::Binary {
-                left: Box::new(expr),
-                op,
-                right: Box::new(right),
-            };
+        loop {
+            match self.current() {
+                Token::Plus => {
+                    self.advance();
+                    let right = self.parse_multiplicative();
+                    expr = Expr::Binary {
+                        left: Box::new(expr),
+                        op: '+',
+                        right: Box::new(right),
+                    };
+                }
+                Token::Minus => {
+                    self.advance();
+                    let right = self.parse_multiplicative();
+                    expr = Expr::Binary {
+                        left: Box::new(expr),
+                        op: '-',
+                        right: Box::new(right),
+                    };
+                }
+                _ => break,
+            }
         }
 
         expr
     }
 
-    fn parse_factor(&mut self) -> Expr {
+    fn parse_multiplicative(&mut self) -> Expr {
         let mut expr = self.parse_primary();
 
-        while matches!(self.current(), Token::Star | Token::Slash) {
-            let op = match self.current() {
-                Token::Star => '*',
-                Token::Slash => '/',
-                _ => unreachable!(),
-            };
-
-            self.advance();
-            let right = self.parse_primary();
-
-            expr = Expr::Binary {
-                left: Box::new(expr),
-                op,
-                right: Box::new(right),
-            };
+        loop {
+            match self.current() {
+                Token::Star => {
+                    self.advance();
+                    let right = self.parse_primary();
+                    expr = Expr::Binary {
+                        left: Box::new(expr),
+                        op: '*',
+                        right: Box::new(right),
+                    };
+                }
+                Token::Slash => {
+                    self.advance();
+                    let right = self.parse_primary();
+                    expr = Expr::Binary {
+                        left: Box::new(expr),
+                        op: '/',
+                        right: Box::new(right),
+                    };
+                }
+                _ => break,
+            }
         }
 
         expr
     }
 
     fn parse_primary(&mut self) -> Expr {
-        match self.current() {
+        match self.current().clone() {
             Token::Number(n) => {
-                let value = *n;
                 self.advance();
-                Expr::Number(value)
+                Expr::Number(n)
             }
 
             Token::String(s) => {
-                let value = s.clone();
                 self.advance();
-                Expr::String(value)
+                Expr::String(s)
             }
 
             Token::Identifier(name) => {
-                let ident = name.clone();
                 self.advance();
-                Expr::Variable(ident)
+                Expr::Variable(name)
+            }
+
+            Token::LParen => {
+                self.advance();
+                let expr = self.parse_expression();
+                self.advance(); // )
+                expr
             }
 
             _ => {
