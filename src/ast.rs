@@ -9,6 +9,15 @@ pub enum Expr {
         op: String,
         right: Box<Expr>,
     },
+    Logical {
+        left: Box<Expr>,
+        op: String,
+        right: Box<Expr>,
+    },
+    Unary {
+        op: String,
+        operand: Box<Expr>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -19,5 +28,9 @@ pub enum Stmt {
         condition: Expr,
         then_branch: Vec<Stmt>,
         else_branch: Option<Vec<Stmt>>,
+    },
+    While {
+        condition: Expr,
+        body: Vec<Stmt>,
     },
 }
