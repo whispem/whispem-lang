@@ -1,6 +1,6 @@
 [package]
 name = "whispem"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 authors = ["Emilie PERETTI"]
 description = "A minimalist interpreted programming language designed for clarity and calm readability"
