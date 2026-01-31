@@ -64,6 +64,11 @@ impl Lexer {
                     return Token::RightBrace;
                 }
 
+                ',' => {
+                    self.advance();
+                    return Token::Comma;
+                }
+
                 '=' => {
                     self.advance();
                     if self.current_char() == Some('=') {
@@ -174,6 +179,8 @@ impl Lexer {
             "and" => Token::And,
             "or" => Token::Or,
             "not" => Token::Not,
+            "fn" => Token::Fn,
+            "return" => Token::Return,
             "true" => Token::True,
             "false" => Token::False,
             _ => Token::Identifier(ident),
