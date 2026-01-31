@@ -19,9 +19,11 @@ Whispem is implemented in Rust, but Whispem itself is a standalone language.
 - Logical operators (`and`, `or`, `not`)
 - Conditional execution (`if / else`)
 - While loops (`while`)
+- **Functions with parameters and return values** (`fn`, `return`)
 - Unary operators (`-`, `not`)
 - Block syntax with `{ }`
 - String literals with escape sequences
+- String concatenation with `+`
 - Line-based syntax (no semicolons)
 - Interpreter-based execution
 
@@ -30,7 +32,6 @@ Whispem is implemented in Rust, but Whispem itself is a standalone language.
 ## Installation
 
 Clone the repository:
-
 ```bash
 git clone https://github.com/whispem/whispem-lang.git
 cd whispem-lang
@@ -39,7 +40,6 @@ cd whispem-lang
 ---
 
 ## Build the project
-
 ```bash
 cargo build --release
 ```
@@ -49,19 +49,16 @@ cargo build --release
 ## Running a Whispem program
 
 Run a `.wsp` file with:
-
 ```bash
 cargo run examples/hello.wsp
 ```
 
 If no file is provided:
-
 ```bash
 cargo run
 ```
 
 Output:
-
 ```text
 Whispem
 ```
@@ -71,39 +68,66 @@ Whispem
 ## Examples
 
 ### Hello World
-
 ```wsp
 let message = "Hello, Whispem!"
 print message
 ```
 
 Output:
-
 ```text
 Hello, Whispem!
 ```
 
-### Conditionals
-
+### Functions
 ```wsp
-let x = 10
-let y = 20
-
-if x < y {
-    print y
-} else {
-    print x
+fn greet(name) {
+    print "Hello, " + name + "!"
 }
+
+greet("World")
+greet("Whispem")
 ```
 
 Output:
-
 ```text
-20
+Hello, World!
+Hello, Whispem!
+```
+
+### Functions with Return Values
+```wsp
+fn add(a, b) {
+    return a + b
+}
+
+let result = add(10, 20)
+print result
+```
+
+Output:
+```text
+30
+```
+
+### Recursion
+```wsp
+fn factorial(n) {
+    if n <= 1 {
+        return 1
+    } else {
+        return n * factorial(n - 1)
+    }
+}
+
+print factorial(5)
+```
+
+Output:
+```text
+120
 ```
 
 ### While Loops
-
 ```wsp
 let counter = 0
 
@@ -114,7 +138,6 @@ while counter < 5 {
 ```
 
 Output:
-
 ```text
 0
 1
@@ -124,7 +147,6 @@ Output:
 ```
 
 ### Logical Operators
-
 ```wsp
 let x = 10
 
@@ -138,7 +160,6 @@ if not false {
 ```
 
 Output:
-
 ```text
 x is in range
 This always prints
@@ -159,7 +180,7 @@ All documentation is written in Markdown and lives in the repository:
 
 ## Project status
 
-**Current version:** v0.7.0
+**Current version:** v0.8.0
 
 Whispem now includes:
 - variables and expressions
@@ -167,10 +188,13 @@ Whispem now includes:
 - conditional control flow (`if / else`)
 - loops (`while`)
 - logical operators (`and`, `or`, `not`)
-- unary operators
+- **functions with parameters and return values**
+- **recursion support**
+- **local variable scopes**
+- string concatenation
 
-This version marks a significant milestone with full control flow support
-and logical reasoning capabilities.
+This version represents a major milestone: Whispem is now a fully functional
+programming language with all core features needed for real programs.
 
 ---
 
@@ -189,14 +213,13 @@ Every feature must justify its existence.
 
 ## Roadmap
 
-Planned features include:
+Planned features for v1.0.0:
 
-- Functions and return values
 - Break and continue for loops
-- String concatenation
-- Arrays or lists
 - Better error reporting with line numbers
-- A small standard library
+- Arrays or lists
+- Standard library functions
+- Module system
 
 ---
 
