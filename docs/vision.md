@@ -57,12 +57,13 @@ Whispem grows in **layers**:
 3. ✅ Control flow (if/else)
 4. ✅ Loops (while)
 5. ✅ Logic (and/or/not)
-6. 🔄 Functions
-7. 🔄 Composition
+6. ✅ Functions
+7. 🔄 Standard library
+8. 🔄 Collections
 
 Each layer must remain stable before the next is added.
 
-**Current status:** Layers 1-5 complete and stable.
+**Current status:** Layers 1-6 complete and stable. Ready for 1.0.0 consideration.
 
 ---
 
@@ -71,24 +72,24 @@ Each layer must remain stable before the next is added.
 ### 1. Readability First
 
 Code should read like intent:
-
 ```wsp
-while counter < 10 {
-    print counter
-    let counter = counter + 1
+fn calculate_total(price, quantity) {
+    return price * quantity
 }
+
+let total = calculate_total(10, 5)
+print total
 ```
 
 Not:
-
 ```
-for(int i=0;i<10;i++){printf("%d",i);}
+def calc(p,q){return p*q;}let t=calc(10,5);print(t);
 ```
 
 ### 2. No Surprises
 
 What you see is what you get.
-No operator overloading.
+No operator overloading (except `+` for strings).
 No implicit conversions.
 No hidden mutations.
 
@@ -150,19 +151,47 @@ Whispem is for:
 - ✅ Comments
 - ✅ String escape sequences
 - ✅ Unary operators
+- ✅ **Functions with parameters**
+- ✅ **Return values**
+- ✅ **Recursion**
+- ✅ **Local variable scopes**
+- ✅ **String concatenation**
 
-### Next Features (in order)
-1. Functions and return values
-2. Break and continue
-3. Better error messages
-4. String operations
-5. Basic collections (arrays/lists)
+### Next Features (Path to 1.0.0)
+1. Break and continue
+2. Better error messages
+3. Arrays or lists
+4. Standard library (math, string operations)
+5. File I/O
 
-### Distant Future
+### Post 1.0.0
 - Self-hosting (Whispem interpreter written in Whispem)
-- Standalone binary distribution
+- Module system
 - Complete language specification
 - Tutorial and book
+
+---
+
+## v0.8.0 Milestone
+
+With the addition of functions in v0.8.0, Whispem has reached a critical milestone:
+
+**Whispem is now a complete, Turing-complete programming language.**
+
+You can now:
+- Define reusable functions
+- Build abstractions
+- Write recursive algorithms
+- Structure complex programs
+- Express any computable function
+
+This marks the transition from "toy language" to "real language."
+
+The path to 1.0.0 is now clear:
+- Polish the rough edges
+- Add quality-of-life features
+- Improve error messages
+- Expand the standard library
 
 ---
 
@@ -192,6 +221,7 @@ Whispem will be considered successful when:
 3. Every feature has a clear justification
 4. The documentation is complete and accessible
 5. The language is useful for teaching programming concepts
+6. **The language is Turing-complete and practical** ✅ (achieved in v0.8.0)
 
 ---
 
@@ -228,6 +258,6 @@ the feature probably doesn't belong in Whispem.
 
 ---
 
-**Version:** 0.7.0  
-**Status:** Active development, stable core  
+**Version:** 0.8.0  
+**Status:** Feature complete for 1.0.0 consideration  
 **Philosophy:** Whisper, don't shout
