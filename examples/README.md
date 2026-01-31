@@ -50,7 +50,7 @@ Output:
 ---
 
 #### **strings.wsp**
-String literals with escape sequences (`\n`, `\t`, `\"`).
+String literals with escape sequences and concatenation (`\n`, `\t`, `\"`, `+`).
 
 Output:
 ```
@@ -60,6 +60,7 @@ Whispem is minimalist
 Line one
 Line two
 She said "Hello"
+Hello, World!
 ```
 
 ---
@@ -164,6 +165,62 @@ Perfect temperature!
 
 ---
 
+### Functions (v0.8.0)
+
+#### **function_basic.wsp**
+Basic function declaration and calling.
+```wsp
+fn greet(name) {
+    print "Hello, " + name + "!"
+}
+
+greet("World")
+greet("Whispem")
+```
+
+Output:
+```
+Hello, World!
+Hello, Whispem!
+```
+
+---
+
+#### **function_return.wsp**
+Functions with return values and expressions.
+
+Output:
+```
+8
+28
+20
+```
+
+---
+
+#### **function_recursive.wsp**
+Recursive function example (factorial).
+
+Output:
+```
+120
+720
+3628800
+```
+
+---
+
+#### **function_no_params.wsp**
+Functions without parameters.
+
+Output:
+```
+Hello from a function!
+3.14159
+```
+
+---
+
 ### Advanced Examples
 
 #### **fizzbuzz.wsp**
@@ -196,14 +253,16 @@ FizzBuzz
 Tests if/else, comparisons, and booleans.
 
 #### **test_v0.7.0.wsp**
-Comprehensive test covering all v0.7.0 features including:
-- Variables
-- Arithmetic
-- Booleans
-- Comparisons
-- Logical operators
-- While loops
-- Unary negation
+Comprehensive test covering all v0.7.0 features.
+
+#### **test_v0.8.0.wsp**
+Comprehensive test covering all v0.8.0 features including:
+- Function declarations
+- Return values
+- Recursion
+- String concatenation
+- Functions in expressions
+- While loops with functions
 
 ---
 
@@ -221,7 +280,10 @@ Recommended order for learning:
 8. **logical_operators.wsp** - And/or/not
 9. **while_loop.wsp** - Loops
 10. **countdown.wsp** - Loop example
-11. **fizzbuzz.wsp** - Putting it all together
+11. **function_basic.wsp** - Functions intro
+12. **function_return.wsp** - Return values
+13. **function_recursive.wsp** - Recursion
+14. **fizzbuzz.wsp** - Putting it all together
 
 ---
 
@@ -245,9 +307,22 @@ done
 - Start with simple examples and progress to complex ones
 - All examples demonstrate best practices
 - Use examples as templates for your own programs
+- Functions must be defined before they are called
 
 ---
 
-**Version:** 0.7.0  
-**Examples:** 12 files  
-**Features:** All language features covered
+## 🆕 What's New in v0.8.0
+
+- **function_basic.wsp** - Learn function syntax
+- **function_return.wsp** - Master return values
+- **function_recursive.wsp** - Explore recursion
+- **function_no_params.wsp** - Functions without parameters
+- **test_v0.8.0.wsp** - Complete v0.8.0 test suite
+
+String concatenation is now available in all examples!
+
+---
+
+**Version:** 0.8.0  
+**Examples:** 17 files  
+**Features:** All language features covered including functions!
