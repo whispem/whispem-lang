@@ -1,0 +1,23 @@
+# Arithmetic expressions
+
+let a = 10
+let b = 5
+
+# Basic operations
+let sum = a + b
+let diff = a - b
+let prod = a * b
+let quot = a / b
+
+print sum
+print diff
+print prod
+print quot
+
+# Operator precedence
+let result = 10 + 5 * 2
+print result
+
+# Parentheses
+let result2 = (10 + 5) * 2
+print result2
