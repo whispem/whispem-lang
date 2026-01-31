@@ -6,6 +6,10 @@ pub enum Token {
     Print,
     If,
     Else,
+    While,
+    And,
+    Or,
+    Not,
 
     // Literals
     True,
