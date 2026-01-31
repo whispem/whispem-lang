@@ -1,0 +1,18 @@
+# Function with return value
+
+fn add(a, b) {
+    return a + b
+}
+
+fn multiply(x, y) {
+    return x * y
+}
+
+let sum = add(5, 3)
+let product = multiply(4, 7)
+
+print sum
+print product
+
+let result = add(10, multiply(2, 5))
+print result

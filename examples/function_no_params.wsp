@@ -1,0 +1,13 @@
+# Function without parameters
+
+fn say_hello() {
+    print "Hello from a function!"
+}
+
+fn get_pi() {
+    return 3.14159
+}
+
+say_hello()
+let pi = get_pi()
+print pi

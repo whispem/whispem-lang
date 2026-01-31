@@ -1,0 +1,8 @@
+# Basic function example
+
+fn greet(name) {
+    print "Hello, " + name + "!"
+}
+
+greet("World")
+greet("Whispem")
