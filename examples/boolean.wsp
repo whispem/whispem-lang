@@ -1,0 +1,11 @@
+# Boolean values
+
+let is_true = true
+let is_false = false
+
+print is_true
+print is_false
+
+# Booleans in variables
+let valid = true
+print valid
