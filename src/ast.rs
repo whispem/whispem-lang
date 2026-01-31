@@ -18,6 +18,10 @@ pub enum Expr {
         op: String,
         operand: Box<Expr>,
     },
+    Call {
+        name: String,
+        arguments: Vec<Expr>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -33,4 +37,10 @@ pub enum Stmt {
         condition: Expr,
         body: Vec<Stmt>,
     },
+    Function {
+        name: String,
+        params: Vec<String>,
+        body: Vec<Stmt>,
+    },
+    Return(Option<Expr>),
 }
