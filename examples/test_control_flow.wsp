@@ -1,0 +1,23 @@
+# Test control flow
+
+let x = 10
+let y = 20
+
+if x < y {
+    print "x is smaller"
+    print x
+} else {
+    print "x is bigger or equal"
+    print x
+}
+
+# Test equality
+if x == 10 {
+    print true
+}
+
+# Test boolean
+let is_valid = true
+if is_valid {
+    print "Valid!"
+}

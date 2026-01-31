@@ -1,0 +1,31 @@
+# Conditional execution with if/else
+
+let temperature = 18
+
+if temperature > 20 {
+    print "It's warm"
+} else {
+    print "It's cool"
+}
+
+# Nested conditions
+let score = 85
+
+if score >= 90 {
+    print "Grade: A"
+} else {
+    if score >= 80 {
+        print "Grade: B"
+    } else {
+        print "Grade: C"
+    }
+}
+
+# Using booleans
+let is_raining = false
+
+if is_raining {
+    print "Take an umbrella"
+} else {
+    print "Enjoy the sunshine"
+}

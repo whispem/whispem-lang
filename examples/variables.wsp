@@ -1,0 +1,9 @@
+# Variables and assignments
+
+let x = 10
+let y = 20
+let name = "Whispem"
+
+print x
+print y
+print name

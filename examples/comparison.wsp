@@ -1,0 +1,36 @@
+# Comparison operators
+
+let x = 10
+let y = 20
+
+# Less than
+if x < y {
+    print "10 is less than 20"
+}
+
+# Greater than
+if y > x {
+    print "20 is greater than 10"
+}
+
+# Equal
+let a = 5
+if a == 5 {
+    print "a equals 5"
+}
+
+# Not equal
+if x != y {
+    print "x and y are different"
+}
+
+# Less than or equal
+let b = 10
+if b <= 10 {
+    print "b is less than or equal to 10"
+}
+
+# Greater than or equal
+if b >= 10 {
+    print "b is greater than or equal to 10"
+}

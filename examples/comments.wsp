@@ -1,0 +1,9 @@
+# This is a comment
+# Comments start with # and continue to the end of the line
+
+let x = 42  # You can also put comments after code
+
+# Comments are ignored by the interpreter
+# They're useful for documentation and explanations
+
+print x  # Output: 42

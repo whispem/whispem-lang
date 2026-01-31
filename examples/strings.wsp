@@ -1,0 +1,16 @@
+# String values
+
+let greeting = "Hello"
+let name = "World"
+let message = "Whispem is minimalist"
+
+print greeting
+print name
+print message
+
+# Strings with escape sequences
+let multiline = "Line one\nLine two"
+print multiline
+
+let quoted = "She said \"Hello\""
+print quoted
