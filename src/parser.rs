@@ -58,6 +58,7 @@ impl Parser {
             Token::Let => self.parse_let(),
             Token::Print => self.parse_print(),
             Token::If => self.parse_if(),
+            Token::While => self.parse_while(),
             _ => panic!("Unexpected statement: {:?}", self.current()),
         }
     }
@@ -104,6 +105,15 @@ impl Parser {
         }
     }
 
+    fn parse_while(&mut self) -> Stmt {
+        self.advance(); // consume 'while'
+
+        let condition = self.parse_expression();
+        let body = self.parse_block();
+
+        Stmt::While { condition, body }
+    }
+
     fn parse_block(&mut self) -> Vec<Stmt> {
         self.consume(Token::LeftBrace);
 
@@ -126,7 +136,41 @@ impl Parser {
     // =========================
 
     fn parse_expression(&mut self) -> Expr {
-        self.parse_comparison()
+        self.parse_or()
+    }
+
+    fn parse_or(&mut self) -> Expr {
+        let mut expr = self.parse_and();
+
+        while *self.current() == Token::Or {
+            self.advance();
+            let right = self.parse_and();
+
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                op: "or".to_string(),
+                right: Box::new(right),
+            };
+        }
+
+        expr
+    }
+
+    fn parse_and(&mut self) -> Expr {
+        let mut expr = self.parse_comparison();
+
+        while *self.current() == Token::And {
+            self.advance();
+            let right = self.parse_comparison();
+
+            expr = Expr::Logical {
+                left: Box::new(expr),
+                op: "and".to_string(),
+                right: Box::new(right),
+            };
+        }
+
+        expr
     }
 
     fn parse_comparison(&mut self) -> Expr {
@@ -180,7 +224,7 @@ impl Parser {
     }
 
     fn parse_multiplication(&mut self) -> Expr {
-        let mut expr = self.parse_term();
+        let mut expr = self.parse_unary();
 
         while matches!(self.current(), Token::Star | Token::Slash) {
             let op = match self.current() {
@@ -191,7 +235,7 @@ impl Parser {
             .to_string();
 
             self.advance();
-            let right = self.parse_term();
+            let right = self.parse_unary();
 
             expr = Expr::Binary {
                 left: Box::new(expr),
@@ -201,6 +245,28 @@ impl Parser {
         }
 
         expr
+    }
+
+    fn parse_unary(&mut self) -> Expr {
+        if matches!(self.current(), Token::Not | Token::Bang | Token::Minus) {
+            let op = match self.current() {
+                Token::Not => "not",
+                Token::Bang => "!",
+                Token::Minus => "-",
+                _ => unreachable!(),
+            }
+            .to_string();
+
+            self.advance();
+            let operand = self.parse_unary();
+
+            return Expr::Unary {
+                op,
+                operand: Box::new(operand),
+            };
+        }
+
+        self.parse_term()
     }
 
     fn parse_term(&mut self) -> Expr {
