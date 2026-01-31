@@ -10,6 +10,8 @@ pub enum Token {
     And,
     Or,
     Not,
+    Fn,
+    Return,
 
     // Literals
     True,
@@ -39,6 +41,7 @@ pub enum Token {
     RParen,
     LeftBrace,
     RightBrace,
+    Comma,
 
     // Special
     Newline,
