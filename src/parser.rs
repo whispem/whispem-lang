@@ -59,6 +59,8 @@ impl Parser {
             Token::Print => self.parse_print(),
             Token::If => self.parse_if(),
             Token::While => self.parse_while(),
+            Token::Fn => self.parse_function(),
+            Token::Return => self.parse_return(),
             _ => panic!("Unexpected statement: {:?}", self.current()),
         }
     }
@@ -112,6 +114,57 @@ impl Parser {
         let body = self.parse_block();
 
         Stmt::While { condition, body }
+    }
+
+    fn parse_function(&mut self) -> Stmt {
+        self.advance(); // consume 'fn'
+
+        let name = if let Token::Identifier(name) = self.current() {
+            name.clone()
+        } else {
+            panic!("Expected function name after fn");
+        };
+
+        self.advance();
+        self.consume(Token::LParen);
+
+        let mut params = Vec::new();
+
+        // Parse parameters
+        if *self.current() != Token::RParen {
+            loop {
+                if let Token::Identifier(param) = self.current() {
+                    params.push(param.clone());
+                    self.advance();
+                } else {
+                    panic!("Expected parameter name");
+                }
+
+                if *self.current() == Token::Comma {
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        self.consume(Token::RParen);
+
+        let body = self.parse_block();
+
+        Stmt::Function { name, params, body }
+    }
+
+    fn parse_return(&mut self) -> Stmt {
+        self.advance(); // consume 'return'
+
+        // Check if there's a return value
+        if *self.current() == Token::Newline || *self.current() == Token::RightBrace {
+            return Stmt::Return(None);
+        }
+
+        let expr = self.parse_expression();
+        Stmt::Return(Some(expr))
     }
 
     fn parse_block(&mut self) -> Vec<Stmt> {
@@ -266,7 +319,42 @@ impl Parser {
             };
         }
 
-        self.parse_term()
+        self.parse_call()
+    }
+
+    fn parse_call(&mut self) -> Expr {
+        let expr = self.parse_term();
+
+        // Check if this is a function call
+        if let Expr::Variable(name) = &expr {
+            if *self.current() == Token::LParen {
+                self.advance(); // consume '('
+
+                let mut arguments = Vec::new();
+
+                // Parse arguments
+                if *self.current() != Token::RParen {
+                    loop {
+                        arguments.push(self.parse_expression());
+
+                        if *self.current() == Token::Comma {
+                            self.advance();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                self.consume(Token::RParen);
+
+                return Expr::Call {
+                    name: name.clone(),
+                    arguments,
+                };
+            }
+        }
+
+        expr
     }
 
     fn parse_term(&mut self) -> Expr {
