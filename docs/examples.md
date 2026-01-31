@@ -6,7 +6,6 @@ Each example is meant to illustrate a specific language feature.
 All examples can be executed using the Whispem interpreter.
 
 Run an example with:
-
 ```bash
 cargo run examples/<file>.wsp
 ```
@@ -14,7 +13,6 @@ cargo run examples/<file>.wsp
 ---
 
 ## Hello World
-
 ```wsp
 let message = "Hello, Whispem!"
 print message
@@ -23,7 +21,6 @@ print message
 **File:** `examples/hello.wsp`
 
 Output:
-
 ```text
 Hello, Whispem!
 ```
@@ -31,7 +28,6 @@ Hello, Whispem!
 ---
 
 ## Variables
-
 ```wsp
 let x = 10
 let y = 20
@@ -45,7 +41,6 @@ print name
 **File:** `examples/variables.wsp`
 
 Output:
-
 ```text
 10
 20
@@ -55,7 +50,6 @@ Whispem
 ---
 
 ## Arithmetic Expressions
-
 ```wsp
 let a = 10
 let b = 5
@@ -82,7 +76,6 @@ print result2
 **File:** `examples/arithmetic.wsp`
 
 Output:
-
 ```text
 15
 5
@@ -95,7 +88,6 @@ Output:
 ---
 
 ## Strings
-
 ```wsp
 let greeting = "Hello"
 let name = "World"
@@ -111,12 +103,15 @@ print multiline
 
 let quoted = "She said \"Hello\""
 print quoted
+
+# String concatenation
+let full_greeting = greeting + ", " + name + "!"
+print full_greeting
 ```
 
 **File:** `examples/strings.wsp`
 
 Output:
-
 ```text
 Hello
 World
@@ -124,12 +119,12 @@ Whispem is minimalist
 Line one
 Line two
 She said "Hello"
+Hello, World!
 ```
 
 ---
 
 ## Booleans
-
 ```wsp
 let is_true = true
 let is_false = false
@@ -144,7 +139,6 @@ print valid
 **File:** `examples/boolean.wsp`
 
 Output:
-
 ```text
 true
 false
@@ -154,7 +148,6 @@ true
 ---
 
 ## Comparisons
-
 ```wsp
 let x = 10
 let y = 20
@@ -184,7 +177,6 @@ if x != y {
 **File:** `examples/comparison.wsp`
 
 Output:
-
 ```text
 10 is less than 20
 20 is greater than 10
@@ -195,7 +187,6 @@ x and y are different
 ---
 
 ## Conditional Execution
-
 ```wsp
 let temperature = 18
 
@@ -222,7 +213,6 @@ if score >= 90 {
 **File:** `examples/condition.wsp`
 
 Output:
-
 ```text
 It's cool
 Grade: B
@@ -231,7 +221,6 @@ Grade: B
 ---
 
 ## While Loops
-
 ```wsp
 let counter = 0
 
@@ -246,7 +235,6 @@ print "Done!"
 **File:** `examples/while_loop.wsp`
 
 Output:
-
 ```text
 0
 1
@@ -259,7 +247,6 @@ Done!
 ---
 
 ## Countdown
-
 ```wsp
 let countdown = 5
 
@@ -276,7 +263,6 @@ print "Liftoff!"
 **File:** `examples/countdown.wsp`
 
 Output:
-
 ```text
 Countdown starts:
 5
@@ -290,7 +276,6 @@ Liftoff!
 ---
 
 ## Logical Operators
-
 ```wsp
 let x = 10
 let y = 20
@@ -330,7 +315,6 @@ if temperature > 20 and temperature < 30 {
 **File:** `examples/logical_operators.wsp`
 
 Output:
-
 ```text
 Both conditions are true
 At least one condition is true
@@ -342,7 +326,6 @@ Perfect temperature!
 ---
 
 ## FizzBuzz
-
 ```wsp
 let n = 1
 
@@ -369,7 +352,6 @@ while n <= 15 {
 **File:** `examples/fizzbuzz.wsp`
 
 Output:
-
 ```text
 1
 2
@@ -390,8 +372,109 @@ FizzBuzz
 
 ---
 
-## Comments
+## Functions - Basic
+```wsp
+fn greet(name) {
+    print "Hello, " + name + "!"
+}
 
+greet("World")
+greet("Whispem")
+```
+
+**File:** `examples/function_basic.wsp`
+
+Output:
+```text
+Hello, World!
+Hello, Whispem!
+```
+
+---
+
+## Functions - Return Values
+```wsp
+fn add(a, b) {
+    return a + b
+}
+
+fn multiply(x, y) {
+    return x * y
+}
+
+let sum = add(5, 3)
+let product = multiply(4, 7)
+
+print sum
+print product
+
+let result = add(10, multiply(2, 5))
+print result
+```
+
+**File:** `examples/function_return.wsp`
+
+Output:
+```text
+8
+28
+20
+```
+
+---
+
+## Functions - Recursion
+```wsp
+fn factorial(n) {
+    if n <= 1 {
+        return 1
+    } else {
+        return n * factorial(n - 1)
+    }
+}
+
+print factorial(5)
+print factorial(6)
+print factorial(10)
+```
+
+**File:** `examples/function_recursive.wsp`
+
+Output:
+```text
+120
+720
+3628800
+```
+
+---
+
+## Functions - No Parameters
+```wsp
+fn say_hello() {
+    print "Hello from a function!"
+}
+
+fn get_pi() {
+    return 3.14159
+}
+
+say_hello()
+let pi = get_pi()
+print pi
+```
+
+**File:** `examples/function_no_params.wsp`
+
+Output:
+```text
+Hello from a function!
+3.14159
+```
+
+---
+
+## Comments
 ```wsp
 # This is a comment
 # Comments start with # and continue to the end of the line
@@ -407,7 +490,6 @@ print x  # Output: 42
 **File:** `examples/comments.wsp`
 
 Output:
-
 ```text
 42
 ```
@@ -421,3 +503,4 @@ Output:
 - Execution always happens top-to-bottom
 - Each example focuses on a single concept
 - All examples are runnable and tested
+- Functions must be defined before they are called
