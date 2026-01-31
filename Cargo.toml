@@ -2,7 +2,7 @@
 name = "whispem"
 version = "0.7.0"
 edition = "2021"
-author = ["Emilie PERETTI"]
+authors = ["Emilie PERETTI"]
 description = "A minimalist interpreted programming language designed for clarity and calm readability"
 license = "MIT"
 repository = "https://github.com/whispem/whispem-lang"

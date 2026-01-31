@@ -52,8 +52,13 @@ impl Interpreter {
                 }
             }
             Stmt::While { condition, body } => {
-                while self.is_truthy(&self.eval(condition.clone())) {
-                    for stmt in body.clone() {
+                let cond = condition.clone();
+                let body_clone = body.clone();
+                while {
+                    let cond_value = self.eval(cond.clone());
+                    self.is_truthy(&cond_value)
+                } {
+                    for stmt in body_clone.clone() {
                         self.execute_stmt(stmt);
                     }
                 }
@@ -102,7 +107,7 @@ impl Interpreter {
     }
 
     fn eval_binary(&self, left: Value, op: String, right: Value) -> Value {
-        match (left, op.as_str(), right) {
+        match (&left, op.as_str(), &right) {
             // Arithmetic
             (Value::Number(a), "+", Value::Number(b)) => Value::Number(a + b),
             (Value::Number(a), "-", Value::Number(b)) => Value::Number(a - b),
@@ -125,7 +130,10 @@ impl Interpreter {
             (Value::String(a), "EqualEqual", Value::String(b)) => Value::Bool(a == b),
             (Value::String(a), "BangEqual", Value::String(b)) => Value::Bool(a != b),
 
-            _ => panic!("Unsupported binary operation: {:?} {} {:?}", left, op, right),
+            _ => panic!(
+                "Unsupported binary operation: {:?} {} {:?}",
+                left, op, right
+            ),
         }
     }
 
