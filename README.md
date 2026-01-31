@@ -13,11 +13,15 @@ Whispem is implemented in Rust, but Whispem itself is a standalone language.
 ## Features
 
 - Variables with `let`
-- Arithmetic expressions
+- Arithmetic expressions with operator precedence
 - Boolean values (`true`, `false`)
 - Comparisons (`<`, `>`, `<=`, `>=`, `==`, `!=`)
+- Logical operators (`and`, `or`, `not`)
 - Conditional execution (`if / else`)
+- While loops (`while`)
+- Unary operators (`-`, `not`)
 - Block syntax with `{ }`
+- String literals with escape sequences
 - Line-based syntax (no semicolons)
 - Interpreter-based execution
 
@@ -37,7 +41,7 @@ cd whispem-lang
 ## Build the project
 
 ```bash
-cargo build
+cargo build --release
 ```
 
 ---
@@ -64,16 +68,31 @@ Whispem
 
 ---
 
-## Example
+## Examples
+
+### Hello World
+
+```wsp
+let message = "Hello, Whispem!"
+print message
+```
+
+Output:
+
+```text
+Hello, Whispem!
+```
+
+### Conditionals
 
 ```wsp
 let x = 10
 let y = 20
 
 if x < y {
-    print y
+    print y
 } else {
-    print x
+    print x
 }
 ```
 
@@ -81,6 +100,48 @@ Output:
 
 ```text
 20
+```
+
+### While Loops
+
+```wsp
+let counter = 0
+
+while counter < 5 {
+    print counter
+    let counter = counter + 1
+}
+```
+
+Output:
+
+```text
+0
+1
+2
+3
+4
+```
+
+### Logical Operators
+
+```wsp
+let x = 10
+
+if x > 5 and x < 15 {
+    print "x is in range"
+}
+
+if not false {
+    print "This always prints"
+}
+```
+
+Output:
+
+```text
+x is in range
+This always prints
 ```
 
 ---
@@ -91,23 +152,25 @@ All documentation is written in Markdown and lives in the repository:
 
 - `docs/syntax.md` — language syntax and grammar
 - `docs/vision.md` — philosophy and long-term vision
-- `examples/` — runnable Whispem programs
+- `docs/examples.md` — runnable example programs
+- `examples/` — executable `.wsp` files
 
 ---
 
 ## Project status
 
-**Current version:** v0.6.0
+**Current version:** v0.7.0
 
 Whispem now includes:
-- variables
-- expressions
-- booleans
-- comparisons
+- variables and expressions
+- booleans and comparisons
 - conditional control flow (`if / else`)
+- loops (`while`)
+- logical operators (`and`, `or`, `not`)
+- unary operators
 
-This version marks the transition from an experimental project
-to a fully expressive interpreted language core.
+This version marks a significant milestone with full control flow support
+and logical reasoning capabilities.
 
 ---
 
@@ -128,15 +191,16 @@ Every feature must justify its existence.
 
 Planned features include:
 
-- Functions
-- Return values
-- Loops
+- Functions and return values
+- Break and continue for loops
+- String concatenation
+- Arrays or lists
+- Better error reporting with line numbers
 - A small standard library
-- Better error reporting
 
 ---
 
-## Why “Whispem”?
+## Why "Whispem"?
 
 Because the language is meant to whisper intent,
 not shout complexity.
