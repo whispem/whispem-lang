@@ -1,4 +1,4 @@
-# Whispem v0.5.0 example
+# Hello World - First Whispem program
 
-let x = (10 + 5) * 2
-print x
+let message = "Hello, Whispem!"
+print message
