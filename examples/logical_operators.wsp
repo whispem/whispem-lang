@@ -1,0 +1,35 @@
+# Logical operators: and, or, not
+
+let x = 10
+let y = 20
+
+# Using 'and'
+if x > 5 and y > 15 {
+    print "Both conditions are true"
+}
+
+# Using 'or'
+if x > 100 or y > 15 {
+    print "At least one condition is true"
+}
+
+# Using 'not'
+let is_false = false
+if not is_false {
+    print "Negation works!"
+}
+
+# Complex logical expression
+let a = true
+let b = false
+
+if a and not b {
+    print "a is true AND b is false"
+}
+
+# Combining with comparisons
+let temperature = 25
+
+if temperature > 20 and temperature < 30 {
+    print "Perfect temperature!"
+}

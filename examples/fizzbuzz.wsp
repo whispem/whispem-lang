@@ -1,0 +1,22 @@
+# FizzBuzz example using while loops
+
+let n = 1
+
+while n <= 15 {
+    # Check divisibility by 3 and 5
+    if n == 3 or n == 6 or n == 9 or n == 12 {
+        print "Fizz"
+    } else {
+        if n == 5 or n == 10 {
+            print "Buzz"
+        } else {
+            if n == 15 {
+                print "FizzBuzz"
+            } else {
+                print n
+            }
+        }
+    }
+    
+    let n = n + 1
+}

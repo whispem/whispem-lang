@@ -1,0 +1,12 @@
+# Countdown example with while
+
+let countdown = 5
+
+print "Countdown starts:"
+
+while countdown > 0 {
+    print countdown
+    let countdown = countdown - 1
+}
+
+print "Liftoff!"
