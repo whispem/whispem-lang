@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.0 — Functions
+
+- Added function declarations with `fn`
+- Added `return` statement for returning values
+- Added function calls with arguments
+- Added call stack and local scopes
+- Added string concatenation with `+` operator
+- Functions support recursion
+- Functions can have zero or more parameters
+- Proper variable scoping (local vs global)
+- Return values can be used in expressions
+
 ## v0.7.0 — Loops & Logic
 
 - Added `while` loops for iteration
