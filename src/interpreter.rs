@@ -2,7 +2,20 @@ use crate::ast::{Expr, Stmt};
 use std::collections::HashMap;
 
 pub struct Interpreter {
-    variables: HashMap<String, Value>,
+    globals: HashMap<String, Value>,
+    functions: HashMap<String, FunctionDef>,
+    call_stack: Vec<CallFrame>,
+}
+
+#[derive(Debug, Clone)]
+struct FunctionDef {
+    params: Vec<String>,
+    body: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone)]
+struct CallFrame {
+    locals: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone)]
@@ -10,30 +23,60 @@ enum Value {
     Number(f64),
     Bool(bool),
     String(String),
+    None,
+}
+
+enum ControlFlow {
+    None,
+    Return(Value),
 }
 
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            variables: HashMap::new(),
+            globals: HashMap::new(),
+            functions: HashMap::new(),
+            call_stack: Vec::new(),
         }
     }
 
     pub fn execute(&mut self, program: Vec<Stmt>) {
+        // First pass: collect function definitions
+        for stmt in &program {
+            if let Stmt::Function { name, params, body } = stmt {
+                self.functions.insert(
+                    name.clone(),
+                    FunctionDef {
+                        params: params.clone(),
+                        body: body.clone(),
+                    },
+                );
+            }
+        }
+
+        // Second pass: execute statements
         for stmt in program {
-            self.execute_stmt(stmt);
+            if !matches!(stmt, Stmt::Function { .. }) {
+                let _ = self.execute_stmt(stmt);
+            }
         }
     }
 
-    fn execute_stmt(&mut self, stmt: Stmt) {
+    fn execute_stmt(&mut self, stmt: Stmt) -> ControlFlow {
         match stmt {
             Stmt::Let(name, expr) => {
                 let value = self.eval(expr);
-                self.variables.insert(name, value);
+                if let Some(frame) = self.call_stack.last_mut() {
+                    frame.locals.insert(name, value);
+                } else {
+                    self.globals.insert(name, value);
+                }
+                ControlFlow::None
             }
             Stmt::Print(expr) => {
                 let value = self.eval(expr);
                 println!("{}", self.format_value(value));
+                ControlFlow::None
             }
             Stmt::If {
                 condition,
@@ -43,13 +86,20 @@ impl Interpreter {
                 let cond = self.eval(condition);
                 if self.is_truthy(&cond) {
                     for stmt in then_branch {
-                        self.execute_stmt(stmt);
+                        match self.execute_stmt(stmt) {
+                            ControlFlow::Return(val) => return ControlFlow::Return(val),
+                            ControlFlow::None => {}
+                        }
                     }
                 } else if let Some(branch) = else_branch {
                     for stmt in branch {
-                        self.execute_stmt(stmt);
+                        match self.execute_stmt(stmt) {
+                            ControlFlow::Return(val) => return ControlFlow::Return(val),
+                            ControlFlow::None => {}
+                        }
                     }
                 }
+                ControlFlow::None
             }
             Stmt::While { condition, body } => {
                 let cond = condition.clone();
@@ -59,9 +109,25 @@ impl Interpreter {
                     self.is_truthy(&cond_value)
                 } {
                     for stmt in body_clone.clone() {
-                        self.execute_stmt(stmt);
+                        match self.execute_stmt(stmt) {
+                            ControlFlow::Return(val) => return ControlFlow::Return(val),
+                            ControlFlow::None => {}
+                        }
                     }
                 }
+                ControlFlow::None
+            }
+            Stmt::Function { .. } => {
+                // Already collected in first pass
+                ControlFlow::None
+            }
+            Stmt::Return(expr) => {
+                let value = if let Some(e) = expr {
+                    self.eval(e)
+                } else {
+                    Value::None
+                };
+                ControlFlow::Return(value)
             }
         }
     }
@@ -71,11 +137,19 @@ impl Interpreter {
             Expr::Number(n) => Value::Number(n),
             Expr::String(s) => Value::String(s),
             Expr::Bool(b) => Value::Bool(b),
-            Expr::Variable(name) => self
-                .variables
-                .get(&name)
-                .cloned()
-                .unwrap_or_else(|| panic!("Undefined variable: {}", name)),
+            Expr::Variable(name) => {
+                // Check local scope first
+                if let Some(frame) = self.call_stack.last() {
+                    if let Some(value) = frame.locals.get(&name) {
+                        return value.clone();
+                    }
+                }
+                // Then check global scope
+                self.globals
+                    .get(&name)
+                    .cloned()
+                    .unwrap_or_else(|| panic!("Undefined variable: {}", name))
+            }
             Expr::Binary { left, op, right } => {
                 let l = self.eval(*left);
                 let r = self.eval(*right);
@@ -83,7 +157,7 @@ impl Interpreter {
             }
             Expr::Logical { left, op, right } => {
                 let l = self.eval(*left);
-                
+
                 // Short-circuit evaluation
                 if op == "or" {
                     if self.is_truthy(&l) {
@@ -96,12 +170,63 @@ impl Interpreter {
                     }
                     return self.eval(*right);
                 }
-                
+
                 panic!("Unknown logical operator: {}", op);
             }
             Expr::Unary { op, operand } => {
                 let value = self.eval(*operand);
                 self.eval_unary(op, value)
+            }
+            Expr::Call { name, arguments } => {
+                // Get the function definition
+                let func = self
+                    .functions
+                    .get(&name)
+                    .cloned()
+                    .unwrap_or_else(|| panic!("Undefined function: {}", name));
+
+                // Check argument count
+                if arguments.len() != func.params.len() {
+                    panic!(
+                        "Function {} expected {} arguments, got {}",
+                        name,
+                        func.params.len(),
+                        arguments.len()
+                    );
+                }
+
+                // Evaluate arguments
+                let arg_values: Vec<Value> = arguments.into_iter().map(|arg| self.eval(arg)).collect();
+
+                // Create new call frame
+                let mut frame = CallFrame {
+                    locals: HashMap::new(),
+                };
+
+                // Bind parameters
+                for (param, value) in func.params.iter().zip(arg_values.iter()) {
+                    frame.locals.insert(param.clone(), value.clone());
+                }
+
+                // Push frame onto call stack
+                self.call_stack.push(frame);
+
+                // Execute function body
+                let mut return_value = Value::None;
+                for stmt in func.body {
+                    match self.execute_stmt(stmt) {
+                        ControlFlow::Return(val) => {
+                            return_value = val;
+                            break;
+                        }
+                        ControlFlow::None => {}
+                    }
+                }
+
+                // Pop frame from call stack
+                self.call_stack.pop();
+
+                return_value
             }
         }
     }
@@ -113,6 +238,11 @@ impl Interpreter {
             (Value::Number(a), "-", Value::Number(b)) => Value::Number(a - b),
             (Value::Number(a), "*", Value::Number(b)) => Value::Number(a * b),
             (Value::Number(a), "/", Value::Number(b)) => Value::Number(a / b),
+
+            // String concatenation
+            (Value::String(a), "+", Value::String(b)) => {
+                Value::String(format!("{}{}", a, b))
+            }
 
             // Comparison (numbers)
             (Value::Number(a), "Less", Value::Number(b)) => Value::Bool(a < b),
@@ -153,6 +283,7 @@ impl Interpreter {
             Value::Bool(b) => *b,
             Value::Number(n) => *n != 0.0,
             Value::String(s) => !s.is_empty(),
+            Value::None => false,
         }
     }
 
@@ -167,6 +298,7 @@ impl Interpreter {
             }
             Value::Bool(b) => b.to_string(),
             Value::String(s) => s,
+            Value::None => String::new(),
         }
     }
 }
