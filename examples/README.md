@@ -98,8 +98,6 @@ Output:
 20 is greater than 10
 a equals 5
 x and y are different
-b is less than or equal to 10
-b is greater than or equal to 10
 ```
 
 ---
@@ -111,7 +109,6 @@ Output:
 ```
 It's cool
 Grade: B
-Enjoy the sunshine
 ```
 
 ---
@@ -169,14 +166,6 @@ Perfect temperature!
 
 #### **function_basic.wsp**
 Basic function declaration and calling.
-```wsp
-fn greet(name) {
-    print "Hello, " + name + "!"
-}
-
-greet("World")
-greet("Whispem")
-```
 
 Output:
 ```
@@ -221,6 +210,96 @@ Hello from a function!
 
 ---
 
+### Arrays (v0.9.0)
+
+#### **array_basic.wsp**
+Basic array operations: creation, indexing, assignment.
+
+Output:
+```
+[1, 2, 3, 4, 5]
+1
+5
+[1, 2, 10, 4, 5]
+```
+
+---
+
+#### **array_iteration.wsp**
+Iterating over array elements with while loop.
+
+Output:
+```
+Array elements:
+10
+20
+30
+40
+50
+```
+
+---
+
+#### **array_functions.wsp**
+Using `length()` and `push()` built-in functions.
+
+Output:
+```
+Length:
+3
+After push:
+[1, 2, 3, 4]
+Original:
+[1, 2, 3]
+Chained push:
+[1, 2, 3, 4, 5, 6]
+```
+
+---
+
+#### **array_with_functions.wsp**
+Passing arrays to functions (sum, find max).
+
+Output:
+```
+Sum:
+27
+Max:
+9
+```
+
+---
+
+#### **array_mixed_types.wsp**
+Arrays with mixed types and nested arrays.
+
+Output:
+```
+[1, hello, true, 3.14]
+1
+hello
+true
+3.14
+[[1, 2], [3, 4], [5, 6]]
+[1, 2]
+3
+```
+
+---
+
+#### **array_build_dynamic.wsp**
+Building arrays dynamically with functions.
+
+Output:
+```
+Range 0-5:
+[0, 1, 2, 3, 4]
+First 5 squares:
+[1, 4, 9, 16, 25]
+```
+
+---
+
 ### Advanced Examples
 
 #### **fizzbuzz.wsp**
@@ -256,13 +335,18 @@ Tests if/else, comparisons, and booleans.
 Comprehensive test covering all v0.7.0 features.
 
 #### **test_v0.8.0.wsp**
-Comprehensive test covering all v0.8.0 features including:
-- Function declarations
-- Return values
-- Recursion
-- String concatenation
-- Functions in expressions
-- While loops with functions
+Comprehensive test covering all v0.8.0 features (functions).
+
+#### **test_v0.9.0.wsp**
+Comprehensive test covering all v0.9.0 features including:
+- Array literals
+- Array indexing
+- Array assignment
+- Built-in functions (length, push)
+- Arrays with functions
+- Mixed type arrays
+- Nested arrays
+- Dynamic array building
 
 ---
 
@@ -283,7 +367,11 @@ Recommended order for learning:
 11. **function_basic.wsp** - Functions intro
 12. **function_return.wsp** - Return values
 13. **function_recursive.wsp** - Recursion
-14. **fizzbuzz.wsp** - Putting it all together
+14. **array_basic.wsp** - Arrays intro
+15. **array_iteration.wsp** - Loop through arrays
+16. **array_functions.wsp** - Built-in functions
+17. **array_with_functions.wsp** - Arrays + functions
+18. **fizzbuzz.wsp** - Putting it all together
 
 ---
 
@@ -308,21 +396,23 @@ done
 - All examples demonstrate best practices
 - Use examples as templates for your own programs
 - Functions must be defined before they are called
+- Arrays use 0-based indexing
+- `push()` returns a new array (doesn't modify the original)
 
 ---
 
-## 🆕 What's New in v0.8.0
+## 🆕 What's New in v0.9.0
 
-- **function_basic.wsp** - Learn function syntax
-- **function_return.wsp** - Master return values
-- **function_recursive.wsp** - Explore recursion
-- **function_no_params.wsp** - Functions without parameters
-- **test_v0.8.0.wsp** - Complete v0.8.0 test suite
-
-String concatenation is now available in all examples!
+- **array_basic.wsp** - Learn array syntax
+- **array_iteration.wsp** - Loop through arrays
+- **array_functions.wsp** - Master length() and push()
+- **array_with_functions.wsp** - Combine arrays and functions
+- **array_mixed_types.wsp** - Mixed types and nesting
+- **array_build_dynamic.wsp** - Build arrays dynamically
+- **test_v0.9.0.wsp** - Complete v0.9.0 test suite
 
 ---
 
-**Version:** 0.8.0  
-**Examples:** 17 files  
-**Features:** All language features covered including functions!
+**Version:** 0.9.0  
+**Examples:** 24 files  
+**Features:** All language features covered including arrays!
