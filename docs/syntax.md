@@ -31,8 +31,82 @@ Whispem currently supports:
 - **Numbers** (floating point)
 - **Strings** (with escape sequences)
 - **Booleans** (`true`, `false`)
+- **Arrays** (ordered collections)
 
 Types are inferred automatically.
+
+---
+
+## Arrays
+
+### Array Literals
+
+Create arrays with square brackets:
+```wsp
+let numbers = [1, 2, 3, 4, 5]
+let names = ["Alice", "Bob", "Charlie"]
+let mixed = [1, "hello", true, [1, 2, 3]]
+let empty = []
+```
+
+Arrays can contain any type, including nested arrays.
+
+### Array Indexing
+
+Access array elements with `[index]`:
+```wsp
+let numbers = [10, 20, 30]
+let first = numbers[0]   # 10
+let second = numbers[1]  # 20
+```
+
+Indices start at 0.
+
+### Array Assignment
+
+Modify array elements:
+```wsp
+let numbers = [1, 2, 3]
+numbers[0] = 10
+numbers[2] = 30
+print numbers  # [10, 2, 30]
+```
+
+### Built-in Array Functions
+
+**`length(array)`** - Get array length:
+```wsp
+let numbers = [1, 2, 3, 4, 5]
+let len = length(numbers)  # 5
+```
+
+Also works with strings:
+```wsp
+let text = "hello"
+let len = length(text)  # 5
+```
+
+**`push(array, item)`** - Add element to array:
+```wsp
+let numbers = [1, 2, 3]
+let new_numbers = push(numbers, 4)
+print new_numbers  # [1, 2, 3, 4]
+```
+
+Note: `push()` returns a new array; it doesn't modify the original.
+
+### Iterating Over Arrays
+
+Use a while loop with `length()`:
+```wsp
+let items = [10, 20, 30, 40]
+let i = 0
+
+while i < length(items) {
+    print items[i]
+    let i = i + 1
+}
+```
 
 ---
 
@@ -220,6 +294,40 @@ fn factorial(n) {
 print factorial(5)  # 120
 ```
 
+### Arrays and Functions
+
+Pass arrays to functions:
+```wsp
+fn sum_array(arr) {
+    let total = 0
+    let i = 0
+    while i < length(arr) {
+        let total = total + arr[i]
+        let i = i + 1
+    }
+    return total
+}
+
+let numbers = [1, 2, 3, 4, 5]
+print sum_array(numbers)  # 15
+```
+
+Return arrays from functions:
+```wsp
+fn make_array(size) {
+    let arr = []
+    let i = 0
+    while i < size {
+        let arr = push(arr, i)
+        let i = i + 1
+    }
+    return arr
+}
+
+let numbers = make_array(5)
+print numbers  # [0, 1, 2, 3, 4]
+```
+
 ### Variable Scope
 
 - Variables declared inside functions are **local** to that function
@@ -279,9 +387,12 @@ The `print` keyword outputs a value to standard output.
 print x
 print "Hello"
 print true
+print [1, 2, 3]
 ```
 
 Each `print` statement outputs on a new line.
+
+Arrays are printed in `[1, 2, 3]` format.
 
 ---
 
@@ -300,13 +411,14 @@ let x = 10  # This is also a comment
 From highest to lowest:
 
 1. Parentheses `( )`
-2. Function calls `func(args)`
-3. Unary operators `-`, `not`, `!`
-4. Multiplication and division `*`, `/`
-5. Addition and subtraction `+`, `-`
-6. Comparisons `<`, `>`, `<=`, `>=`, `==`, `!=`
-7. Logical AND `and`
-8. Logical OR `or`
+2. Array indexing `[index]`
+3. Function calls `func(args)`
+4. Unary operators `-`, `not`, `!`
+5. Multiplication and division `*`, `/`
+6. Addition and subtraction `+`, `-`
+7. Comparisons `<`, `>`, `<=`, `>=`, `==`, `!=`
+8. Logical AND `and`
+9. Logical OR `or`
 
 ---
 
@@ -319,14 +431,27 @@ Functions must be defined before they are called.
 Example:
 ```wsp
 # Define function
-fn add(a, b) {
-    return a + b
+fn process_array(arr) {
+    let i = 0
+    while i < length(arr) {
+        print arr[i]
+        let i = i + 1
+    }
 }
 
-# Use function
-let result = add(5, 10)
-print result
+# Create and use array
+let numbers = [1, 2, 3, 4, 5]
+process_array(numbers)
 ```
+
+---
+
+## Built-in Functions
+
+Whispem provides the following built-in functions:
+
+- **`length(value)`** - Returns the length of an array or string
+- **`push(array, item)`** - Returns a new array with item appended
 
 ---
 
@@ -344,5 +469,7 @@ The following words are reserved and cannot be used as variable or function name
 - `not`
 - `fn`
 - `return`
+- `length`
+- `push`
 - `true`
 - `false`
