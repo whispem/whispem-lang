@@ -1,0 +1,21 @@
+# Arrays with mixed types
+
+let mixed = [1, "hello", true, 3.14]
+print mixed
+
+# Access different types
+print mixed[0]
+print mixed[1]
+print mixed[2]
+print mixed[3]
+
+# Array of arrays
+let nested = [[1, 2], [3, 4], [5, 6]]
+print nested
+
+let first_row = nested[0]
+print first_row
+
+# Access nested element
+let value = nested[1][0]
+print value

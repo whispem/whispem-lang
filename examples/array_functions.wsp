@@ -1,0 +1,22 @@
+# Array built-in functions
+
+let items = [1, 2, 3]
+
+# Get length
+let len = length(items)
+print "Length:"
+print len
+
+# Push new element
+let new_items = push(items, 4)
+print "After push:"
+print new_items
+
+# Original array unchanged
+print "Original:"
+print items
+
+# Chain push operations
+let more_items = push(push(push(items, 4), 5), 6)
+print "Chained push:"
+print more_items

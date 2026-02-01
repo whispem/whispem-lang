@@ -1,0 +1,33 @@
+# Building arrays dynamically
+
+fn make_range(start, end) {
+    let result = []
+    let i = start
+    
+    while i < end {
+        let result = push(result, i)
+        let i = i + 1
+    }
+    
+    return result
+}
+
+fn make_squares(n) {
+    let result = []
+    let i = 1
+    
+    while i <= n {
+        let result = push(result, i * i)
+        let i = i + 1
+    }
+    
+    return result
+}
+
+let range = make_range(0, 5)
+print "Range 0-5:"
+print range
+
+let squares = make_squares(5)
+print "First 5 squares:"
+print squares

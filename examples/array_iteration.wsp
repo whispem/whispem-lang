@@ -1,0 +1,10 @@
+# Iterating over an array
+
+let numbers = [10, 20, 30, 40, 50]
+let i = 0
+
+print "Array elements:"
+while i < length(numbers) {
+    print numbers[i]
+    let i = i + 1
+}

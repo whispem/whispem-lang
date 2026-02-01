@@ -1,0 +1,37 @@
+# Arrays with functions
+
+fn sum_array(arr) {
+    let total = 0
+    let i = 0
+    
+    while i < length(arr) {
+        let total = total + arr[i]
+        let i = i + 1
+    }
+    
+    return total
+}
+
+fn find_max(numbers) {
+    let max = numbers[0]
+    let i = 1
+    
+    while i < length(numbers) {
+        if numbers[i] > max {
+            let max = numbers[i]
+        }
+        let i = i + 1
+    }
+    
+    return max
+}
+
+let values = [5, 2, 9, 1, 7, 3]
+
+let total = sum_array(values)
+print "Sum:"
+print total
+
+let maximum = find_max(values)
+print "Max:"
+print maximum

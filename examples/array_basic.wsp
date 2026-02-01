@@ -1,0 +1,14 @@
+# Basic array operations
+
+let numbers = [1, 2, 3, 4, 5]
+print numbers
+
+let first = numbers[0]
+print first
+
+let last = numbers[4]
+print last
+
+# Array assignment
+numbers[2] = 10
+print numbers
