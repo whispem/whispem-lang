@@ -474,6 +474,237 @@ Hello from a function!
 
 ---
 
+## Arrays - Basic Operations
+```wsp
+let numbers = [1, 2, 3, 4, 5]
+print numbers
+
+let first = numbers[0]
+print first
+
+let last = numbers[4]
+print last
+
+# Array assignment
+numbers[2] = 10
+print numbers
+```
+
+**File:** `examples/array_basic.wsp`
+
+Output:
+```text
+[1, 2, 3, 4, 5]
+1
+5
+[1, 2, 10, 4, 5]
+```
+
+---
+
+## Arrays - Iteration
+```wsp
+let numbers = [10, 20, 30, 40, 50]
+let i = 0
+
+print "Array elements:"
+while i < length(numbers) {
+    print numbers[i]
+    let i = i + 1
+}
+```
+
+**File:** `examples/array_iteration.wsp`
+
+Output:
+```text
+Array elements:
+10
+20
+30
+40
+50
+```
+
+---
+
+## Arrays - Built-in Functions
+```wsp
+let items = [1, 2, 3]
+
+# Get length
+let len = length(items)
+print "Length:"
+print len
+
+# Push new element
+let new_items = push(items, 4)
+print "After push:"
+print new_items
+
+# Original array unchanged
+print "Original:"
+print items
+
+# Chain push operations
+let more_items = push(push(push(items, 4), 5), 6)
+print "Chained push:"
+print more_items
+```
+
+**File:** `examples/array_functions.wsp`
+
+Output:
+```text
+Length:
+3
+After push:
+[1, 2, 3, 4]
+Original:
+[1, 2, 3]
+Chained push:
+[1, 2, 3, 4, 5, 6]
+```
+
+---
+
+## Arrays - With Functions
+```wsp
+fn sum_array(arr) {
+    let total = 0
+    let i = 0
+    
+    while i < length(arr) {
+        let total = total + arr[i]
+        let i = i + 1
+    }
+    
+    return total
+}
+
+fn find_max(numbers) {
+    let max = numbers[0]
+    let i = 1
+    
+    while i < length(numbers) {
+        if numbers[i] > max {
+            let max = numbers[i]
+        }
+        let i = i + 1
+    }
+    
+    return max
+}
+
+let values = [5, 2, 9, 1, 7, 3]
+
+let total = sum_array(values)
+print "Sum:"
+print total
+
+let maximum = find_max(values)
+print "Max:"
+print maximum
+```
+
+**File:** `examples/array_with_functions.wsp`
+
+Output:
+```text
+Sum:
+27
+Max:
+9
+```
+
+---
+
+## Arrays - Mixed Types
+```wsp
+let mixed = [1, "hello", true, 3.14]
+print mixed
+
+# Access different types
+print mixed[0]
+print mixed[1]
+print mixed[2]
+print mixed[3]
+
+# Array of arrays
+let nested = [[1, 2], [3, 4], [5, 6]]
+print nested
+
+let first_row = nested[0]
+print first_row
+
+# Access nested element
+let value = nested[1][0]
+print value
+```
+
+**File:** `examples/array_mixed_types.wsp`
+
+Output:
+```text
+[1, hello, true, 3.14]
+1
+hello
+true
+3.14
+[[1, 2], [3, 4], [5, 6]]
+[1, 2]
+3
+```
+
+---
+
+## Arrays - Dynamic Building
+```wsp
+fn make_range(start, end) {
+    let result = []
+    let i = start
+    
+    while i < end {
+        let result = push(result, i)
+        let i = i + 1
+    }
+    
+    return result
+}
+
+fn make_squares(n) {
+    let result = []
+    let i = 1
+    
+    while i <= n {
+        let result = push(result, i * i)
+        let i = i + 1
+    }
+    
+    return result
+}
+
+let range = make_range(0, 5)
+print "Range 0-5:"
+print range
+
+let squares = make_squares(5)
+print "First 5 squares:"
+print squares
+```
+
+**File:** `examples/array_build_dynamic.wsp`
+
+Output:
+```text
+Range 0-5:
+[0, 1, 2, 3, 4]
+First 5 squares:
+[1, 4, 9, 16, 25]
+```
+
+---
+
 ## Comments
 ```wsp
 # This is a comment
@@ -504,3 +735,4 @@ Output:
 - Each example focuses on a single concept
 - All examples are runnable and tested
 - Functions must be defined before they are called
+- Arrays use 0-based indexing
