@@ -16,11 +16,21 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
-        println!("Whispem");
+        println!("Whispem v1.0.0");
+        println!("Usage: whispem <file.wsp>");
         return;
     }
 
-    let input = fs::read_to_string(&args[1]).expect("Failed to read file");
+    let filename = &args[1];
+    
+    let input = match fs::read_to_string(filename) {
+        Ok(content) => content,
+        Err(e) => {
+            eprintln!("Error: Failed to read file '{}': {}", filename, e);
+            std::process::exit(1);
+        }
+    };
+
     let mut lexer = Lexer::new(&input);
     let mut tokens = Vec::new();
 
