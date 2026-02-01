@@ -59,8 +59,17 @@ impl Parser {
             Token::Print => self.parse_print(),
             Token::If => self.parse_if(),
             Token::While => self.parse_while(),
+            Token::For => self.parse_for(),
             Token::Fn => self.parse_function(),
             Token::Return => self.parse_return(),
+            Token::Break => {
+                self.advance();
+                Stmt::Break
+            }
+            Token::Continue => {
+                self.advance();
+                Stmt::Continue
+            }
             Token::Identifier(_) => {
                 // Check if this is an index assignment
                 let name = if let Token::Identifier(n) = self.current() {
@@ -139,6 +148,28 @@ impl Parser {
         let body = self.parse_block();
 
         Stmt::While { condition, body }
+    }
+
+    fn parse_for(&mut self) -> Stmt {
+        self.advance(); // consume 'for'
+
+        let variable = if let Token::Identifier(name) = self.current() {
+            name.clone()
+        } else {
+            panic!("Expected variable name after 'for'");
+        };
+
+        self.advance();
+        self.consume(Token::In);
+
+        let iterable = self.parse_expression();
+        let body = self.parse_block();
+
+        Stmt::For {
+            variable,
+            iterable,
+            body,
+        }
     }
 
     fn parse_function(&mut self) -> Stmt {
