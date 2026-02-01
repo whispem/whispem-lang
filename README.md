@@ -19,7 +19,8 @@ Whispem is implemented in Rust, but Whispem itself is a standalone language.
 - Logical operators (`and`, `or`, `not`)
 - Conditional execution (`if / else`)
 - While loops (`while`)
-- **Functions with parameters and return values** (`fn`, `return`)
+- Functions with parameters and return values (`fn`, `return`)
+- **Arrays with indexing and built-in functions**
 - Unary operators (`-`, `not`)
 - Block syntax with `{ }`
 - String literals with escape sequences
@@ -76,6 +77,41 @@ print message
 Output:
 ```text
 Hello, Whispem!
+```
+
+### Arrays
+```wsp
+let numbers = [1, 2, 3, 4, 5]
+print numbers
+
+let first = numbers[0]
+print first
+
+numbers[2] = 10
+print numbers
+```
+
+Output:
+```text
+[1, 2, 3, 4, 5]
+1
+[1, 2, 10, 4, 5]
+```
+
+### Array Functions
+```wsp
+let items = [1, 2, 3]
+let len = length(items)
+print len
+
+let new_items = push(items, 4)
+print new_items
+```
+
+Output:
+```text
+3
+[1, 2, 3, 4]
 ```
 
 ### Functions
@@ -146,23 +182,23 @@ Output:
 4
 ```
 
-### Logical Operators
+### Iterating Over Arrays
 ```wsp
-let x = 10
+let numbers = [10, 20, 30, 40]
+let i = 0
 
-if x > 5 and x < 15 {
-    print "x is in range"
-}
-
-if not false {
-    print "This always prints"
+while i < length(numbers) {
+    print numbers[i]
+    let i = i + 1
 }
 ```
 
 Output:
 ```text
-x is in range
-This always prints
+10
+20
+30
+40
 ```
 
 ---
@@ -180,7 +216,7 @@ All documentation is written in Markdown and lives in the repository:
 
 ## Project status
 
-**Current version:** v0.8.0
+**Current version:** v0.9.0
 
 Whispem now includes:
 - variables and expressions
@@ -188,13 +224,15 @@ Whispem now includes:
 - conditional control flow (`if / else`)
 - loops (`while`)
 - logical operators (`and`, `or`, `not`)
-- **functions with parameters and return values**
-- **recursion support**
-- **local variable scopes**
+- functions with parameters and return values
+- recursion support
+- local variable scopes
+- **arrays with indexing**
+- **built-in functions: `length()`, `push()`**
 - string concatenation
 
-This version represents a major milestone: Whispem is now a fully functional
-programming language with all core features needed for real programs.
+This version represents a major milestone: Whispem is now feature-complete
+and ready for 1.0.0 consideration. All core language features are implemented.
 
 ---
 
@@ -211,15 +249,15 @@ Every feature must justify its existence.
 
 ---
 
-## Roadmap
+## Roadmap to 1.0.0
 
-Planned features for v1.0.0:
+Final features before 1.0.0:
 
 - Break and continue for loops
 - Better error reporting with line numbers
-- Arrays or lists
-- Standard library functions
-- Module system
+- More array operations (pop, slice, etc.)
+- File I/O
+- Standard library organization
 
 ---
 
