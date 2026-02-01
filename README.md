@@ -1,5 +1,7 @@
 # Whispem
 
+**Version 1.0.0** - Production Ready 🎉
+
 Whispem is a minimalist interpreted programming language designed for clarity,
 expressiveness, and calm readability.
 
@@ -12,21 +14,50 @@ Whispem is implemented in Rust, but Whispem itself is a standalone language.
 
 ## Features
 
+### Core Language
 - Variables with `let`
 - Arithmetic expressions with operator precedence
 - Boolean values (`true`, `false`)
 - Comparisons (`<`, `>`, `<=`, `>=`, `==`, `!=`)
 - Logical operators (`and`, `or`, `not`)
-- Conditional execution (`if / else`)
-- While loops (`while`)
-- Functions with parameters and return values (`fn`, `return`)
-- **Arrays with indexing and built-in functions**
 - Unary operators (`-`, `not`)
-- Block syntax with `{ }`
 - String literals with escape sequences
 - String concatenation with `+`
+
+### Control Flow
+- Conditional execution (`if / else`)
+- While loops (`while`)
+- **For loops (`for item in array`)**
+- **Break and continue statements**
+
+### Functions
+- Function declarations (`fn`)
+- Parameters and return values
+- Recursion support
+- Local variable scopes
+
+### Data Structures
+- Arrays with indexing `[1, 2, 3]`
+- Mixed-type arrays
+- Nested arrays
+- Dynamic array building
+
+### Built-in Functions
+- `length(array/string)` - get length
+- `push(array, item)` - append element
+- **`pop(array)` - remove last element**
+- **`reverse(array)` - reverse array**
+- **`slice(array, start, end)` - get sub-array**
+- **`range(start, end)` - generate number sequence**
+- **`input(prompt)` - read user input**
+- **`read_file(filename)` - read file**
+- **`write_file(filename, content)` - write file**
+
+### Developer Experience
+- **Better error messages with context**
 - Line-based syntax (no semicolons)
-- Interpreter-based execution
+- Clean, intuitive syntax
+- Comprehensive documentation
 
 ---
 
@@ -38,30 +69,26 @@ git clone https://github.com/whispem/whispem-lang.git
 cd whispem-lang
 ```
 
----
-
-## Build the project
+Build the project:
 ```bash
 cargo build --release
 ```
 
+The binary will be at `target/release/whispem`.
+
 ---
 
-## Running a Whispem program
+## Quick Start
 
-Run a `.wsp` file with:
-```bash
-cargo run examples/hello.wsp
+Create a file `hello.wsp`:
+```wsp
+let name = input("What's your name? ")
+print "Hello, " + name + "!"
 ```
 
-If no file is provided:
+Run it:
 ```bash
-cargo run
-```
-
-Output:
-```text
-Whispem
+cargo run hello.wsp
 ```
 
 ---
@@ -74,190 +101,167 @@ let message = "Hello, Whispem!"
 print message
 ```
 
-Output:
-```text
-Hello, Whispem!
+### User Input
+```wsp
+let name = input("Enter your name: ")
+let age = input("Enter your age: ")
+print "Hello " + name + ", you are " + age + " years old!"
 ```
 
-### Arrays
+### For Loops
+```wsp
+for num in [1, 2, 3, 4, 5] {
+    print num
+}
+
+for i in range(0, 10) {
+    print i
+}
+```
+
+### Break and Continue
+```wsp
+for num in range(1, 20) {
+    if num > 10 {
+        break
+    }
+    if num == 5 {
+        continue
+    }
+    print num
+}
+```
+
+### Arrays with New Functions
 ```wsp
 let numbers = [1, 2, 3, 4, 5]
-print numbers
 
-let first = numbers[0]
-print first
+# Pop last element
+let last = pop(numbers)
+print last  # 5
 
-numbers[2] = 10
-print numbers
+# Reverse array
+let reversed = reverse([1, 2, 3])
+print reversed  # [3, 2, 1]
+
+# Slice array
+let middle = slice([1, 2, 3, 4, 5], 1, 4)
+print middle  # [2, 3, 4]
 ```
 
-Output:
-```text
-[1, 2, 3, 4, 5]
-1
-[1, 2, 10, 4, 5]
-```
-
-### Array Functions
+### File I/O
 ```wsp
-let items = [1, 2, 3]
-let len = length(items)
-print len
+# Write to file
+let data = "Hello from Whispem!"
+write_file("output.txt", data)
 
-let new_items = push(items, 4)
-print new_items
-```
-
-Output:
-```text
-3
-[1, 2, 3, 4]
+# Read from file
+let content = read_file("output.txt")
+print content
 ```
 
 ### Functions
 ```wsp
-fn greet(name) {
-    print "Hello, " + name + "!"
-}
-
-greet("World")
-greet("Whispem")
-```
-
-Output:
-```text
-Hello, World!
-Hello, Whispem!
-```
-
-### Functions with Return Values
-```wsp
-fn add(a, b) {
-    return a + b
-}
-
-let result = add(10, 20)
-print result
-```
-
-Output:
-```text
-30
-```
-
-### Recursion
-```wsp
 fn factorial(n) {
     if n <= 1 {
         return 1
-    } else {
-        return n * factorial(n - 1)
+    }
+    return n * factorial(n - 1)
+}
+
+print factorial(5)  # 120
+```
+
+### Complete Program
+```wsp
+# Simple task manager
+fn add_task(tasks, task) {
+    return push(tasks, task)
+}
+
+fn show_tasks(tasks) {
+    print "Your tasks:"
+    for task in tasks {
+        print "- " + task
     }
 }
 
-print factorial(5)
-```
+let my_tasks = []
+let my_tasks = add_task(my_tasks, "Learn Whispem")
+let my_tasks = add_task(my_tasks, "Write code")
+let my_tasks = add_task(my_tasks, "Build something cool")
 
-Output:
-```text
-120
-```
-
-### While Loops
-```wsp
-let counter = 0
-
-while counter < 5 {
-    print counter
-    let counter = counter + 1
-}
-```
-
-Output:
-```text
-0
-1
-2
-3
-4
-```
-
-### Iterating Over Arrays
-```wsp
-let numbers = [10, 20, 30, 40]
-let i = 0
-
-while i < length(numbers) {
-    print numbers[i]
-    let i = i + 1
-}
-```
-
-Output:
-```text
-10
-20
-30
-40
+show_tasks(my_tasks)
 ```
 
 ---
 
 ## Documentation
 
-All documentation is written in Markdown and lives in the repository:
+Comprehensive documentation is available in the `docs/` directory:
 
-- `docs/syntax.md` — language syntax and grammar
-- `docs/vision.md` — philosophy and long-term vision
-- `docs/examples.md` — runnable example programs
-- `examples/` — executable `.wsp` files
-
----
-
-## Project status
-
-**Current version:** v0.9.0
-
-Whispem now includes:
-- variables and expressions
-- booleans and comparisons
-- conditional control flow (`if / else`)
-- loops (`while`)
-- logical operators (`and`, `or`, `not`)
-- functions with parameters and return values
-- recursion support
-- local variable scopes
-- **arrays with indexing**
-- **built-in functions: `length()`, `push()`**
-- string concatenation
-
-This version represents a major milestone: Whispem is now feature-complete
-and ready for 1.0.0 consideration. All core language features are implemented.
+- `docs/syntax.md` — Complete language syntax reference
+- `docs/vision.md` — Philosophy and design principles
+- `docs/examples.md` — Extensive code examples
+- `docs/tutorial.md` — Step-by-step tutorial for beginners
+- `examples/` — Runnable `.wsp` example programs
 
 ---
 
-## Design goals
+## Project Status
+
+**Current version:** v1.0.0 - Production Ready! 🎉
+
+Whispem 1.0.0 is feature-complete and stable. It includes:
+- All core language features
+- Comprehensive built-in functions
+- File I/O capabilities
+- Interactive user input
+- Excellent error messages
+- Complete documentation
+
+**Ready for:**
+- Learning programming
+- Teaching language design
+- Scripting and automation
+- Educational projects
+- Rapid prototyping
+
+---
+
+## Design Goals
 
 Whispem is designed to be:
 
-- simple to read
-- easy to reason about
-- small enough to understand entirely
-- expressive without being verbose
+- **Simple to read** - Code looks like what it does
+- **Easy to reason about** - No hidden behavior
+- **Small enough to understand entirely** - The whole language fits in your head
+- **Expressive without being verbose** - Say what you mean, clearly
 
 Every feature must justify its existence.
 
 ---
 
-## Roadmap to 1.0.0
+## What's Next?
 
-Final features before 1.0.0:
+Whispem 1.0.0 is feature-complete, but development continues:
 
-- Break and continue for loops
-- Better error reporting with line numbers
-- More array operations (pop, slice, etc.)
-- File I/O
-- Standard library organization
+### Post-1.0 Roadmap
+- Standard library expansion
+- Performance optimizations
+- Self-hosting (Whispem written in Whispem)
+- Module system
+- Package manager
+- VS Code extension
+- Online playground
+
+---
+
+## Community
+
+- **Report bugs:** [GitHub Issues](https://github.com/whispem/whispem-lang/issues)
+- **Contribute:** [Contributing Guide](CONTRIBUTING.md)
+- **Discuss:** [GitHub Discussions](https://github.com/whispem/whispem-lang/discussions)
 
 ---
 
@@ -266,8 +270,19 @@ Final features before 1.0.0:
 Because the language is meant to whisper intent,
 not shout complexity.
 
+Code should be quiet, clear, and calm.
+
 ---
 
 ## License
 
-MIT
+MIT License - See [LICENSE](LICENSE) file for details.
+
+---
+
+## Acknowledgments
+
+Whispem was created as an exploration of minimalist language design.
+Special thanks to the Rust community and all contributors.
+
+**Whispem 1.0.0 - Simple. Clear. Complete.** ✨
