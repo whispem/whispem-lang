@@ -1,5 +1,7 @@
 use crate::ast::{Expr, Stmt};
 use std::collections::HashMap;
+use std::io::{self, Write};
+use std::fs;
 
 pub struct Interpreter {
     globals: HashMap<String, Value>,
@@ -30,6 +32,8 @@ enum Value {
 enum ControlFlow {
     None,
     Return(Value),
+    Break,
+    Continue,
 }
 
 impl Interpreter {
@@ -89,6 +93,8 @@ impl Interpreter {
                     for stmt in then_branch {
                         match self.execute_stmt(stmt) {
                             ControlFlow::Return(val) => return ControlFlow::Return(val),
+                            ControlFlow::Break => return ControlFlow::Break,
+                            ControlFlow::Continue => return ControlFlow::Continue,
                             ControlFlow::None => {}
                         }
                     }
@@ -96,6 +102,8 @@ impl Interpreter {
                     for stmt in branch {
                         match self.execute_stmt(stmt) {
                             ControlFlow::Return(val) => return ControlFlow::Return(val),
+                            ControlFlow::Break => return ControlFlow::Break,
+                            ControlFlow::Continue => return ControlFlow::Continue,
                             ControlFlow::None => {}
                         }
                     }
@@ -105,13 +113,45 @@ impl Interpreter {
             Stmt::While { condition, body } => {
                 let cond = condition.clone();
                 let body_clone = body.clone();
-                while {
+                loop {
                     let cond_value = self.eval(cond.clone());
-                    self.is_truthy(&cond_value)
-                } {
+                    if !self.is_truthy(&cond_value) {
+                        break;
+                    }
+
                     for stmt in body_clone.clone() {
                         match self.execute_stmt(stmt) {
                             ControlFlow::Return(val) => return ControlFlow::Return(val),
+                            ControlFlow::Break => return ControlFlow::None,
+                            ControlFlow::Continue => break,
+                            ControlFlow::None => {}
+                        }
+                    }
+                }
+                ControlFlow::None
+            }
+            Stmt::For { variable, iterable, body } => {
+                let iter_value = self.eval(iterable);
+                
+                let items = match iter_value {
+                    Value::Array(arr) => arr,
+                    _ => panic!("For loop requires an array"),
+                };
+
+                for item in items {
+                    // Set loop variable
+                    if let Some(frame) = self.call_stack.last_mut() {
+                        frame.locals.insert(variable.clone(), item);
+                    } else {
+                        self.globals.insert(variable.clone(), item);
+                    }
+
+                    // Execute body
+                    for stmt in body.clone() {
+                        match self.execute_stmt(stmt) {
+                            ControlFlow::Return(val) => return ControlFlow::Return(val),
+                            ControlFlow::Break => return ControlFlow::None,
+                            ControlFlow::Continue => break,
                             ControlFlow::None => {}
                         }
                     }
@@ -130,6 +170,8 @@ impl Interpreter {
                 };
                 ControlFlow::Return(value)
             }
+            Stmt::Break => ControlFlow::Break,
+            Stmt::Continue => ControlFlow::Continue,
             Stmt::IndexAssign { array, index, value } => {
                 let idx = self.eval(index);
                 let val = self.eval(value);
@@ -148,7 +190,7 @@ impl Interpreter {
 
                 if let Some(Value::Array(arr)) = array_value {
                     if idx_num >= arr.len() {
-                        panic!("Array index out of bounds");
+                        panic!("Array index {} out of bounds (array length: {})", idx_num, arr.len());
                     }
                     arr[idx_num] = val;
                 } else {
@@ -181,7 +223,7 @@ impl Interpreter {
                 match arr {
                     Value::Array(elements) => {
                         if idx_num >= elements.len() {
-                            panic!("Array index out of bounds");
+                            panic!("Array index {} out of bounds (array length: {})", idx_num, elements.len());
                         }
                         elements[idx_num].clone()
                     }
@@ -230,32 +272,179 @@ impl Interpreter {
             }
             Expr::Call { name, arguments } => {
                 // Check for built-in functions
-                if name == "length" {
-                    if arguments.len() != 1 {
-                        panic!("length() expects exactly 1 argument");
-                    }
-                    let arg = self.eval(arguments[0].clone());
-                    return match arg {
-                        Value::Array(arr) => Value::Number(arr.len() as f64),
-                        Value::String(s) => Value::Number(s.len() as f64),
-                        _ => panic!("length() requires an array or string"),
-                    };
-                }
-
-                if name == "push" {
-                    if arguments.len() != 2 {
-                        panic!("push() expects exactly 2 arguments");
-                    }
-                    let arr = self.eval(arguments[0].clone());
-                    let item = self.eval(arguments[1].clone());
-                    
-                    return match arr {
-                        Value::Array(mut elements) => {
-                            elements.push(item);
-                            Value::Array(elements)
+                match name.as_str() {
+                    "length" => {
+                        if arguments.len() != 1 {
+                            panic!("length() expects exactly 1 argument, got {}", arguments.len());
                         }
-                        _ => panic!("push() requires an array as first argument"),
-                    };
+                        let arg = self.eval(arguments[0].clone());
+                        return match arg {
+                            Value::Array(arr) => Value::Number(arr.len() as f64),
+                            Value::String(s) => Value::Number(s.len() as f64),
+                            _ => panic!("length() requires an array or string"),
+                        };
+                    }
+                    "push" => {
+                        if arguments.len() != 2 {
+                            panic!("push() expects exactly 2 arguments, got {}", arguments.len());
+                        }
+                        let arr = self.eval(arguments[0].clone());
+                        let item = self.eval(arguments[1].clone());
+                        
+                        return match arr {
+                            Value::Array(mut elements) => {
+                                elements.push(item);
+                                Value::Array(elements)
+                            }
+                            _ => panic!("push() requires an array as first argument"),
+                        };
+                    }
+                    "pop" => {
+                        if arguments.len() != 1 {
+                            panic!("pop() expects exactly 1 argument, got {}", arguments.len());
+                        }
+                        let arr = self.eval(arguments[0].clone());
+                        
+                        return match arr {
+                            Value::Array(mut elements) => {
+                                if elements.is_empty() {
+                                    panic!("Cannot pop from empty array");
+                                }
+                                elements.pop().unwrap()
+                            }
+                            _ => panic!("pop() requires an array"),
+                        };
+                    }
+                    "reverse" => {
+                        if arguments.len() != 1 {
+                            panic!("reverse() expects exactly 1 argument, got {}", arguments.len());
+                        }
+                        let arr = self.eval(arguments[0].clone());
+                        
+                        return match arr {
+                            Value::Array(mut elements) => {
+                                elements.reverse();
+                                Value::Array(elements)
+                            }
+                            _ => panic!("reverse() requires an array"),
+                        };
+                    }
+                    "slice" => {
+                        if arguments.len() != 3 {
+                            panic!("slice() expects exactly 3 arguments (array, start, end), got {}", arguments.len());
+                        }
+                        let arr = self.eval(arguments[0].clone());
+                        let start = self.eval(arguments[1].clone());
+                        let end = self.eval(arguments[2].clone());
+                        
+                        let start_idx = match start {
+                            Value::Number(n) => n as usize,
+                            _ => panic!("slice() start index must be a number"),
+                        };
+                        
+                        let end_idx = match end {
+                            Value::Number(n) => n as usize,
+                            _ => panic!("slice() end index must be a number"),
+                        };
+                        
+                        return match arr {
+                            Value::Array(elements) => {
+                                if start_idx > end_idx {
+                                    panic!("slice() start index cannot be greater than end index");
+                                }
+                                if end_idx > elements.len() {
+                                    panic!("slice() end index {} out of bounds (array length: {})", end_idx, elements.len());
+                                }
+                                Value::Array(elements[start_idx..end_idx].to_vec())
+                            }
+                            _ => panic!("slice() requires an array"),
+                        };
+                    }
+                    "range" => {
+                        if arguments.len() != 2 {
+                            panic!("range() expects exactly 2 arguments (start, end), got {}", arguments.len());
+                        }
+                        let start = self.eval(arguments[0].clone());
+                        let end = self.eval(arguments[1].clone());
+                        
+                        let start_num = match start {
+                            Value::Number(n) => n as i64,
+                            _ => panic!("range() start must be a number"),
+                        };
+                        
+                        let end_num = match end {
+                            Value::Number(n) => n as i64,
+                            _ => panic!("range() end must be a number"),
+                        };
+                        
+                        let mut result = Vec::new();
+                        for i in start_num..end_num {
+                            result.push(Value::Number(i as f64));
+                        }
+                        
+                        return Value::Array(result);
+                    }
+                    "input" => {
+                        let prompt = if arguments.is_empty() {
+                            String::new()
+                        } else if arguments.len() == 1 {
+                            let arg = self.eval(arguments[0].clone());
+                            match arg {
+                                Value::String(s) => s,
+                                _ => panic!("input() prompt must be a string"),
+                            }
+                        } else {
+                            panic!("input() expects 0 or 1 argument, got {}", arguments.len());
+                        };
+                        
+                        if !prompt.is_empty() {
+                            print!("{}", prompt);
+                            io::stdout().flush().unwrap();
+                        }
+                        
+                        let mut input = String::new();
+                        io::stdin().read_line(&mut input).unwrap();
+                        return Value::String(input.trim().to_string());
+                    }
+                    "read_file" => {
+                        if arguments.len() != 1 {
+                            panic!("read_file() expects exactly 1 argument, got {}", arguments.len());
+                        }
+                        let filename = self.eval(arguments[0].clone());
+                        
+                        let path = match filename {
+                            Value::String(s) => s,
+                            _ => panic!("read_file() requires a string filename"),
+                        };
+                        
+                        match fs::read_to_string(&path) {
+                            Ok(content) => return Value::String(content),
+                            Err(e) => panic!("Failed to read file '{}': {}", path, e),
+                        }
+                    }
+                    "write_file" => {
+                        if arguments.len() != 2 {
+                            panic!("write_file() expects exactly 2 arguments (filename, content), got {}", arguments.len());
+                        }
+                        let filename = self.eval(arguments[0].clone());
+                        let content = self.eval(arguments[1].clone());
+                        
+                        let path = match filename {
+                            Value::String(s) => s,
+                            _ => panic!("write_file() filename must be a string"),
+                        };
+                        
+                        let text = match content {
+                            Value::String(s) => s,
+                            _ => self.format_value(content),
+                        };
+                        
+                        match fs::write(&path, text) {
+                            Ok(_) => return Value::None,
+                            Err(e) => panic!("Failed to write file '{}': {}", path, e),
+                        }
+                    }
+                    _ => {}
                 }
 
                 // Get the function definition
@@ -299,6 +488,8 @@ impl Interpreter {
                             return_value = val;
                             break;
                         }
+                        ControlFlow::Break => panic!("'break' outside of loop"),
+                        ControlFlow::Continue => panic!("'continue' outside of loop"),
                         ControlFlow::None => {}
                     }
                 }
@@ -317,7 +508,12 @@ impl Interpreter {
             (Value::Number(a), "+", Value::Number(b)) => Value::Number(a + b),
             (Value::Number(a), "-", Value::Number(b)) => Value::Number(a - b),
             (Value::Number(a), "*", Value::Number(b)) => Value::Number(a * b),
-            (Value::Number(a), "/", Value::Number(b)) => Value::Number(a / b),
+            (Value::Number(a), "/", Value::Number(b)) => {
+                if *b == 0.0 {
+                    panic!("Division by zero");
+                }
+                Value::Number(a / b)
+            }
 
             // String concatenation
             (Value::String(a), "+", Value::String(b)) => {
