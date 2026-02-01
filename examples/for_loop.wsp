@@ -1,0 +1,16 @@
+# For loop examples
+
+# Basic for loop
+for num in [1, 2, 3, 4, 5] {
+    print num
+}
+
+# For loop with strings
+for name in ["Alice", "Bob", "Charlie"] {
+    print "Hello, " + name
+}
+
+# For loop with range
+for i in range(0, 10) {
+    print i
+}

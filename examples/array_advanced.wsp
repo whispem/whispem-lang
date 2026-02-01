@@ -1,0 +1,31 @@
+# Advanced array operations
+
+let numbers = [1, 2, 3, 4, 5]
+
+# Pop
+let last = pop(numbers)
+print "Popped:"
+print last
+
+# Reverse
+let reversed = reverse([1, 2, 3, 4, 5])
+print "Reversed:"
+print reversed
+
+# Slice
+let original = [10, 20, 30, 40, 50, 60]
+let middle = slice(original, 2, 5)
+print "Slice [2:5]:"
+print middle
+
+# Range
+let sequence = range(0, 10)
+print "Range 0 to 10:"
+print sequence
+
+# Combining operations
+let data = range(1, 6)
+let rev_data = reverse(data)
+let part = slice(rev_data, 1, 4)
+print "Combined operations:"
+print part

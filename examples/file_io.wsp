@@ -1,0 +1,19 @@
+# File I/O example
+
+# Write to file
+let message = "Hello from Whispem 1.0!"
+write_file("hello.txt", message)
+print "File written successfully!"
+
+# Read from file
+let content = read_file("hello.txt")
+print "File contents:"
+print content
+
+# Write multiple lines
+let lines = "Line 1\nLine 2\nLine 3"
+write_file("lines.txt", lines)
+
+let read_lines = read_file("lines.txt")
+print "Lines file:"
+print read_lines

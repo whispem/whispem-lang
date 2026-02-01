@@ -1,0 +1,43 @@
+# Prime number generator
+
+fn is_prime(n) {
+    if n < 2 {
+        return false
+    }
+    if n == 2 {
+        return true
+    }
+    
+    # Check divisibility from 2 to n-1
+    for i in range(2, n) {
+        # Manual modulo check
+        let quotient = n / i
+        let product = i * quotient
+        if product == n {
+            return false
+        }
+    }
+    
+    return true
+}
+
+fn find_primes(max) {
+    let primes = []
+    
+    for num in range(2, max) {
+        if is_prime(num) {
+            let primes = push(primes, num)
+        }
+    }
+    
+    return primes
+}
+
+# Find first primes
+print "Prime numbers up to 30:"
+let primes = find_primes(30)
+print primes
+
+print ""
+print "Count of primes:"
+print length(primes)

@@ -1,0 +1,55 @@
+# Data Processing Example
+
+fn filter_positive(numbers) {
+    let result = []
+    for num in numbers {
+        if num > 0 {
+            let result = push(result, num)
+        }
+    }
+    return result
+}
+
+fn sum_array(arr) {
+    let total = 0
+    for num in arr {
+        let total = total + num
+    }
+    return total
+}
+
+fn average(arr) {
+    if length(arr) == 0 {
+        return 0
+    }
+    let total = sum_array(arr)
+    return total
+}
+
+# Process data
+let data = [-5, 3, -2, 8, 0, 12, -1, 7]
+
+print "Original data:"
+print data
+
+let positive = filter_positive(data)
+print "Positive numbers:"
+print positive
+
+let total = sum_array(positive)
+print "Sum of positive:"
+print total
+
+let avg = average(positive)
+print "Average of positive:"
+print avg
+
+# Find max
+let max = positive[0]
+for num in positive {
+    if num > max {
+        let max = num
+    }
+}
+print "Maximum:"
+print max

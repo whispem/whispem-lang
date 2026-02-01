@@ -1,0 +1,59 @@
+# Simple number guessing game
+
+let secret = 7
+let guesses = 0
+let found = false
+
+print "=== Number Guessing Game ==="
+print "I'm thinking of a number between 1 and 10"
+
+while not found {
+    let guess_str = input("Enter your guess: ")
+    let guesses = guesses + 1
+    
+    # Simple number parsing (convert manually)
+    let guess = 0
+    if guess_str == "1" {
+        let guess = 1
+    }
+    if guess_str == "2" {
+        let guess = 2
+    }
+    if guess_str == "3" {
+        let guess = 3
+    }
+    if guess_str == "4" {
+        let guess = 4
+    }
+    if guess_str == "5" {
+        let guess = 5
+    }
+    if guess_str == "6" {
+        let guess = 6
+    }
+    if guess_str == "7" {
+        let guess = 7
+    }
+    if guess_str == "8" {
+        let guess = 8
+    }
+    if guess_str == "9" {
+        let guess = 9
+    }
+    if guess_str == "10" {
+        let guess = 10
+    }
+    
+    if guess == secret {
+        print "Congratulations! You found it!"
+        let found = true
+    } else {
+        if guess < secret {
+            print "Too low! Try again."
+        } else {
+            print "Too high! Try again."
+        }
+    }
+}
+
+print "You won in " + guess_str + " guesses!"

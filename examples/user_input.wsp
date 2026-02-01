@@ -1,0 +1,10 @@
+# User input example
+
+let name = input("What's your name? ")
+print "Hello, " + name + "!"
+
+let age = input("How old are you? ")
+print "You are " + age + " years old."
+
+let favorite = input("What's your favorite color? ")
+print "Nice! " + favorite + " is a great color!"
