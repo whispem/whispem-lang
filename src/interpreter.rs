@@ -23,6 +23,7 @@ enum Value {
     Number(f64),
     Bool(bool),
     String(String),
+    Array(Vec<Value>),
     None,
 }
 
@@ -129,6 +130,33 @@ impl Interpreter {
                 };
                 ControlFlow::Return(value)
             }
+            Stmt::IndexAssign { array, index, value } => {
+                let idx = self.eval(index);
+                let val = self.eval(value);
+
+                let idx_num = match idx {
+                    Value::Number(n) => n as usize,
+                    _ => panic!("Array index must be a number"),
+                };
+
+                // Get mutable reference to the array
+                let array_value = if let Some(frame) = self.call_stack.last_mut() {
+                    frame.locals.get_mut(&array)
+                } else {
+                    self.globals.get_mut(&array)
+                };
+
+                if let Some(Value::Array(arr)) = array_value {
+                    if idx_num >= arr.len() {
+                        panic!("Array index out of bounds");
+                    }
+                    arr[idx_num] = val;
+                } else {
+                    panic!("Variable '{}' is not an array", array);
+                }
+
+                ControlFlow::None
+            }
         }
     }
 
@@ -137,6 +165,29 @@ impl Interpreter {
             Expr::Number(n) => Value::Number(n),
             Expr::String(s) => Value::String(s),
             Expr::Bool(b) => Value::Bool(b),
+            Expr::Array(elements) => {
+                let values: Vec<Value> = elements.into_iter().map(|e| self.eval(e)).collect();
+                Value::Array(values)
+            }
+            Expr::Index { array, index } => {
+                let arr = self.eval(*array);
+                let idx = self.eval(*index);
+
+                let idx_num = match idx {
+                    Value::Number(n) => n as usize,
+                    _ => panic!("Array index must be a number"),
+                };
+
+                match arr {
+                    Value::Array(elements) => {
+                        if idx_num >= elements.len() {
+                            panic!("Array index out of bounds");
+                        }
+                        elements[idx_num].clone()
+                    }
+                    _ => panic!("Cannot index non-array value"),
+                }
+            }
             Expr::Variable(name) => {
                 // Check local scope first
                 if let Some(frame) = self.call_stack.last() {
@@ -178,6 +229,35 @@ impl Interpreter {
                 self.eval_unary(op, value)
             }
             Expr::Call { name, arguments } => {
+                // Check for built-in functions
+                if name == "length" {
+                    if arguments.len() != 1 {
+                        panic!("length() expects exactly 1 argument");
+                    }
+                    let arg = self.eval(arguments[0].clone());
+                    return match arg {
+                        Value::Array(arr) => Value::Number(arr.len() as f64),
+                        Value::String(s) => Value::Number(s.len() as f64),
+                        _ => panic!("length() requires an array or string"),
+                    };
+                }
+
+                if name == "push" {
+                    if arguments.len() != 2 {
+                        panic!("push() expects exactly 2 arguments");
+                    }
+                    let arr = self.eval(arguments[0].clone());
+                    let item = self.eval(arguments[1].clone());
+                    
+                    return match arr {
+                        Value::Array(mut elements) => {
+                            elements.push(item);
+                            Value::Array(elements)
+                        }
+                        _ => panic!("push() requires an array as first argument"),
+                    };
+                }
+
                 // Get the function definition
                 let func = self
                     .functions
@@ -283,6 +363,7 @@ impl Interpreter {
             Value::Bool(b) => *b,
             Value::Number(n) => *n != 0.0,
             Value::String(s) => !s.is_empty(),
+            Value::Array(arr) => !arr.is_empty(),
             Value::None => false,
         }
     }
@@ -298,6 +379,13 @@ impl Interpreter {
             }
             Value::Bool(b) => b.to_string(),
             Value::String(s) => s,
+            Value::Array(elements) => {
+                let formatted: Vec<String> = elements
+                    .into_iter()
+                    .map(|v| self.format_value(v))
+                    .collect();
+                format!("[{}]", formatted.join(", "))
+            }
             Value::None => String::new(),
         }
     }
