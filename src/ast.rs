@@ -42,12 +42,19 @@ pub enum Stmt {
         condition: Expr,
         body: Vec<Stmt>,
     },
+    For {
+        variable: String,
+        iterable: Expr,
+        body: Vec<Stmt>,
+    },
     Function {
         name: String,
         params: Vec<String>,
         body: Vec<Stmt>,
     },
     Return(Option<Expr>),
+    Break,
+    Continue,
     IndexAssign {
         array: String,
         index: Expr,
