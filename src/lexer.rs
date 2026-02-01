@@ -3,6 +3,8 @@ use crate::token::Token;
 pub struct Lexer {
     input: Vec<char>,
     position: usize,
+    line: usize,
+    column: usize,
 }
 
 impl Lexer {
@@ -10,6 +12,8 @@ impl Lexer {
         Self {
             input: input.chars().collect(),
             position: 0,
+            line: 1,
+            column: 1,
         }
     }
 
@@ -22,7 +26,17 @@ impl Lexer {
     }
 
     fn advance(&mut self) {
+        if let Some('\n') = self.current_char() {
+            self.line += 1;
+            self.column = 1;
+        } else {
+            self.column += 1;
+        }
         self.position += 1;
+    }
+
+    pub fn get_location(&self) -> (usize, usize) {
+        (self.line, self.column)
     }
 
     pub fn next_token(&mut self) -> Token {
@@ -186,13 +200,24 @@ impl Lexer {
             "if" => Token::If,
             "else" => Token::Else,
             "while" => Token::While,
+            "for" => Token::For,
+            "in" => Token::In,
             "and" => Token::And,
             "or" => Token::Or,
             "not" => Token::Not,
             "fn" => Token::Fn,
             "return" => Token::Return,
+            "break" => Token::Break,
+            "continue" => Token::Continue,
             "length" => Token::Length,
             "push" => Token::Push,
+            "pop" => Token::Pop,
+            "reverse" => Token::Reverse,
+            "slice" => Token::Slice,
+            "range" => Token::Range,
+            "input" => Token::Input,
+            "read_file" => Token::ReadFile,
+            "write_file" => Token::WriteFile,
             "true" => Token::True,
             "false" => Token::False,
             _ => Token::Identifier(ident),
