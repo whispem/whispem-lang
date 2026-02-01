@@ -7,13 +7,26 @@ pub enum Token {
     If,
     Else,
     While,
+    For,
+    In,
     And,
     Or,
     Not,
     Fn,
     Return,
+    Break,
+    Continue,
+    
+    // Built-in functions
     Length,
     Push,
+    Pop,
+    Reverse,
+    Slice,
+    Range,
+    Input,
+    ReadFile,
+    WriteFile,
 
     // Literals
     True,
