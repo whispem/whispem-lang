@@ -451,6 +451,43 @@ impl Parser {
                 self.advance();
                 Expr::Bool(false)
             }
+            // Handle built-in functions as identifiers
+            Token::Length => {
+                self.advance();
+                Expr::Variable("length".to_string())
+            }
+            Token::Push => {
+                self.advance();
+                Expr::Variable("push".to_string())
+            }
+            Token::Pop => {
+                self.advance();
+                Expr::Variable("pop".to_string())
+            }
+            Token::Reverse => {
+                self.advance();
+                Expr::Variable("reverse".to_string())
+            }
+            Token::Slice => {
+                self.advance();
+                Expr::Variable("slice".to_string())
+            }
+            Token::Range => {
+                self.advance();
+                Expr::Variable("range".to_string())
+            }
+            Token::Input => {
+                self.advance();
+                Expr::Variable("input".to_string())
+            }
+            Token::ReadFile => {
+                self.advance();
+                Expr::Variable("read_file".to_string())
+            }
+            Token::WriteFile => {
+                self.advance();
+                Expr::Variable("write_file".to_string())
+            }
             Token::LeftBracket => {
                 self.advance(); // consume '['
                 let mut elements = Vec::new();

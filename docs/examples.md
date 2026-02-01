@@ -1,13 +1,24 @@
 # Whispem Examples
 
-This document presents example programs written in Whispem.
+**Version 1.0.0**
 
-Each example is meant to illustrate a specific language feature.
-All examples can be executed using the Whispem interpreter.
+A curated collection of example programs demonstrating the Whispem programming language.
 
-Run an example with:
+Each example is self-contained, runnable, and focused on a specific language feature. 
+These examples serve as both learning material and reference implementations.
+
+---
+
+## Quick Start
+
+Run any example with:
 ```bash
 cargo run examples/<file>.wsp
+```
+
+Or run all examples:
+```bash
+for file in examples/*.wsp; do cargo run "$file"; done
 ```
 
 ---

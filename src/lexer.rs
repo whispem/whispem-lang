@@ -35,10 +35,6 @@ impl Lexer {
         self.position += 1;
     }
 
-    pub fn get_location(&self) -> (usize, usize) {
-        (self.line, self.column)
-    }
-
     pub fn next_token(&mut self) -> Token {
         while let Some(ch) = self.current_char() {
             match ch {

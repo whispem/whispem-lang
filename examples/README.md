@@ -1,358 +1,109 @@
 # Whispem Examples
 
-This directory contains example Whispem programs demonstrating all language features.
+**Version 1.0.0**
 
-All examples can be run using:
+A complete collection of example programs demonstrating all Whispem language features.
+
 ```bash
 cargo run examples/<file>.wsp
 ```
 
 ---
 
-## 📚 Available Examples
+## 📚 Examples by Category
 
-### Basic Examples
+### Basics
 
-#### **hello.wsp**
-```wsp
-let message = "Hello, Whispem!"
-print message
-```
-Output: `Hello, Whispem!`
-
----
-
-#### **variables.wsp**
-Demonstrates variable declaration and usage.
-
-Output:
-```
-10
-20
-Whispem
-```
-
----
-
-#### **arithmetic.wsp**
-Shows arithmetic expressions with operator precedence and parentheses.
-
-Output:
-```
-15
-5
-50
-2
-20
-30
-```
-
----
-
-#### **strings.wsp**
-String literals with escape sequences and concatenation (`\n`, `\t`, `\"`, `+`).
-
-Output:
-```
-Hello
-World
-Whispem is minimalist
-Line one
-Line two
-She said "Hello"
-Hello, World!
-```
-
----
-
-#### **boolean.wsp**
-Boolean values and their usage.
-
-Output:
-```
-true
-false
-true
-```
-
----
-
-#### **comments.wsp**
-Comment syntax demonstration.
-
-Output:
-```
-42
-```
+| File | Description |
+|------|-------------|
+| **hello.wsp** | Hello World - your first Whispem program |
+| **variables.wsp** | Variable declaration with `let` |
+| **arithmetic.wsp** | Arithmetic operators and precedence |
+| **strings.wsp** | String literals, escapes, and concatenation |
+| **boolean.wsp** | Boolean values `true` and `false` |
+| **comments.wsp** | Comment syntax with `#` |
 
 ---
 
 ### Control Flow
 
-#### **comparison.wsp**
-All comparison operators: `<`, `>`, `<=`, `>=`, `==`, `!=`
-
-Output:
-```
-10 is less than 20
-20 is greater than 10
-a equals 5
-x and y are different
-```
+| File | Description |
+|------|-------------|
+| **comparison.wsp** | Comparison operators: `<`, `>`, `<=`, `>=`, `==`, `!=` |
+| **condition.wsp** | Conditional execution with `if/else` |
+| **logical_operators.wsp** | Logical operators: `and`, `or`, `not` |
 
 ---
 
-#### **condition.wsp**
-Conditional execution with `if/else` including nested conditions.
+### Loops
 
-Output:
-```
-It's cool
-Grade: B
-```
-
----
-
-### Loops (v0.7.0)
-
-#### **while_loop.wsp**
-Basic while loop demonstrating iteration.
-
-Output:
-```
-0
-1
-2
-3
-4
-Done!
-```
+| File | Description |
+|------|-------------|
+| **while_loop.wsp** | Basic `while` loop iteration |
+| **for_loop.wsp** | `for` loop with arrays and `range()` |
+| **countdown.wsp** | Countdown example using `while` |
+| **break_continue.wsp** | Loop control with `break` and `continue` |
 
 ---
 
-#### **countdown.wsp**
-Countdown example using while loop.
+### Functions
 
-Output:
-```
-Countdown starts:
-5
-4
-3
-2
-1
-Liftoff!
-```
+| File | Description |
+|------|-------------|
+| **function_basic.wsp** | Function declaration and calling |
+| **function_return.wsp** | Functions with return values |
+| **function_recursive.wsp** | Recursive functions (factorial) |
+| **function_no_params.wsp** | Functions without parameters |
 
 ---
 
-### Logical Operators (v0.7.0)
+### Arrays
 
-#### **logical_operators.wsp**
-Demonstrates `and`, `or`, and `not` operators with various combinations.
-
-Output:
-```
-Both conditions are true
-At least one condition is true
-Negation works!
-a is true AND b is false
-Perfect temperature!
-```
+| File | Description |
+|------|-------------|
+| **array_basic.wsp** | Array creation, indexing, and assignment |
+| **array_iteration.wsp** | Iterating over arrays |
+| **array_functions.wsp** | Built-in functions: `length()`, `push()` |
+| **array_with_functions.wsp** | Passing arrays to functions |
+| **array_mixed_types.wsp** | Mixed types and nested arrays |
+| **array_build_dynamic.wsp** | Building arrays dynamically |
+| **array_advanced.wsp** | Advanced: `pop()`, `reverse()`, `slice()`, `range()` |
 
 ---
 
-### Functions (v0.8.0)
+### I/O
 
-#### **function_basic.wsp**
-Basic function declaration and calling.
-
-Output:
-```
-Hello, World!
-Hello, Whispem!
-```
+| File | Description |
+|------|-------------|
+| **user_input.wsp** | Reading user input with `input()` |
+| **file_io.wsp** | File operations: `read_file()`, `write_file()` |
 
 ---
 
-#### **function_return.wsp**
-Functions with return values and expressions.
+### Complete Programs
 
-Output:
-```
-8
-28
-20
-```
-
----
-
-#### **function_recursive.wsp**
-Recursive function example (factorial).
-
-Output:
-```
-120
-720
-3628800
-```
+| File | Description |
+|------|-------------|
+| **fizzbuzz.wsp** | Classic FizzBuzz implementation |
+| **prime_numbers.wsp** | Prime number generator |
+| **data_processing.wsp** | Data filtering and aggregation |
+| **task_manager.wsp** | Simple task manager application |
+| **interactive_game.wsp** | Number guessing game with user input |
 
 ---
 
-#### **function_no_params.wsp**
-Functions without parameters.
+### Test Files
 
-Output:
-```
-Hello from a function!
-3.14159
-```
-
----
-
-### Arrays (v0.9.0)
-
-#### **array_basic.wsp**
-Basic array operations: creation, indexing, assignment.
-
-Output:
-```
-[1, 2, 3, 4, 5]
-1
-5
-[1, 2, 10, 4, 5]
-```
-
----
-
-#### **array_iteration.wsp**
-Iterating over array elements with while loop.
-
-Output:
-```
-Array elements:
-10
-20
-30
-40
-50
-```
-
----
-
-#### **array_functions.wsp**
-Using `length()` and `push()` built-in functions.
-
-Output:
-```
-Length:
-3
-After push:
-[1, 2, 3, 4]
-Original:
-[1, 2, 3]
-Chained push:
-[1, 2, 3, 4, 5, 6]
-```
-
----
-
-#### **array_with_functions.wsp**
-Passing arrays to functions (sum, find max).
-
-Output:
-```
-Sum:
-27
-Max:
-9
-```
-
----
-
-#### **array_mixed_types.wsp**
-Arrays with mixed types and nested arrays.
-
-Output:
-```
-[1, hello, true, 3.14]
-1
-hello
-true
-3.14
-[[1, 2], [3, 4], [5, 6]]
-[1, 2]
-3
-```
-
----
-
-#### **array_build_dynamic.wsp**
-Building arrays dynamically with functions.
-
-Output:
-```
-Range 0-5:
-[0, 1, 2, 3, 4]
-First 5 squares:
-[1, 4, 9, 16, 25]
-```
-
----
-
-### Advanced Examples
-
-#### **fizzbuzz.wsp**
-Classic FizzBuzz implementation using while loops and logical operators.
-
-Output:
-```
-1
-2
-Fizz
-4
-Buzz
-Fizz
-7
-8
-Fizz
-Buzz
-11
-Fizz
-13
-14
-FizzBuzz
-```
-
----
-
-## 🧪 Test Files
-
-#### **test_control_flow.wsp**
-Tests if/else, comparisons, and booleans.
-
-#### **test_v0.7.0.wsp**
-Comprehensive test covering all v0.7.0 features.
-
-#### **test_v0.8.0.wsp**
-Comprehensive test covering all v0.8.0 features (functions).
-
-#### **test_v0.9.0.wsp**
-Comprehensive test covering all v0.9.0 features including:
-- Array literals
-- Array indexing
-- Array assignment
-- Built-in functions (length, push)
-- Arrays with functions
-- Mixed type arrays
-- Nested arrays
-- Dynamic array building
+| File | Location | Description |
+|------|----------|-------------|
+| **test_control_flow.wsp** | `examples/` | Tests if/else, comparisons, booleans |
+| **test_v1.0.0.wsp** | `tests/` | Comprehensive v1.0.0 test suite |
 
 ---
 
 ## 📖 Learning Path
 
-Recommended order for learning:
+Recommended order for beginners:
 
 1. **hello.wsp** - Start here
 2. **variables.wsp** - Variable basics
@@ -361,28 +112,26 @@ Recommended order for learning:
 5. **boolean.wsp** - Boolean values
 6. **comparison.wsp** - Comparisons
 7. **condition.wsp** - If/else
-8. **logical_operators.wsp** - And/or/not
-9. **while_loop.wsp** - Loops
-10. **countdown.wsp** - Loop example
+8. **logical_operators.wsp** - and/or/not
+9. **while_loop.wsp** - Basic loops
+10. **for_loop.wsp** - For loops
 11. **function_basic.wsp** - Functions intro
 12. **function_return.wsp** - Return values
 13. **function_recursive.wsp** - Recursion
 14. **array_basic.wsp** - Arrays intro
 15. **array_iteration.wsp** - Loop through arrays
 16. **array_functions.wsp** - Built-in functions
-17. **array_with_functions.wsp** - Arrays + functions
-18. **fizzbuzz.wsp** - Putting it all together
+17. **fizzbuzz.wsp** - Putting it all together
 
 ---
 
 ## 🎯 Quick Test
 
-Run all examples at once:
+Run all examples:
 ```bash
 for file in examples/*.wsp; do
-    echo "Running $file..."
+    echo "=== $file ==="
     cargo run "$file"
-    echo "---"
 done
 ```
 
@@ -392,27 +141,13 @@ done
 
 - Each example is self-contained and runnable
 - Examples include comments explaining the code
-- Start with simple examples and progress to complex ones
-- All examples demonstrate best practices
-- Use examples as templates for your own programs
 - Functions must be defined before they are called
 - Arrays use 0-based indexing
-- `push()` returns a new array (doesn't modify the original)
+- `push()` returns a new array (original unchanged)
+- Interactive examples (`user_input.wsp`, `interactive_game.wsp`) require terminal input
 
 ---
 
-## 🆕 What's New in v0.9.0
-
-- **array_basic.wsp** - Learn array syntax
-- **array_iteration.wsp** - Loop through arrays
-- **array_functions.wsp** - Master length() and push()
-- **array_with_functions.wsp** - Combine arrays and functions
-- **array_mixed_types.wsp** - Mixed types and nesting
-- **array_build_dynamic.wsp** - Build arrays dynamically
-- **test_v0.9.0.wsp** - Complete v0.9.0 test suite
-
----
-
-**Version:** 0.9.0  
-**Examples:** 24 files  
-**Features:** All language features covered including arrays!
+**Version:** 1.0.0  
+**Examples:** 31 files  
+**Status:** All language features covered
