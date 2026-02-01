@@ -61,6 +61,31 @@ impl Parser {
             Token::While => self.parse_while(),
             Token::Fn => self.parse_function(),
             Token::Return => self.parse_return(),
+            Token::Identifier(_) => {
+                // Check if this is an index assignment
+                let name = if let Token::Identifier(n) = self.current() {
+                    n.clone()
+                } else {
+                    panic!("Expected identifier");
+                };
+                
+                self.advance();
+                
+                if *self.current() == Token::LeftBracket {
+                    self.advance(); // consume '['
+                    let index = self.parse_expression();
+                    self.consume(Token::RightBracket);
+                    self.consume(Token::Equals);
+                    let value = self.parse_expression();
+                    return Stmt::IndexAssign {
+                        array: name,
+                        index,
+                        value,
+                    };
+                }
+                
+                panic!("Unexpected identifier in statement position");
+            }
             _ => panic!("Unexpected statement: {:?}", self.current()),
         }
     }
@@ -319,7 +344,25 @@ impl Parser {
             };
         }
 
-        self.parse_call()
+        self.parse_postfix()
+    }
+
+    fn parse_postfix(&mut self) -> Expr {
+        let mut expr = self.parse_call();
+
+        // Handle array indexing
+        while *self.current() == Token::LeftBracket {
+            self.advance(); // consume '['
+            let index = self.parse_expression();
+            self.consume(Token::RightBracket);
+
+            expr = Expr::Index {
+                array: Box::new(expr),
+                index: Box::new(index),
+            };
+        }
+
+        expr
     }
 
     fn parse_call(&mut self) -> Expr {
@@ -376,6 +419,25 @@ impl Parser {
             Token::False => {
                 self.advance();
                 Expr::Bool(false)
+            }
+            Token::LeftBracket => {
+                self.advance(); // consume '['
+                let mut elements = Vec::new();
+
+                if *self.current() != Token::RightBracket {
+                    loop {
+                        elements.push(self.parse_expression());
+
+                        if *self.current() == Token::Comma {
+                            self.advance();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                self.consume(Token::RightBracket);
+                Expr::Array(elements)
             }
             Token::Identifier(name) => {
                 let v = name.clone();
