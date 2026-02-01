@@ -12,6 +12,8 @@ pub enum Token {
     Not,
     Fn,
     Return,
+    Length,
+    Push,
 
     // Literals
     True,
@@ -41,6 +43,8 @@ pub enum Token {
     RParen,
     LeftBrace,
     RightBrace,
+    LeftBracket,
+    RightBracket,
     Comma,
 
     // Special
