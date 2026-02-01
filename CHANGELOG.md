@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.9.0 — Arrays
+
+- Added array literals with `[...]` syntax
+- Added array indexing with `array[index]`
+- Added array assignment with `array[index] = value`
+- Added built-in `length()` function for arrays and strings
+- Added built-in `push()` function to append elements to arrays
+- Arrays can contain mixed types (numbers, strings, booleans, nested arrays)
+- Arrays can be passed to functions and returned from functions
+- Arrays display properly when printed
+
 ## v0.8.0 — Functions
 
 - Added function declarations with `fn`
