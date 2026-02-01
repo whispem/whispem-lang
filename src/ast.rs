@@ -4,6 +4,11 @@ pub enum Expr {
     String(String),
     Bool(bool),
     Variable(String),
+    Array(Vec<Expr>),
+    Index {
+        array: Box<Expr>,
+        index: Box<Expr>,
+    },
     Binary {
         left: Box<Expr>,
         op: String,
@@ -43,4 +48,9 @@ pub enum Stmt {
         body: Vec<Stmt>,
     },
     Return(Option<Expr>),
+    IndexAssign {
+        array: String,
+        index: Expr,
+        value: Expr,
+    },
 }
