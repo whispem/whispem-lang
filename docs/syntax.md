@@ -1,9 +1,29 @@
-# Whispem Syntax
+# Whispem Syntax Reference
 
-This document describes the syntax of the Whispem programming language.
+**Version 1.0.0**
 
-Whispem is line-oriented and whitespace-tolerant.
-There are no semicolons.
+This document provides a complete reference for the Whispem programming language syntax.
+
+Whispem is line-oriented and whitespace-tolerant. There are no semicolons.
+
+---
+
+## Table of Contents
+
+1. [Variables](#variables)
+2. [Types](#types)
+3. [Arrays](#arrays)
+4. [Expressions](#expressions)
+5. [Comparisons](#comparisons)
+6. [Logical Operators](#logical-operators)
+7. [Conditionals](#conditionals)
+8. [Loops](#loops)
+9. [Functions](#functions)
+10. [Strings](#strings)
+11. [Built-in Functions](#built-in-functions)
+12. [Comments](#comments)
+13. [Operator Precedence](#operator-precedence)
+14. [Reserved Keywords](#reserved-keywords)
 
 ---
 
@@ -26,12 +46,12 @@ let counter = counter + 1
 
 ## Types
 
-Whispem currently supports:
+Whispem supports these types:
 
-- **Numbers** (floating point)
-- **Strings** (with escape sequences)
-- **Booleans** (`true`, `false`)
-- **Arrays** (ordered collections)
+- **Numbers** (floating point): `42`, `3.14`, `-10`
+- **Strings** (with escape sequences): `"hello"`, `"line\n"`
+- **Booleans**: `true`, `false`
+- **Arrays** (ordered collections): `[1, 2, 3]`, `["a", "b"]`
 
 Types are inferred automatically.
 
@@ -53,14 +73,12 @@ Arrays can contain any type, including nested arrays.
 
 ### Array Indexing
 
-Access array elements with `[index]`:
+Access array elements with `[index]` (0-based):
 ```wsp
 let numbers = [10, 20, 30]
 let first = numbers[0]   # 10
 let second = numbers[1]  # 20
 ```
-
-Indices start at 0.
 
 ### Array Assignment
 
@@ -72,53 +90,15 @@ numbers[2] = 30
 print numbers  # [10, 2, 30]
 ```
 
-### Built-in Array Functions
-
-**`length(array)`** - Get array length:
-```wsp
-let numbers = [1, 2, 3, 4, 5]
-let len = length(numbers)  # 5
-```
-
-Also works with strings:
-```wsp
-let text = "hello"
-let len = length(text)  # 5
-```
-
-**`push(array, item)`** - Add element to array:
-```wsp
-let numbers = [1, 2, 3]
-let new_numbers = push(numbers, 4)
-print new_numbers  # [1, 2, 3, 4]
-```
-
-Note: `push()` returns a new array; it doesn't modify the original.
-
-### Iterating Over Arrays
-
-Use a while loop with `length()`:
-```wsp
-let items = [10, 20, 30, 40]
-let i = 0
-
-while i < length(items) {
-    print items[i]
-    let i = i + 1
-}
-```
-
 ---
 
 ## Expressions
 
-Whispem supports arithmetic expressions with operator precedence.
+### Arithmetic Operators
 ```wsp
 let x = 10 + 5 * 2      # 20
 let y = (10 + 5) * 2    # 30
 ```
-
-### Arithmetic Operators
 
 - `+` addition (also string concatenation)
 - `-` subtraction
@@ -126,20 +106,20 @@ let y = (10 + 5) * 2    # 30
 - `/` division
 
 ### Unary Operators
-
-- `-` negation
-- `not` logical negation
-- `!` logical negation (alias)
 ```wsp
 let negative = -42
 let opposite = not true
 ```
 
+- `-` negation
+- `not` logical negation
+- `!` logical negation (alias)
+
 ---
 
 ## Comparisons
 
-Expressions can be compared using:
+Compare values using:
 
 - `<` less than
 - `>` greater than
@@ -180,7 +160,7 @@ if not is_error {
 }
 ```
 
-**Note:** Logical operators use short-circuit evaluation:
+**Short-circuit evaluation:**
 - `and` stops if the left side is false
 - `or` stops if the left side is true
 
@@ -188,7 +168,7 @@ if not is_error {
 
 ## Conditionals
 
-Conditional execution uses `if / else`.
+Use `if / else` for conditional execution:
 ```wsp
 if x < 10 {
     print x
@@ -197,7 +177,7 @@ if x < 10 {
 }
 ```
 
-Conditions can be nested:
+Nested conditions:
 ```wsp
 if score >= 90 {
     print "A"
@@ -210,7 +190,7 @@ if score >= 90 {
 }
 ```
 
-Blocks are delimited with `{ }`.
+Blocks use `{ }`.
 
 ---
 
@@ -218,7 +198,7 @@ Blocks are delimited with `{ }`.
 
 ### While Loops
 
-Repeat a block while a condition is true:
+Repeat while a condition is true:
 ```wsp
 let counter = 0
 
@@ -228,8 +208,47 @@ while counter < 5 {
 }
 ```
 
-**Warning:** Make sure your condition eventually becomes false,
-or you'll create an infinite loop!
+### For Loops
+
+Iterate over arrays:
+```wsp
+for item in [1, 2, 3, 4, 5] {
+    print item
+}
+
+for name in ["Alice", "Bob", "Charlie"] {
+    print "Hello, " + name
+}
+```
+
+Use `range()` for number sequences:
+```wsp
+for i in range(0, 10) {
+    print i
+}
+```
+
+### Break and Continue
+
+Exit early with `break`:
+```wsp
+for num in range(1, 100) {
+    if num > 10 {
+        break
+    }
+    print num
+}
+```
+
+Skip to next iteration with `continue`:
+```wsp
+for num in range(1, 10) {
+    if num == 5 {
+        continue
+    }
+    print num
+}
+```
 
 ---
 
@@ -237,14 +256,14 @@ or you'll create an infinite loop!
 
 ### Function Declaration
 
-Define a function with `fn`:
+Define functions with `fn`:
 ```wsp
 fn greet(name) {
     print "Hello, " + name + "!"
 }
 ```
 
-### Function Parameters
+### Parameters
 
 Functions can have zero or more parameters:
 ```wsp
@@ -269,16 +288,6 @@ let result = multiply(5, 3)
 print result  # 15
 ```
 
-Functions without an explicit `return` return nothing.
-
-### Function Calls
-
-Call a function by its name with parentheses:
-```wsp
-greet("World")
-let sum = add(10, 20)
-```
-
 ### Recursion
 
 Functions can call themselves:
@@ -286,58 +295,23 @@ Functions can call themselves:
 fn factorial(n) {
     if n <= 1 {
         return 1
-    } else {
-        return n * factorial(n - 1)
     }
+    return n * factorial(n - 1)
 }
 
 print factorial(5)  # 120
 ```
 
-### Arrays and Functions
-
-Pass arrays to functions:
-```wsp
-fn sum_array(arr) {
-    let total = 0
-    let i = 0
-    while i < length(arr) {
-        let total = total + arr[i]
-        let i = i + 1
-    }
-    return total
-}
-
-let numbers = [1, 2, 3, 4, 5]
-print sum_array(numbers)  # 15
-```
-
-Return arrays from functions:
-```wsp
-fn make_array(size) {
-    let arr = []
-    let i = 0
-    while i < size {
-        let arr = push(arr, i)
-        let i = i + 1
-    }
-    return arr
-}
-
-let numbers = make_array(5)
-print numbers  # [0, 1, 2, 3, 4]
-```
-
 ### Variable Scope
 
-- Variables declared inside functions are **local** to that function
-- Variables declared outside functions are **global**
-- Function parameters are local to the function
+- Variables inside functions are **local**
+- Variables outside functions are **global**
+- Function parameters are local
 ```wsp
 let x = 10  # Global
 
 fn test() {
-    let y = 20  # Local to test()
+    let y = 20  # Local
     print x     # Can access global
     print y     # Can access local
 }
@@ -350,7 +324,14 @@ test()
 
 ## Strings
 
-String literals support escape sequences:
+### String Literals
+
+Strings use double quotes:
+```wsp
+let message = "Hello, World!"
+```
+
+### Escape Sequences
 
 - `\n` — newline
 - `\t` — tab
@@ -372,33 +353,80 @@ World
 
 Use `+` to concatenate strings:
 ```wsp
-let first = "Hello, "
-let second = "World!"
-let greeting = first + second
+let greeting = "Hello, " + "World!"
 print greeting  # Hello, World!
 ```
 
 ---
 
-## Print
+## Built-in Functions
 
-The `print` keyword outputs a value to standard output.
+### Array Functions
+
+**`length(array/string)`** - Get length:
 ```wsp
-print x
-print "Hello"
-print true
-print [1, 2, 3]
+let len = length([1, 2, 3])  # 3
+let str_len = length("hello")  # 5
 ```
 
-Each `print` statement outputs on a new line.
+**`push(array, item)`** - Append element (returns new array):
+```wsp
+let arr = push([1, 2], 3)  # [1, 2, 3]
+```
 
-Arrays are printed in `[1, 2, 3]` format.
+**`pop(array)`** - Remove and return last element:
+```wsp
+let last = pop([1, 2, 3])  # 3
+```
+
+**`reverse(array)`** - Reverse array:
+```wsp
+let rev = reverse([1, 2, 3])  # [3, 2, 1]
+```
+
+**`slice(array, start, end)`** - Get sub-array:
+```wsp
+let sub = slice([1, 2, 3, 4, 5], 1, 4)  # [2, 3, 4]
+```
+
+**`range(start, end)`** - Generate number sequence:
+```wsp
+let nums = range(0, 5)  # [0, 1, 2, 3, 4]
+```
+
+### I/O Functions
+
+**`input(prompt)`** - Read user input:
+```wsp
+let name = input("Enter your name: ")
+print "Hello, " + name
+```
+
+**`read_file(filename)`** - Read file contents:
+```wsp
+let content = read_file("data.txt")
+print content
+```
+
+**`write_file(filename, content)`** - Write to file:
+```wsp
+write_file("output.txt", "Hello, World!")
+```
+
+### Output
+
+**`print(value)`** - Print to console:
+```wsp
+print "Hello"
+print 42
+print [1, 2, 3]
+```
 
 ---
 
 ## Comments
 
-Comments start with `#` and continue until the end of the line.
+Comments start with `#` and continue to end of line:
 ```wsp
 # This is a comment
 let x = 10  # This is also a comment
@@ -422,54 +450,49 @@ From highest to lowest:
 
 ---
 
-## Program Structure
-
-A Whispem program is a sequence of statements executed from top to bottom.
-
-Functions must be defined before they are called.
-
-Example:
-```wsp
-# Define function
-fn process_array(arr) {
-    let i = 0
-    while i < length(arr) {
-        print arr[i]
-        let i = i + 1
-    }
-}
-
-# Create and use array
-let numbers = [1, 2, 3, 4, 5]
-process_array(numbers)
-```
-
----
-
-## Built-in Functions
-
-Whispem provides the following built-in functions:
-
-- **`length(value)`** - Returns the length of an array or string
-- **`push(array, item)`** - Returns a new array with item appended
-
----
-
 ## Reserved Keywords
 
-The following words are reserved and cannot be used as variable or function names:
+These words cannot be used as variable or function names:
 
 - `let`
 - `print`
 - `if`
 - `else`
 - `while`
+- `for`
+- `in`
 - `and`
 - `or`
 - `not`
 - `fn`
 - `return`
+- `break`
+- `continue`
 - `length`
 - `push`
+- `pop`
+- `reverse`
+- `slice`
+- `range`
+- `input`
+- `read_file`
+- `write_file`
 - `true`
 - `false`
+
+---
+
+## Error Messages
+
+Whispem provides helpful error messages:
+```
+Error: Undefined variable: counter
+Error: Array index 10 out of bounds (array length: 5)
+Error: Function add expected 2 arguments, got 3
+Error: Division by zero
+Error: Failed to read file 'data.txt': No such file or directory
+```
+
+---
+
+**Whispem v1.0.0 - Complete Syntax Reference**
