@@ -58,12 +58,13 @@ Whispem grows in **layers**:
 4. ✅ Loops (while)
 5. ✅ Logic (and/or/not)
 6. ✅ Functions
-7. 🔄 Standard library
-8. 🔄 Collections
+7. ✅ Collections (arrays)
+8. 🔄 Standard library expansion
+9. 🔄 Quality of life improvements
 
 Each layer must remain stable before the next is added.
 
-**Current status:** Layers 1-6 complete and stable. Ready for 1.0.0 consideration.
+**Current status:** Layers 1-7 complete and stable. Ready for 1.0.0.
 
 ---
 
@@ -73,17 +74,27 @@ Each layer must remain stable before the next is added.
 
 Code should read like intent:
 ```wsp
-fn calculate_total(price, quantity) {
-    return price * quantity
+fn find_max(numbers) {
+    let max = numbers[0]
+    let i = 1
+    
+    while i < length(numbers) {
+        if numbers[i] > max {
+            let max = numbers[i]
+        }
+        let i = i + 1
+    }
+    
+    return max
 }
 
-let total = calculate_total(10, 5)
-print total
+let values = [5, 2, 9, 1, 7]
+print find_max(values)
 ```
 
 Not:
 ```
-def calc(p,q){return p*q;}let t=calc(10,5);print(t);
+def f(a){m=a[0];for(i=1;i<len(a);i++)if(a[i]>m)m=a[i];return m}
 ```
 
 ### 2. No Surprises
@@ -91,7 +102,7 @@ def calc(p,q){return p*q;}let t=calc(10,5);print(t);
 What you see is what you get.
 No operator overloading (except `+` for strings).
 No implicit conversions.
-No hidden mutations.
+No hidden mutations (arrays are explicitly copied with `push()`).
 
 ### 3. Small Surface Area
 
@@ -151,18 +162,21 @@ Whispem is for:
 - ✅ Comments
 - ✅ String escape sequences
 - ✅ Unary operators
-- ✅ **Functions with parameters**
-- ✅ **Return values**
-- ✅ **Recursion**
-- ✅ **Local variable scopes**
-- ✅ **String concatenation**
+- ✅ Functions with parameters
+- ✅ Return values
+- ✅ Recursion
+- ✅ Local variable scopes
+- ✅ String concatenation
+- ✅ **Arrays with literals**
+- ✅ **Array indexing and assignment**
+- ✅ **Built-in functions (length, push)**
 
-### Next Features (Path to 1.0.0)
-1. Break and continue
-2. Better error messages
-3. Arrays or lists
-4. Standard library (math, string operations)
-5. File I/O
+### Path to 1.0.0
+1. Break and continue statements
+2. Better error messages with line numbers
+3. More array operations (pop, slice, etc.)
+4. File I/O capabilities
+5. Final polish and documentation
 
 ### Post 1.0.0
 - Self-hosting (Whispem interpreter written in Whispem)
@@ -172,26 +186,26 @@ Whispem is for:
 
 ---
 
-## v0.8.0 Milestone
+## v0.9.0 Milestone
 
-With the addition of functions in v0.8.0, Whispem has reached a critical milestone:
+With the addition of arrays in v0.9.0, Whispem has reached another critical milestone:
 
-**Whispem is now a complete, Turing-complete programming language.**
+**Whispem is now feature-complete for general-purpose programming.**
 
 You can now:
-- Define reusable functions
-- Build abstractions
-- Write recursive algorithms
-- Structure complex programs
-- Express any computable function
+- Store and manipulate collections of data
+- Build complex data structures
+- Implement real algorithms (sorting, searching, etc.)
+- Process lists of items
+- Work with dynamic data
 
-This marks the transition from "toy language" to "real language."
+This is the **final major feature** before 1.0.0.
 
-The path to 1.0.0 is now clear:
-- Polish the rough edges
-- Add quality-of-life features
-- Improve error messages
-- Expand the standard library
+The remaining work is polish:
+- Better error messages
+- More built-in functions
+- Quality-of-life improvements
+- Documentation refinement
 
 ---
 
@@ -216,12 +230,15 @@ Boring means:
 
 Whispem will be considered successful when:
 
-1. A beginner can learn the entire language in one day
-2. The implementation can be read and understood in one sitting
-3. Every feature has a clear justification
-4. The documentation is complete and accessible
-5. The language is useful for teaching programming concepts
-6. **The language is Turing-complete and practical** ✅ (achieved in v0.8.0)
+1. ✅ A beginner can learn the entire language in one day
+2. ✅ The implementation can be read and understood in one sitting
+3. ✅ Every feature has a clear justification
+4. ✅ The documentation is complete and accessible
+5. ✅ The language is useful for teaching programming concepts
+6. ✅ The language is Turing-complete and practical
+7. ✅ The language supports collections (arrays)
+8. 🔄 The language has helpful error messages
+9. 🔄 The language is self-hosted
 
 ---
 
@@ -258,6 +275,6 @@ the feature probably doesn't belong in Whispem.
 
 ---
 
-**Version:** 0.8.0  
-**Status:** Feature complete for 1.0.0 consideration  
+**Version:** 0.9.0  
+**Status:** Feature complete, ready for 1.0.0 polish  
 **Philosophy:** Whisper, don't shout
