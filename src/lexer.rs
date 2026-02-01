@@ -64,6 +64,16 @@ impl Lexer {
                     return Token::RightBrace;
                 }
 
+                '[' => {
+                    self.advance();
+                    return Token::LeftBracket;
+                }
+
+                ']' => {
+                    self.advance();
+                    return Token::RightBracket;
+                }
+
                 ',' => {
                     self.advance();
                     return Token::Comma;
@@ -181,6 +191,8 @@ impl Lexer {
             "not" => Token::Not,
             "fn" => Token::Fn,
             "return" => Token::Return,
+            "length" => Token::Length,
+            "push" => Token::Push,
             "true" => Token::True,
             "false" => Token::False,
             _ => Token::Identifier(ident),
