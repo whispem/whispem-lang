@@ -6,3 +6,6 @@
 
 # macOS
 .DS_Store
+
+# Test output files
+*.txt

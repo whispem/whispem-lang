@@ -60,4 +60,5 @@ pub enum Stmt {
         index: Expr,
         value: Expr,
     },
+    Expression(Expr),
 }

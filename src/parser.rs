@@ -70,8 +70,31 @@ impl Parser {
                 self.advance();
                 Stmt::Continue
             }
+            Token::WriteFile | Token::ReadFile => {
+                // Handle built-in functions as statements
+                let name = match self.current() {
+                    Token::WriteFile => "write_file".to_string(),
+                    Token::ReadFile => "read_file".to_string(),
+                    _ => unreachable!(),
+                };
+                self.advance();
+                
+                self.consume(Token::LParen);
+                let mut arguments = Vec::new();
+                
+                if *self.current() != Token::RParen {
+                    arguments.push(self.parse_expression());
+                    while *self.current() == Token::Comma {
+                        self.advance();
+                        arguments.push(self.parse_expression());
+                    }
+                }
+                
+                self.consume(Token::RParen);
+                Stmt::Expression(Expr::Call { name, arguments })
+            }
             Token::Identifier(_) => {
-                // Check if this is an index assignment
+                // Check if this is an index assignment or function call
                 let name = if let Token::Identifier(n) = self.current() {
                     n.clone()
                 } else {
@@ -91,6 +114,23 @@ impl Parser {
                         index,
                         value,
                     };
+                }
+                
+                // Handle function call as a statement
+                if *self.current() == Token::LParen {
+                    self.advance(); // consume '('
+                    let mut arguments = Vec::new();
+                    
+                    if *self.current() != Token::RParen {
+                        arguments.push(self.parse_expression());
+                        while *self.current() == Token::Comma {
+                            self.advance();
+                            arguments.push(self.parse_expression());
+                        }
+                    }
+                    
+                    self.consume(Token::RParen);
+                    return Stmt::Expression(Expr::Call { name, arguments });
                 }
                 
                 panic!("Unexpected identifier in statement position");

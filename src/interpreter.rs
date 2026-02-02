@@ -199,6 +199,10 @@ impl Interpreter {
 
                 ControlFlow::None
             }
+            Stmt::Expression(expr) => {
+                self.eval(expr);
+                ControlFlow::None
+            }
         }
     }
 
