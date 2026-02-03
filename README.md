@@ -1,5 +1,3 @@
-# Whispem
-
 ![Logo Whispem](https://imgur.com/YDjrAKR.png)
 
 **Version 1.0.0** - Production Ready 🎉
