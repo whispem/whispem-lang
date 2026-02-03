@@ -1,5 +1,7 @@
 # Whispem
 
+![Logo Whispem](https://imgur.com/YDjrAKR)
+
 **Version 1.0.0** - Production Ready 🎉
 
 Whispem is a minimalist interpreted programming language designed for clarity,
