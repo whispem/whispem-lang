@@ -1,4 +1,6 @@
 # Whispem
+<img width="4000" height="1600" alt="whispem-lang-4klogo" src="https://github.com/user-attachments/assets/6078ca73-68d9-4a76-8bde-8ed1d284aa4b" />
+
 
 **Version 1.0.0** - Production Ready 🎉
 
