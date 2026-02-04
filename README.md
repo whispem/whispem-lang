@@ -1,4 +1,4 @@
-#Whispem
+# Whispem
 
 A minimalist open-source programming language focused on clarity, expressiveness, and calm readability.
 
