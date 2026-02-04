@@ -1,3 +1,7 @@
+#Whispem
+
+A minimalist open-source programming language focused on clarity, expressiveness, and calm readability.
+
 ![Logo Whispem](https://imgur.com/YDjrAKR.png)
 
 **Version 1.0.0** - Production Ready 🎉
