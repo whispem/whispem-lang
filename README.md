@@ -4,7 +4,7 @@ A minimalist open-source programming language focused on clarity, expressiveness
 
 ![Logo Whispem](https://imgur.com/YDjrAKR.png)
 
-**Version 1.0.0** - Production Ready 🎉
+**Version 1.0.0** 🎉
 
 Whispem is a minimalist interpreted programming language designed for clarity,
 expressiveness, and calm readability.
@@ -92,7 +92,7 @@ print "Hello, " + name + "!"
 
 Run it:
 ```bash
-cargo run hello.wsp
+cargo run examples/hello.wsp
 ```
 
 ---
@@ -214,7 +214,7 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Project Status
 
-**Current version:** v1.0.0 - Production Ready! 🎉
+**Current version:** v1.0.0
 
 Whispem 1.0.0 is feature-complete and stable. It includes:
 - All core language features
