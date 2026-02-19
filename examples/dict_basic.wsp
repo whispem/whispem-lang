@@ -1,0 +1,26 @@
+# Dictionaries — basic operations
+
+let person = {"name": "Emilie", "age": 26, "city": "Marseille"}
+
+# Access
+print person["name"]
+print person["age"]
+
+# Update
+person["city"] = "Marseille"
+print person["city"]
+
+# Add a new key
+person["job"] = "language designer"
+print person["job"]
+
+# has_key
+print has_key(person, "name")   # true
+print has_key(person, "phone")  # false
+
+# keys and values
+print keys(person)
+print values(person)
+
+# length of a dict
+print length(person)

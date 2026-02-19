@@ -1,13 +1,95 @@
-use crate::ast::{Expr, Stmt};
+use crate::ast::{BinaryOp, Expr, LogicalOp, Stmt, UnaryOp};
+use crate::error::{ErrorKind, WhispemError, WhispemResult};
 use std::collections::HashMap;
-use std::io::{self, Write};
+use std::fmt;
 use std::fs;
+use std::io::{self, Write};
 
-pub struct Interpreter {
-    globals: HashMap<String, Value>,
-    functions: HashMap<String, FunctionDef>,
-    call_stack: Vec<CallFrame>,
+// ─────────────────────────────────────────────
+// Value
+// ─────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub enum Value {
+    Number(f64),
+    Bool(bool),
+    Str(String),
+    Array(Vec<Value>),
+    Dict(HashMap<String, Value>),
+    None,
 }
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.format())
+    }
+}
+
+impl Value {
+    pub fn format(&self) -> String {
+        match self {
+            Value::Number(n) => {
+                if n.fract() == 0.0 && n.abs() < 1e15 {
+                    format!("{}", *n as i64)
+                } else {
+                    n.to_string()
+                }
+            }
+            Value::Bool(b) => b.to_string(),
+            Value::Str(s) => s.clone(),
+            Value::Array(elements) => {
+                let parts: Vec<String> = elements.iter().map(|v| v.format()).collect();
+                format!("[{}]", parts.join(", "))
+            }
+            Value::Dict(map) => {
+                let mut parts: Vec<String> = map
+                    .iter()
+                    .map(|(k, v)| format!("\"{}\": {}", k, v.format()))
+                    .collect();
+                parts.sort();
+                format!("{{{}}}", parts.join(", "))
+            }
+            Value::None => String::new(),
+        }
+    }
+
+    fn type_name(&self) -> &'static str {
+        match self {
+            Value::Number(_) => "number",
+            Value::Bool(_)   => "bool",
+            Value::Str(_)    => "string",
+            Value::Array(_)  => "array",
+            Value::Dict(_)   => "dict",
+            Value::None      => "none",
+        }
+    }
+
+    fn is_truthy(&self) -> bool {
+        match self {
+            Value::Bool(b)   => *b,
+            Value::Number(n) => *n != 0.0,
+            Value::Str(s)    => !s.is_empty(),
+            Value::Array(a)  => !a.is_empty(),
+            Value::Dict(d)   => !d.is_empty(),
+            Value::None      => false,
+        }
+    }
+}
+
+// ─────────────────────────────────────────────
+// Control flow signals
+// ─────────────────────────────────────────────
+
+enum Signal {
+    None,
+    Return(Value),
+    Break,
+    Continue,
+}
+
+// ─────────────────────────────────────────────
+// Function definition
+// ─────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 struct FunctionDef {
@@ -15,25 +97,22 @@ struct FunctionDef {
     body: Vec<Stmt>,
 }
 
-#[derive(Debug, Clone)]
+// ─────────────────────────────────────────────
+// Call frame
+// ─────────────────────────────────────────────
+
 struct CallFrame {
     locals: HashMap<String, Value>,
 }
 
-#[derive(Debug, Clone)]
-enum Value {
-    Number(f64),
-    Bool(bool),
-    String(String),
-    Array(Vec<Value>),
-    None,
-}
+// ─────────────────────────────────────────────
+// Interpreter
+// ─────────────────────────────────────────────
 
-enum ControlFlow {
-    None,
-    Return(Value),
-    Break,
-    Continue,
+pub struct Interpreter {
+    globals: HashMap<String, Value>,
+    functions: HashMap<String, FunctionDef>,
+    call_stack: Vec<CallFrame>,
 }
 
 impl Interpreter {
@@ -45,10 +124,11 @@ impl Interpreter {
         }
     }
 
-    pub fn execute(&mut self, program: Vec<Stmt>) {
-        // First pass: collect function definitions
+    // ── public entry point ────────────────────────────────────────────────
+
+    pub fn execute(&mut self, program: Vec<Stmt>) -> WhispemResult<()> {
         for stmt in &program {
-            if let Stmt::Function { name, params, body } = stmt {
+            if let Stmt::Function { name, params, body, .. } = stmt {
                 self.functions.insert(
                     name.clone(),
                     FunctionDef {
@@ -59,534 +139,718 @@ impl Interpreter {
             }
         }
 
-        // Second pass: execute statements
         for stmt in program {
             if !matches!(stmt, Stmt::Function { .. }) {
-                let _ = self.execute_stmt(stmt);
+                match self.exec_stmt(stmt)? {
+                    Signal::Break    => return Err(WhispemError::runtime(ErrorKind::BreakOutsideLoop)),
+                    Signal::Continue => return Err(WhispemError::runtime(ErrorKind::ContinueOutsideLoop)),
+                    Signal::Return(_) | Signal::None => {}
+                }
             }
         }
+        Ok(())
     }
 
-    fn execute_stmt(&mut self, stmt: Stmt) -> ControlFlow {
+    // ── statement execution ───────────────────────────────────────────────
+
+    fn exec_stmt(&mut self, stmt: Stmt) -> WhispemResult<Signal> {
         match stmt {
-            Stmt::Let(name, expr) => {
-                let value = self.eval(expr);
-                if let Some(frame) = self.call_stack.last_mut() {
-                    frame.locals.insert(name, value);
-                } else {
-                    self.globals.insert(name, value);
-                }
-                ControlFlow::None
+            Stmt::Let { name, value, .. } => {
+                let v = self.eval(value)?;
+                self.set_var(name, v);
+                Ok(Signal::None)
             }
-            Stmt::Print(expr) => {
-                let value = self.eval(expr);
-                println!("{}", self.format_value(value));
-                ControlFlow::None
+
+            Stmt::Print { value, .. } => {
+                let v = self.eval(value)?;
+                println!("{}", v.format());
+                Ok(Signal::None)
             }
-            Stmt::If {
-                condition,
-                then_branch,
-                else_branch,
-            } => {
-                let cond = self.eval(condition);
-                if self.is_truthy(&cond) {
-                    for stmt in then_branch {
-                        match self.execute_stmt(stmt) {
-                            ControlFlow::Return(val) => return ControlFlow::Return(val),
-                            ControlFlow::Break => return ControlFlow::Break,
-                            ControlFlow::Continue => return ControlFlow::Continue,
-                            ControlFlow::None => {}
-                        }
-                    }
+
+            Stmt::If { condition, then_branch, else_branch, .. } => {
+                let cond = self.eval(condition)?;
+                if cond.is_truthy() {
+                    self.exec_block(then_branch)
                 } else if let Some(branch) = else_branch {
-                    for stmt in branch {
-                        match self.execute_stmt(stmt) {
-                            ControlFlow::Return(val) => return ControlFlow::Return(val),
-                            ControlFlow::Break => return ControlFlow::Break,
-                            ControlFlow::Continue => return ControlFlow::Continue,
-                            ControlFlow::None => {}
-                        }
-                    }
+                    self.exec_block(branch)
+                } else {
+                    Ok(Signal::None)
                 }
-                ControlFlow::None
             }
-            Stmt::While { condition, body } => {
-                let cond = condition.clone();
-                let body_clone = body.clone();
+
+            Stmt::While { condition, body, .. } => {
                 loop {
-                    let cond_value = self.eval(cond.clone());
-                    if !self.is_truthy(&cond_value) {
+                    let cond = self.eval(condition.clone())?;
+                    if !cond.is_truthy() {
                         break;
                     }
-
-                    for stmt in body_clone.clone() {
-                        match self.execute_stmt(stmt) {
-                            ControlFlow::Return(val) => return ControlFlow::Return(val),
-                            ControlFlow::Break => return ControlFlow::None,
-                            ControlFlow::Continue => break,
-                            ControlFlow::None => {}
-                        }
+                    match self.exec_block(body.clone())? {
+                        Signal::Return(v) => return Ok(Signal::Return(v)),
+                        Signal::Break     => break,
+                        Signal::Continue | Signal::None => {}
                     }
                 }
-                ControlFlow::None
+                Ok(Signal::None)
             }
-            Stmt::For { variable, iterable, body } => {
-                let iter_value = self.eval(iterable);
-                
-                let items = match iter_value {
-                    Value::Array(arr) => arr,
-                    _ => panic!("For loop requires an array"),
+
+            Stmt::For { variable, iterable, body, line } => {
+                let iter_val = self.eval(iterable)?;
+                let items = match iter_val {
+                    Value::Array(a) => a,
+                    other => {
+                        return Err(WhispemError::new(
+                            ErrorKind::TypeError {
+                                expected: "array".to_string(),
+                                found: other.type_name().to_string(),
+                            },
+                            line,
+                            0,
+                        ))
+                    }
                 };
 
                 for item in items {
-                    // Set loop variable
-                    if let Some(frame) = self.call_stack.last_mut() {
-                        frame.locals.insert(variable.clone(), item);
-                    } else {
-                        self.globals.insert(variable.clone(), item);
-                    }
-
-                    // Execute body
-                    for stmt in body.clone() {
-                        match self.execute_stmt(stmt) {
-                            ControlFlow::Return(val) => return ControlFlow::Return(val),
-                            ControlFlow::Break => return ControlFlow::None,
-                            ControlFlow::Continue => break,
-                            ControlFlow::None => {}
-                        }
+                    self.set_var(variable.clone(), item);
+                    match self.exec_block(body.clone())? {
+                        Signal::Return(v) => return Ok(Signal::Return(v)),
+                        Signal::Break     => break,
+                        Signal::Continue | Signal::None => {}
                     }
                 }
-                ControlFlow::None
+                Ok(Signal::None)
             }
-            Stmt::Function { .. } => {
-                // Already collected in first pass
-                ControlFlow::None
-            }
-            Stmt::Return(expr) => {
-                let value = if let Some(e) = expr {
-                    self.eval(e)
+
+            Stmt::Function { .. } => Ok(Signal::None),
+
+            Stmt::Return { value, .. } => {
+                let v = if let Some(e) = value {
+                    self.eval(e)?
                 } else {
                     Value::None
                 };
-                ControlFlow::Return(value)
+                Ok(Signal::Return(v))
             }
-            Stmt::Break => ControlFlow::Break,
-            Stmt::Continue => ControlFlow::Continue,
-            Stmt::IndexAssign { array, index, value } => {
-                let idx = self.eval(index);
-                let val = self.eval(value);
 
-                let idx_num = match idx {
-                    Value::Number(n) => n as usize,
-                    _ => panic!("Array index must be a number"),
-                };
+            Stmt::Break { .. }    => Ok(Signal::Break),
+            Stmt::Continue { .. } => Ok(Signal::Continue),
 
-                // Get mutable reference to the array
-                let array_value = if let Some(frame) = self.call_stack.last_mut() {
-                    frame.locals.get_mut(&array)
-                } else {
-                    self.globals.get_mut(&array)
-                };
+            Stmt::IndexAssign { object, index, value, line } => {
+                let idx_val = self.eval(index)?;
+                let new_val = self.eval(value)?;
 
-                if let Some(Value::Array(arr)) = array_value {
-                    if idx_num >= arr.len() {
-                        panic!("Array index {} out of bounds (array length: {})", idx_num, arr.len());
+                let stored = self
+                    .get_var_mut(&object)
+                    .ok_or_else(|| {
+                        WhispemError::new(ErrorKind::UndefinedVariable(object.clone()), line, 0)
+                    })?;
+
+                match stored {
+                    Value::Array(arr) => {
+                        let idx = to_index(&idx_val, line)?;
+                        let len = arr.len();
+                        if idx >= len {
+                            return Err(WhispemError::new(
+                                ErrorKind::IndexOutOfBounds { index: idx, length: len },
+                                line,
+                                0,
+                            ));
+                        }
+                        arr[idx] = new_val;
                     }
-                    arr[idx_num] = val;
-                } else {
-                    panic!("Variable '{}' is not an array", array);
+                    Value::Dict(map) => {
+                        let key = dict_key(&idx_val, line)?;
+                        map.insert(key, new_val);
+                    }
+                    _ => {
+                        return Err(WhispemError::new(
+                            ErrorKind::TypeError {
+                                expected: "array or dict".to_string(),
+                                found: stored.type_name().to_string(),
+                            },
+                            line,
+                            0,
+                        ))
+                    }
                 }
-
-                ControlFlow::None
+                Ok(Signal::None)
             }
-            Stmt::Expression(expr) => {
-                self.eval(expr);
-                ControlFlow::None
+
+            Stmt::Expression { expr, .. } => {
+                self.eval(expr)?;
+                Ok(Signal::None)
             }
         }
     }
 
-    fn eval(&mut self, expr: Expr) -> Value {
+    fn exec_block(&mut self, stmts: Vec<Stmt>) -> WhispemResult<Signal> {
+        for stmt in stmts {
+            match self.exec_stmt(stmt)? {
+                Signal::None => {}
+                sig => return Ok(sig),
+            }
+        }
+        Ok(Signal::None)
+    }
+
+    // ── variable storage ──────────────────────────────────────────────────
+
+    fn set_var(&mut self, name: String, value: Value) {
+        if let Some(frame) = self.call_stack.last_mut() {
+            frame.locals.insert(name, value);
+        } else {
+            self.globals.insert(name, value);
+        }
+    }
+
+    fn get_var(&self, name: &str) -> Option<&Value> {
+        if let Some(frame) = self.call_stack.last() {
+            if let Some(v) = frame.locals.get(name) {
+                return Some(v);
+            }
+        }
+        self.globals.get(name)
+    }
+
+    fn get_var_mut(&mut self, name: &str) -> Option<&mut Value> {
+        if let Some(frame) = self.call_stack.last_mut() {
+            if frame.locals.contains_key(name) {
+                return frame.locals.get_mut(name);
+            }
+        }
+        self.globals.get_mut(name)
+    }
+
+    // ── expression evaluation ─────────────────────────────────────────────
+
+    fn eval(&mut self, expr: Expr) -> WhispemResult<Value> {
         match expr {
-            Expr::Number(n) => Value::Number(n),
-            Expr::String(s) => Value::String(s),
-            Expr::Bool(b) => Value::Bool(b),
+            Expr::Number(n) => Ok(Value::Number(n)),
+            Expr::Str(s)    => Ok(Value::Str(s)),
+            Expr::Bool(b)   => Ok(Value::Bool(b)),
+
             Expr::Array(elements) => {
-                let values: Vec<Value> = elements.into_iter().map(|e| self.eval(e)).collect();
-                Value::Array(values)
+                let values: WhispemResult<Vec<Value>> =
+                    elements.into_iter().map(|e| self.eval(e)).collect();
+                Ok(Value::Array(values?))
             }
-            Expr::Index { array, index } => {
-                let arr = self.eval(*array);
-                let idx = self.eval(*index);
 
-                let idx_num = match idx {
-                    Value::Number(n) => n as usize,
-                    _ => panic!("Array index must be a number"),
-                };
-
-                match arr {
-                    Value::Array(elements) => {
-                        if idx_num >= elements.len() {
-                            panic!("Array index {} out of bounds (array length: {})", idx_num, elements.len());
-                        }
-                        elements[idx_num].clone()
-                    }
-                    _ => panic!("Cannot index non-array value"),
+            Expr::Dict(pairs) => {
+                let mut map = HashMap::new();
+                for (k_expr, v_expr) in pairs {
+                    let k = self.eval(k_expr)?;
+                    let key = dict_key(&k, 0)?;
+                    let val = self.eval(v_expr)?;
+                    map.insert(key, val);
                 }
+                Ok(Value::Dict(map))
             }
+
             Expr::Variable(name) => {
-                // Check local scope first
-                if let Some(frame) = self.call_stack.last() {
-                    if let Some(value) = frame.locals.get(&name) {
-                        return value.clone();
-                    }
-                }
-                // Then check global scope
-                self.globals
-                    .get(&name)
+                self.get_var(&name)
                     .cloned()
-                    .unwrap_or_else(|| panic!("Undefined variable: {}", name))
+                    .ok_or_else(|| WhispemError::runtime(ErrorKind::UndefinedVariable(name)))
             }
+
+            Expr::Index { object, index } => {
+                let obj = self.eval(*object)?;
+                let idx = self.eval(*index)?;
+                eval_index(obj, idx, 0)
+            }
+
             Expr::Binary { left, op, right } => {
-                let l = self.eval(*left);
-                let r = self.eval(*right);
-                self.eval_binary(l, op, r)
+                let l = self.eval(*left)?;
+                let r = self.eval(*right)?;
+                eval_binary(l, op, r)
             }
+
             Expr::Logical { left, op, right } => {
-                let l = self.eval(*left);
-
-                // Short-circuit evaluation
-                if op == "or" {
-                    if self.is_truthy(&l) {
-                        return l;
+                let l = self.eval(*left)?;
+                match op {
+                    LogicalOp::Or => {
+                        if l.is_truthy() { return Ok(l); }
+                        self.eval(*right)
                     }
-                    return self.eval(*right);
-                } else if op == "and" {
-                    if !self.is_truthy(&l) {
-                        return l;
+                    LogicalOp::And => {
+                        if !l.is_truthy() { return Ok(l); }
+                        self.eval(*right)
                     }
-                    return self.eval(*right);
                 }
-
-                panic!("Unknown logical operator: {}", op);
             }
+
             Expr::Unary { op, operand } => {
-                let value = self.eval(*operand);
-                self.eval_unary(op, value)
+                let v = self.eval(*operand)?;
+                match op {
+                    UnaryOp::Not => Ok(Value::Bool(!v.is_truthy())),
+                    UnaryOp::Neg => match v {
+                        Value::Number(n) => Ok(Value::Number(-n)),
+                        other => Err(WhispemError::runtime(ErrorKind::TypeError {
+                            expected: "number".to_string(),
+                            found: other.type_name().to_string(),
+                        })),
+                    },
+                }
             }
-            Expr::Call { name, arguments } => {
-                // Check for built-in functions
-                match name.as_str() {
-                    "length" => {
-                        if arguments.len() != 1 {
-                            panic!("length() expects exactly 1 argument, got {}", arguments.len());
-                        }
-                        let arg = self.eval(arguments[0].clone());
-                        return match arg {
-                            Value::Array(arr) => Value::Number(arr.len() as f64),
-                            Value::String(s) => Value::Number(s.len() as f64),
-                            _ => panic!("length() requires an array or string"),
-                        };
+
+            Expr::Call { name, arguments, line } => {
+                self.eval_call(name, arguments, line)
+            }
+        }
+    }
+
+    fn eval_call(&mut self, name: String, arguments: Vec<Expr>, line: usize) -> WhispemResult<Value> {
+        match name.as_str() {
+            "length" => {
+                self.check_arity("length", 1, arguments.len(), line)?;
+                let arg = self.eval(arguments.into_iter().next().unwrap())?;
+                return match arg {
+                    Value::Array(a) => Ok(Value::Number(a.len() as f64)),
+                    Value::Str(s)   => Ok(Value::Number(s.len() as f64)),
+                    Value::Dict(d)  => Ok(Value::Number(d.len() as f64)),
+                    other => Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "array, string, or dict".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+            }
+
+            "push" => {
+                self.check_arity("push", 2, arguments.len(), line)?;
+                let mut args = self.eval_args(arguments)?;
+                let item = args.pop().unwrap();
+                let arr  = args.pop().unwrap();
+                return match arr {
+                    Value::Array(mut elements) => {
+                        elements.push(item);
+                        Ok(Value::Array(elements))
                     }
-                    "push" => {
-                        if arguments.len() != 2 {
-                            panic!("push() expects exactly 2 arguments, got {}", arguments.len());
-                        }
-                        let arr = self.eval(arguments[0].clone());
-                        let item = self.eval(arguments[1].clone());
-                        
-                        return match arr {
-                            Value::Array(mut elements) => {
-                                elements.push(item);
-                                Value::Array(elements)
-                            }
-                            _ => panic!("push() requires an array as first argument"),
-                        };
-                    }
-                    "pop" => {
-                        if arguments.len() != 1 {
-                            panic!("pop() expects exactly 1 argument, got {}", arguments.len());
-                        }
-                        let arr = self.eval(arguments[0].clone());
-                        
-                        return match arr {
-                            Value::Array(mut elements) => {
-                                if elements.is_empty() {
-                                    panic!("Cannot pop from empty array");
-                                }
-                                elements.pop().unwrap()
-                            }
-                            _ => panic!("pop() requires an array"),
-                        };
-                    }
-                    "reverse" => {
-                        if arguments.len() != 1 {
-                            panic!("reverse() expects exactly 1 argument, got {}", arguments.len());
-                        }
-                        let arr = self.eval(arguments[0].clone());
-                        
-                        return match arr {
-                            Value::Array(mut elements) => {
-                                elements.reverse();
-                                Value::Array(elements)
-                            }
-                            _ => panic!("reverse() requires an array"),
-                        };
-                    }
-                    "slice" => {
-                        if arguments.len() != 3 {
-                            panic!("slice() expects exactly 3 arguments (array, start, end), got {}", arguments.len());
-                        }
-                        let arr = self.eval(arguments[0].clone());
-                        let start = self.eval(arguments[1].clone());
-                        let end = self.eval(arguments[2].clone());
-                        
-                        let start_idx = match start {
-                            Value::Number(n) => n as usize,
-                            _ => panic!("slice() start index must be a number"),
-                        };
-                        
-                        let end_idx = match end {
-                            Value::Number(n) => n as usize,
-                            _ => panic!("slice() end index must be a number"),
-                        };
-                        
-                        return match arr {
-                            Value::Array(elements) => {
-                                if start_idx > end_idx {
-                                    panic!("slice() start index cannot be greater than end index");
-                                }
-                                if end_idx > elements.len() {
-                                    panic!("slice() end index {} out of bounds (array length: {})", end_idx, elements.len());
-                                }
-                                Value::Array(elements[start_idx..end_idx].to_vec())
-                            }
-                            _ => panic!("slice() requires an array"),
-                        };
-                    }
-                    "range" => {
-                        if arguments.len() != 2 {
-                            panic!("range() expects exactly 2 arguments (start, end), got {}", arguments.len());
-                        }
-                        let start = self.eval(arguments[0].clone());
-                        let end = self.eval(arguments[1].clone());
-                        
-                        let start_num = match start {
-                            Value::Number(n) => n as i64,
-                            _ => panic!("range() start must be a number"),
-                        };
-                        
-                        let end_num = match end {
-                            Value::Number(n) => n as i64,
-                            _ => panic!("range() end must be a number"),
-                        };
-                        
-                        let mut result = Vec::new();
-                        for i in start_num..end_num {
-                            result.push(Value::Number(i as f64));
-                        }
-                        
-                        return Value::Array(result);
-                    }
-                    "input" => {
-                        let prompt = if arguments.is_empty() {
-                            String::new()
-                        } else if arguments.len() == 1 {
-                            let arg = self.eval(arguments[0].clone());
-                            match arg {
-                                Value::String(s) => s,
-                                _ => panic!("input() prompt must be a string"),
-                            }
+                    other => Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "array".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+            }
+
+            "pop" => {
+                self.check_arity("pop", 1, arguments.len(), line)?;
+                let arg = self.eval(arguments.into_iter().next().unwrap())?;
+                return match arg {
+                    Value::Array(mut elements) => {
+                        if elements.is_empty() {
+                            Err(WhispemError::new(ErrorKind::EmptyArray, line, 0))
                         } else {
-                            panic!("input() expects 0 or 1 argument, got {}", arguments.len());
-                        };
-                        
-                        if !prompt.is_empty() {
-                            print!("{}", prompt);
-                            io::stdout().flush().unwrap();
-                        }
-                        
-                        let mut input = String::new();
-                        io::stdin().read_line(&mut input).unwrap();
-                        return Value::String(input.trim().to_string());
-                    }
-                    "read_file" => {
-                        if arguments.len() != 1 {
-                            panic!("read_file() expects exactly 1 argument, got {}", arguments.len());
-                        }
-                        let filename = self.eval(arguments[0].clone());
-                        
-                        let path = match filename {
-                            Value::String(s) => s,
-                            _ => panic!("read_file() requires a string filename"),
-                        };
-                        
-                        match fs::read_to_string(&path) {
-                            Ok(content) => return Value::String(content),
-                            Err(e) => panic!("Failed to read file '{}': {}", path, e),
+                            Ok(elements.pop().unwrap())
                         }
                     }
-                    "write_file" => {
-                        if arguments.len() != 2 {
-                            panic!("write_file() expects exactly 2 arguments (filename, content), got {}", arguments.len());
-                        }
-                        let filename = self.eval(arguments[0].clone());
-                        let content = self.eval(arguments[1].clone());
-                        
-                        let path = match filename {
-                            Value::String(s) => s,
-                            _ => panic!("write_file() filename must be a string"),
-                        };
-                        
-                        let text = match content {
-                            Value::String(s) => s,
-                            _ => self.format_value(content),
-                        };
-                        
-                        match fs::write(&path, text) {
-                            Ok(_) => return Value::None,
-                            Err(e) => panic!("Failed to write file '{}': {}", path, e),
-                        }
+                    other => Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "array".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+            }
+
+            "reverse" => {
+                self.check_arity("reverse", 1, arguments.len(), line)?;
+                let arg = self.eval(arguments.into_iter().next().unwrap())?;
+                return match arg {
+                    Value::Array(mut elements) => {
+                        elements.reverse();
+                        Ok(Value::Array(elements))
                     }
-                    _ => {}
-                }
+                    other => Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "array".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+            }
 
-                // Get the function definition
-                let func = self
-                    .functions
-                    .get(&name)
-                    .cloned()
-                    .unwrap_or_else(|| panic!("Undefined function: {}", name));
+            "slice" => {
+                self.check_arity("slice", 3, arguments.len(), line)?;
+                let mut args = self.eval_args(arguments)?;
+                let end_val   = args.remove(2);
+                let start_val = args.remove(1);
+                let arr_val   = args.remove(0);
 
-                // Check argument count
-                if arguments.len() != func.params.len() {
-                    panic!(
-                        "Function {} expected {} arguments, got {}",
-                        name,
-                        func.params.len(),
-                        arguments.len()
-                    );
-                }
-
-                // Evaluate arguments
-                let arg_values: Vec<Value> = arguments.into_iter().map(|arg| self.eval(arg)).collect();
-
-                // Create new call frame
-                let mut frame = CallFrame {
-                    locals: HashMap::new(),
+                let start = match start_val {
+                    Value::Number(n) => n as usize,
+                    other => return Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "number".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+                let end = match end_val {
+                    Value::Number(n) => n as usize,
+                    other => return Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "number".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
                 };
 
-                // Bind parameters
-                for (param, value) in func.params.iter().zip(arg_values.iter()) {
-                    frame.locals.insert(param.clone(), value.clone());
-                }
-
-                // Push frame onto call stack
-                self.call_stack.push(frame);
-
-                // Execute function body
-                let mut return_value = Value::None;
-                for stmt in func.body {
-                    match self.execute_stmt(stmt) {
-                        ControlFlow::Return(val) => {
-                            return_value = val;
-                            break;
+                return match arr_val {
+                    Value::Array(elements) => {
+                        if start > end {
+                            return Err(WhispemError::new(
+                                ErrorKind::InvalidSlice { start, end },
+                                line, 0,
+                            ));
                         }
-                        ControlFlow::Break => panic!("'break' outside of loop"),
-                        ControlFlow::Continue => panic!("'continue' outside of loop"),
-                        ControlFlow::None => {}
+                        if end > elements.len() {
+                            return Err(WhispemError::new(
+                                ErrorKind::SliceOutOfBounds { end, length: elements.len() },
+                                line, 0,
+                            ));
+                        }
+                        Ok(Value::Array(elements[start..end].to_vec()))
                     }
+                    other => Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "array".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+            }
+
+            "range" => {
+                self.check_arity("range", 2, arguments.len(), line)?;
+                let mut args = self.eval_args(arguments)?;
+                let end_val   = args.remove(1);
+                let start_val = args.remove(0);
+                let start = match start_val {
+                    Value::Number(n) => n as i64,
+                    other => return Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "number".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+                let end = match end_val {
+                    Value::Number(n) => n as i64,
+                    other => return Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "number".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+                let result: Vec<Value> = (start..end).map(|i| Value::Number(i as f64)).collect();
+                return Ok(Value::Array(result));
+            }
+
+            "input" => {
+                if arguments.len() > 1 {
+                    return Err(WhispemError::new(
+                        ErrorKind::ArgumentCount {
+                            name: "input".to_string(),
+                            expected: 1,
+                            got: arguments.len(),
+                        },
+                        line, 0,
+                    ));
                 }
-
-                // Pop frame from call stack
-                self.call_stack.pop();
-
-                return_value
-            }
-        }
-    }
-
-    fn eval_binary(&self, left: Value, op: String, right: Value) -> Value {
-        match (&left, op.as_str(), &right) {
-            // Arithmetic
-            (Value::Number(a), "+", Value::Number(b)) => Value::Number(a + b),
-            (Value::Number(a), "-", Value::Number(b)) => Value::Number(a - b),
-            (Value::Number(a), "*", Value::Number(b)) => Value::Number(a * b),
-            (Value::Number(a), "/", Value::Number(b)) => {
-                if *b == 0.0 {
-                    panic!("Division by zero");
-                }
-                Value::Number(a / b)
-            }
-
-            // String concatenation
-            (Value::String(a), "+", Value::String(b)) => {
-                Value::String(format!("{}{}", a, b))
-            }
-
-            // Comparison (numbers)
-            (Value::Number(a), "Less", Value::Number(b)) => Value::Bool(a < b),
-            (Value::Number(a), "LessEqual", Value::Number(b)) => Value::Bool(a <= b),
-            (Value::Number(a), "Greater", Value::Number(b)) => Value::Bool(a > b),
-            (Value::Number(a), "GreaterEqual", Value::Number(b)) => Value::Bool(a >= b),
-            (Value::Number(a), "EqualEqual", Value::Number(b)) => Value::Bool(a == b),
-            (Value::Number(a), "BangEqual", Value::Number(b)) => Value::Bool(a != b),
-
-            // Comparison (booleans)
-            (Value::Bool(a), "EqualEqual", Value::Bool(b)) => Value::Bool(a == b),
-            (Value::Bool(a), "BangEqual", Value::Bool(b)) => Value::Bool(a != b),
-
-            // Comparison (strings)
-            (Value::String(a), "EqualEqual", Value::String(b)) => Value::Bool(a == b),
-            (Value::String(a), "BangEqual", Value::String(b)) => Value::Bool(a != b),
-
-            _ => panic!(
-                "Unsupported binary operation: {:?} {} {:?}",
-                left, op, right
-            ),
-        }
-    }
-
-    fn eval_unary(&self, op: String, value: Value) -> Value {
-        match op.as_str() {
-            "not" | "!" => Value::Bool(!self.is_truthy(&value)),
-            "-" => match value {
-                Value::Number(n) => Value::Number(-n),
-                _ => panic!("Cannot negate non-number"),
-            },
-            _ => panic!("Unknown unary operator: {}", op),
-        }
-    }
-
-    fn is_truthy(&self, value: &Value) -> bool {
-        match value {
-            Value::Bool(b) => *b,
-            Value::Number(n) => *n != 0.0,
-            Value::String(s) => !s.is_empty(),
-            Value::Array(arr) => !arr.is_empty(),
-            Value::None => false,
-        }
-    }
-
-    fn format_value(&self, value: Value) -> String {
-        match value {
-            Value::Number(n) => {
-                if n.fract() == 0.0 {
-                    format!("{}", n as i64)
+                let prompt = if arguments.is_empty() {
+                    String::new()
                 } else {
-                    n.to_string()
+                    match self.eval(arguments.into_iter().next().unwrap())? {
+                        Value::Str(s) => s,
+                        other => return Err(WhispemError::new(
+                            ErrorKind::TypeError {
+                                expected: "string".to_string(),
+                                found: other.type_name().to_string(),
+                            },
+                            line, 0,
+                        )),
+                    }
+                };
+                if !prompt.is_empty() {
+                    print!("{}", prompt);
+                    io::stdout().flush().unwrap();
                 }
+                let mut buf = String::new();
+                io::stdin().read_line(&mut buf).unwrap();
+                return Ok(Value::Str(
+                    buf.trim_end_matches('\n')
+                       .trim_end_matches('\r')
+                       .to_string(),
+                ));
             }
-            Value::Bool(b) => b.to_string(),
-            Value::String(s) => s,
-            Value::Array(elements) => {
-                let formatted: Vec<String> = elements
-                    .into_iter()
-                    .map(|v| self.format_value(v))
-                    .collect();
-                format!("[{}]", formatted.join(", "))
+
+            "read_file" => {
+                self.check_arity("read_file", 1, arguments.len(), line)?;
+                let path = match self.eval(arguments.into_iter().next().unwrap())? {
+                    Value::Str(s) => s,
+                    other => return Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "string".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+                return fs::read_to_string(&path).map(Value::Str).map_err(|e| {
+                    WhispemError::new(
+                        ErrorKind::FileRead { path: path.clone(), reason: e.to_string() },
+                        line, 0,
+                    )
+                });
             }
-            Value::None => String::new(),
+
+            "write_file" => {
+                self.check_arity("write_file", 2, arguments.len(), line)?;
+                let args = self.eval_args(arguments)?;
+                let path = match &args[0] {
+                    Value::Str(s) => s.clone(),
+                    other => return Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "string".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+                let content = args[1].format();
+                return fs::write(&path, content).map(|_| Value::None).map_err(|e| {
+                    WhispemError::new(
+                        ErrorKind::FileWrite { path: path.clone(), reason: e.to_string() },
+                        line, 0,
+                    )
+                });
+            }
+
+            "keys" => {
+                self.check_arity("keys", 1, arguments.len(), line)?;
+                let arg = self.eval(arguments.into_iter().next().unwrap())?;
+                return match arg {
+                    Value::Dict(map) => {
+                        let mut ks: Vec<Value> =
+                            map.keys().map(|k| Value::Str(k.clone())).collect();
+                        ks.sort_by(|a, b| a.format().cmp(&b.format()));
+                        Ok(Value::Array(ks))
+                    }
+                    other => Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "dict".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+            }
+
+            "values" => {
+                self.check_arity("values", 1, arguments.len(), line)?;
+                let arg = self.eval(arguments.into_iter().next().unwrap())?;
+                return match arg {
+                    Value::Dict(map) => {
+                        let mut pairs: Vec<(String, Value)> = map.into_iter().collect();
+                        pairs.sort_by(|(a, _), (b, _)| a.cmp(b));
+                        Ok(Value::Array(pairs.into_iter().map(|(_, v)| v).collect()))
+                    }
+                    other => Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "dict".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+            }
+
+            "has_key" => {
+                self.check_arity("has_key", 2, arguments.len(), line)?;
+                let args = self.eval_args(arguments)?;
+                return match &args[0] {
+                    Value::Dict(map) => {
+                        let key = dict_key(&args[1], line)?;
+                        Ok(Value::Bool(map.contains_key(&key)))
+                    }
+                    other => Err(WhispemError::new(
+                        ErrorKind::TypeError {
+                            expected: "dict".to_string(),
+                            found: other.type_name().to_string(),
+                        },
+                        line, 0,
+                    )),
+                };
+            }
+
+            _ => {}
         }
+
+        // ── user-defined functions ────────────────────────────────────────
+        let func = self
+            .functions
+            .get(&name)
+            .cloned()
+            .ok_or_else(|| {
+                WhispemError::new(ErrorKind::UndefinedFunction(name.clone()), line, 0)
+            })?;
+
+        self.check_arity(&name, func.params.len(), arguments.len(), line)?;
+
+        let arg_values = self.eval_args(arguments)?;
+
+        let mut frame = CallFrame { locals: HashMap::new() };
+        for (param, value) in func.params.iter().zip(arg_values) {
+            frame.locals.insert(param.clone(), value);
+        }
+
+        self.call_stack.push(frame);
+
+        let mut return_value = Value::None;
+        for stmt in func.body {
+            match self.exec_stmt(stmt)? {
+                Signal::Return(v) => { return_value = v; break; }
+                Signal::Break => {
+                    self.call_stack.pop();
+                    return Err(WhispemError::new(ErrorKind::BreakOutsideLoop, line, 0));
+                }
+                Signal::Continue => {
+                    self.call_stack.pop();
+                    return Err(WhispemError::new(ErrorKind::ContinueOutsideLoop, line, 0));
+                }
+                Signal::None => {}
+            }
+        }
+
+        self.call_stack.pop();
+        Ok(return_value)
+    }
+
+    // ── helpers ───────────────────────────────────────────────────────────
+
+    fn eval_args(&mut self, arguments: Vec<Expr>) -> WhispemResult<Vec<Value>> {
+        arguments.into_iter().map(|a| self.eval(a)).collect()
+    }
+
+    fn check_arity(&self, name: &str, expected: usize, got: usize, line: usize) -> WhispemResult<()> {
+        if got != expected {
+            Err(WhispemError::new(
+                ErrorKind::ArgumentCount {
+                    name: name.to_string(),
+                    expected,
+                    got,
+                },
+                line,
+                0,
+            ))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+// ─────────────────────────────────────────────
+// Free helpers
+// ─────────────────────────────────────────────
+
+fn eval_index(obj: Value, idx: Value, line: usize) -> WhispemResult<Value> {
+    match obj {
+        Value::Array(elements) => {
+            let i = to_index(&idx, line)?;
+            let len = elements.len();
+            if i >= len {
+                return Err(WhispemError::new(
+                    ErrorKind::IndexOutOfBounds { index: i, length: len },
+                    line, 0,
+                ));
+            }
+            Ok(elements[i].clone())
+        }
+        Value::Dict(map) => {
+            let key = dict_key(&idx, line)?;
+            map.get(&key).cloned().ok_or_else(|| {
+                WhispemError::new(
+                    ErrorKind::UndefinedVariable(format!("dict key \"{}\"", key)),
+                    line, 0,
+                )
+            })
+        }
+        other => Err(WhispemError::new(
+            ErrorKind::TypeError {
+                expected: "array or dict".to_string(),
+                found: other.type_name().to_string(),
+            },
+            line, 0,
+        )),
+    }
+}
+
+fn eval_binary(left: Value, op: BinaryOp, right: Value) -> WhispemResult<Value> {
+    match (&left, &op, &right) {
+        (Value::Number(a), BinaryOp::Add, Value::Number(b)) => Ok(Value::Number(a + b)),
+        (Value::Number(a), BinaryOp::Sub, Value::Number(b)) => Ok(Value::Number(a - b)),
+        (Value::Number(a), BinaryOp::Mul, Value::Number(b)) => Ok(Value::Number(a * b)),
+        (Value::Number(a), BinaryOp::Div, Value::Number(b)) => {
+            if *b == 0.0 { return Err(WhispemError::runtime(ErrorKind::DivisionByZero)); }
+            Ok(Value::Number(a / b))
+        }
+        (Value::Number(a), BinaryOp::Mod, Value::Number(b)) => {
+            if *b == 0.0 { return Err(WhispemError::runtime(ErrorKind::DivisionByZero)); }
+            Ok(Value::Number(a % b))
+        }
+        (Value::Str(a), BinaryOp::Add, Value::Str(b))    => Ok(Value::Str(format!("{}{}", a, b))),
+        (Value::Str(a), BinaryOp::Add, other)             => Ok(Value::Str(format!("{}{}", a, other.format()))),
+        (other,         BinaryOp::Add, Value::Str(b))     => Ok(Value::Str(format!("{}{}", other.format(), b))),
+        (Value::Number(a), BinaryOp::Less,         Value::Number(b)) => Ok(Value::Bool(a < b)),
+        (Value::Number(a), BinaryOp::LessEqual,    Value::Number(b)) => Ok(Value::Bool(a <= b)),
+        (Value::Number(a), BinaryOp::Greater,      Value::Number(b)) => Ok(Value::Bool(a > b)),
+        (Value::Number(a), BinaryOp::GreaterEqual, Value::Number(b)) => Ok(Value::Bool(a >= b)),
+        (Value::Number(a), BinaryOp::EqualEqual,   Value::Number(b)) => Ok(Value::Bool(a == b)),
+        (Value::Number(a), BinaryOp::BangEqual,    Value::Number(b)) => Ok(Value::Bool(a != b)),
+        (Value::Str(a), BinaryOp::EqualEqual,   Value::Str(b)) => Ok(Value::Bool(a == b)),
+        (Value::Str(a), BinaryOp::BangEqual,    Value::Str(b)) => Ok(Value::Bool(a != b)),
+        (Value::Str(a), BinaryOp::Less,         Value::Str(b)) => Ok(Value::Bool(a < b)),
+        (Value::Str(a), BinaryOp::LessEqual,    Value::Str(b)) => Ok(Value::Bool(a <= b)),
+        (Value::Str(a), BinaryOp::Greater,      Value::Str(b)) => Ok(Value::Bool(a > b)),
+        (Value::Str(a), BinaryOp::GreaterEqual, Value::Str(b)) => Ok(Value::Bool(a >= b)),
+        (Value::Bool(a), BinaryOp::EqualEqual, Value::Bool(b)) => Ok(Value::Bool(a == b)),
+        (Value::Bool(a), BinaryOp::BangEqual,  Value::Bool(b)) => Ok(Value::Bool(a != b)),
+        _ => Err(WhispemError::runtime(ErrorKind::TypeError {
+            expected: format!("compatible types for {:?}", op),
+            found: format!("{} and {}", left.type_name(), right.type_name()),
+        })),
+    }
+}
+
+fn to_index(v: &Value, line: usize) -> WhispemResult<usize> {
+    match v {
+        Value::Number(n) => Ok(*n as usize),
+        _ => Err(WhispemError::new(ErrorKind::InvalidIndex, line, 0)),
+    }
+}
+
+fn dict_key(v: &Value, line: usize) -> WhispemResult<String> {
+    match v {
+        Value::Str(s)    => Ok(s.clone()),
+        Value::Number(n) => Ok(format!("{}", if n.fract() == 0.0 { *n as i64 as f64 } else { *n })),
+        other => Err(WhispemError::new(
+            ErrorKind::TypeError {
+                expected: "string or number (as dict key)".to_string(),
+                found: other.type_name().to_string(),
+            },
+            line, 0,
+        )),
     }
 }

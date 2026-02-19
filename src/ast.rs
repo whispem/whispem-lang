@@ -1,64 +1,117 @@
+#![allow(dead_code)]
+
 #[derive(Debug, Clone)]
 pub enum Expr {
     Number(f64),
-    String(String),
+    Str(String),
     Bool(bool),
     Variable(String),
     Array(Vec<Expr>),
+    Dict(Vec<(Expr, Expr)>),
     Index {
-        array: Box<Expr>,
+        object: Box<Expr>,
         index: Box<Expr>,
     },
     Binary {
         left: Box<Expr>,
-        op: String,
+        op: BinaryOp,
         right: Box<Expr>,
     },
     Logical {
         left: Box<Expr>,
-        op: String,
+        op: LogicalOp,
         right: Box<Expr>,
     },
     Unary {
-        op: String,
+        op: UnaryOp,
         operand: Box<Expr>,
     },
     Call {
         name: String,
         arguments: Vec<Expr>,
+        line: usize,
     },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BinaryOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    EqualEqual,
+    BangEqual,
+}
+
+#[derive(Debug, Clone)]
+pub enum LogicalOp {
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone)]
+pub enum UnaryOp {
+    Not,
+    Neg,
 }
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    Let(String, Expr),
-    Print(Expr),
+    Let {
+        name: String,
+        value: Expr,
+        line: usize,
+    },
+    Print {
+        value: Expr,
+        line: usize,
+    },
     If {
         condition: Expr,
         then_branch: Vec<Stmt>,
         else_branch: Option<Vec<Stmt>>,
+        line: usize,
     },
     While {
         condition: Expr,
         body: Vec<Stmt>,
+        line: usize,
     },
     For {
         variable: String,
         iterable: Expr,
         body: Vec<Stmt>,
+        line: usize,
     },
     Function {
         name: String,
         params: Vec<String>,
         body: Vec<Stmt>,
+        line: usize,
     },
-    Return(Option<Expr>),
-    Break,
-    Continue,
+    Return {
+        value: Option<Expr>,
+        line: usize,
+    },
+    Break {
+        line: usize,
+    },
+    Continue {
+        line: usize,
+    },
     IndexAssign {
-        array: String,
+        object: String,
         index: Expr,
         value: Expr,
+        line: usize,
     },
-    Expression(Expr),
+    Expression {
+        expr: Expr,
+        line: usize,
+    },
 }

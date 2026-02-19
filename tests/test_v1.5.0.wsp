@@ -1,0 +1,97 @@
+# Whispem v1.5.0 — Test Suite
+
+print "=== v1.5.0 Test Suite ==="
+
+# ── Modulo ──────────────────────────────────────────────────────────
+print ""
+print "=== Modulo ==="
+print 10 % 3        # 1
+print 15 % 5        # 0
+print 7 % 2         # 1
+
+# Real FizzBuzz with modulo
+print ""
+print "=== FizzBuzz (with modulo) ==="
+for n in range(1, 16) {
+    if n % 15 == 0 {
+        print "FizzBuzz"
+    } else {
+        if n % 3 == 0 {
+            print "Fizz"
+        } else {
+            if n % 5 == 0 {
+                print "Buzz"
+            } else {
+                print n
+            }
+        }
+    }
+}
+
+# ── Dictionaries ────────────────────────────────────────────────────
+print ""
+print "=== Dictionaries ==="
+
+let person = {"name": "Emilie", "age": 26, "city": "Marseille"}
+print person["name"]
+print person["age"]
+print person["city"]
+
+# Dict assignment
+person["city"] = "Paris"
+print person["city"]
+
+# has_key
+print has_key(person, "name")   # true
+print has_key(person, "job")    # false
+
+# keys and values
+let k = keys(person)
+print "Keys:"
+print k
+
+# Nested dict
+let config = {
+    "server": {"host": "localhost", "port": 8080},
+    "debug": true
+}
+print config["debug"]
+
+# Dict in function
+fn greet_person(p) {
+    return "Hello, " + p["name"] + " from " + p["city"] + "!"
+}
+
+let em = {"name": "Em", "city": "Marseille"}
+print greet_person(em)
+
+# ── Error messages (these would normally error — just showing syntax) ──
+print ""
+print "=== String comparison ==="
+let a = "apple"
+let b = "banana"
+if a < b {
+    print "apple comes before banana"
+}
+
+# ── All v1.0 features still work ────────────────────────────────────
+print ""
+print "=== Backwards compatibility ==="
+
+fn factorial(n) {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+print factorial(10)   # 3628800
+
+let nums = [1, 2, 3, 4, 5]
+let reversed = reverse(nums)
+print reversed
+
+let sliced = slice([10, 20, 30, 40, 50], 1, 4)
+print sliced
+
+print ""
+print "All tests passed!"

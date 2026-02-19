@@ -1,0 +1,27 @@
+# Modulo operator — examples
+
+# Basics
+print 10 % 3    # 1
+print 15 % 5    # 0
+print 7 % 2     # 1
+print 100 % 7   # 2
+
+# Even numbers only
+fn is_even(n) {
+    return n % 2 == 0
+}
+
+for i in range(1, 9) {
+    if is_even(i) {
+        print i
+    }
+}
+
+# Multiples of 3 between 1 and 20
+print ""
+print "Multiples of 3:"
+for n in range(1, 21) {
+    if n % 3 == 0 {
+        print n
+    }
+}

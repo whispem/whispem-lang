@@ -1,51 +1,54 @@
-use std::env;
-use std::fs;
-
+mod ast;
+mod error;
+mod interpreter;
 mod lexer;
 mod parser;
-mod interpreter;
+mod repl;
 mod token;
-mod ast;
 
+use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
-use interpreter::Interpreter;
-use token::Token;
+use std::env;
+use std::fs;
+use std::process;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 2 {
-        println!("Whispem v1.0.0");
-        println!("Usage: whispem <file.wsp>");
-        return;
-    }
-
-    let filename = &args[1];
-    
-    let input = match fs::read_to_string(filename) {
-        Ok(content) => content,
-        Err(e) => {
-            eprintln!("Error: Failed to read file '{}': {}", filename, e);
-            std::process::exit(1);
+    match args.len() {
+        1 => repl::run_repl(),
+        2 => {
+            let filename = &args[1];
+            let source = fs::read_to_string(filename).unwrap_or_else(|e| {
+                eprintln!("Error: Cannot read '{}': {}", filename, e);
+                process::exit(1);
+            });
+            run_file(&source, filename);
         }
+        _ => {
+            eprintln!("Usage: whispem [file.wsp]");
+            process::exit(1);
+        }
+    }
+}
+
+fn run_file(source: &str, filename: &str) {
+    let mut lexer = Lexer::new(source);
+    let tokens = match lexer.tokenize() {
+        Ok(t) => t,
+        Err(e) => { eprintln!("{}: {}", filename, e); process::exit(1); }
     };
 
-    let mut lexer = Lexer::new(&input);
-    let mut tokens = Vec::new();
-
-    loop {
-        let token = lexer.next_token();
-        if token == Token::EOF {
-            tokens.push(token);
-            break;
-        }
-        tokens.push(token);
-    }
-
     let mut parser = Parser::new(tokens);
-    let program = parser.parse_program();
+    let program = match parser.parse_program() {
+        Ok(p) => p,
+        Err(e) => { eprintln!("{}: {}", filename, e); process::exit(1); }
+    };
 
     let mut interpreter = Interpreter::new();
-    interpreter.execute(program);
+    if let Err(e) = interpreter.execute(program) {
+        eprintln!("{}: {}", filename, e);
+        process::exit(1);
+    }
 }

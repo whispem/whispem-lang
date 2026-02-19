@@ -1,0 +1,32 @@
+# Nested dictionaries via functions
+
+let config = {"host": "localhost", "port": 8080, "debug": true}
+
+print config["host"]
+print config["port"]
+print config["debug"]
+
+fn make_user(name, age, city) {
+    let user = {}
+    user["name"] = name
+    user["age"]  = age
+    user["city"] = city
+    return user
+}
+
+fn greet(user) {
+    return "Hello " + user["name"] + " from " + user["city"] + "!"
+}
+
+let em    = make_user("Em",    26, "Marseille")
+let alice = make_user("Alice", 30, "Paris")
+
+print greet(em)
+print greet(alice)
+
+print ""
+print "Em's profile:"
+let profile_keys = keys(em)
+for k in profile_keys {
+    print k + " = " + em[k]
+}

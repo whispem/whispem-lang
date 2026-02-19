@@ -1,0 +1,35 @@
+# Phone book — practical dictionary example
+
+fn add_contact(book, name, phone) {
+    book[name] = phone
+    return book
+}
+
+fn lookup(book, name) {
+    if has_key(book, name) {
+        return book[name]
+    }
+    return "Contact not found"
+}
+
+fn show_all(book) {
+    print "=== Contacts ==="
+    let contact_keys = keys(book)
+    for name in contact_keys {
+        print name + ": " + book[name]
+    }
+}
+
+let phonebook = {}
+let phonebook = add_contact(phonebook, "Alice", "06 12 34 56 78")
+let phonebook = add_contact(phonebook, "Bob",   "07 98 76 54 32")
+let phonebook = add_contact(phonebook, "Em",    "06 00 00 00 00")
+
+show_all(phonebook)
+
+print ""
+print "Looking up Alice:"
+print lookup(phonebook, "Alice")
+
+print "Looking up Charlie:"
+print lookup(phonebook, "Charlie")

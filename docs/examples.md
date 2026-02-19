@@ -1,24 +1,12 @@
 # Whispem Examples
 
-**Version 1.0.0**
+**Version 1.5.0**
 
 A curated collection of example programs demonstrating the Whispem programming language.
-
-Each example is self-contained, runnable, and focused on a specific language feature. 
-These examples serve as both learning material and reference implementations.
-
----
-
-## Quick Start
 
 Run any example with:
 ```bash
 cargo run examples/<file>.wsp
-```
-
-Or run all examples:
-```bash
-for file in examples/*.wsp; do cargo run "$file"; done
 ```
 
 ---
@@ -28,13 +16,7 @@ for file in examples/*.wsp; do cargo run "$file"; done
 let message = "Hello, Whispem!"
 print message
 ```
-
 **File:** `examples/hello.wsp`
-
-Output:
-```text
-Hello, Whispem!
-```
 
 ---
 
@@ -48,53 +30,53 @@ print x
 print y
 print name
 ```
-
 **File:** `examples/variables.wsp`
-
-Output:
-```text
-10
-20
-Whispem
-```
 
 ---
 
-## Arithmetic Expressions
+## Arithmetic
 ```wsp
 let a = 10
-let b = 5
+let b = 3
 
-let sum = a + b
-let diff = a - b
-let prod = a * b
-let quot = a / b
-
-print sum
-print diff
-print prod
-print quot
-
-# Operator precedence
-let result = 10 + 5 * 2
-print result
-
-# Parentheses
-let result2 = (10 + 5) * 2
-print result2
+print a + b   # 13
+print a - b   # 7
+print a * b   # 30
+print a / b   # 3.333...
+print a % b   # 1  ← modulo
 ```
-
 **File:** `examples/arithmetic.wsp`
 
-Output:
-```text
-15
-5
-50
-2
-20
-30
+---
+
+## Modulo
+```wsp
+# Even numbers between 1 and 10
+for n in range(1, 11) {
+    if n % 2 == 0 {
+        print n
+    }
+}
 ```
+**File:** `examples/modulo.wsp`
+
+---
+
+## FizzBuzz (with modulo)
+```wsp
+for n in range(1, 101) {
+    if n % 15 == 0 {
+        print "FizzBuzz"
+    } else {
+        if n % 3 == 0 { print "Fizz" }
+        else {
+            if n % 5 == 0 { print "Buzz" }
+            else { print n }
+        }
+    }
+}
+```
+**File:** `examples/fizzbuzz_proper.wsp`
 
 ---
 
@@ -102,102 +84,21 @@ Output:
 ```wsp
 let greeting = "Hello"
 let name = "World"
-let message = "Whispem is minimalist"
 
-print greeting
-print name
-print message
-
-# Strings with escape sequences
 let multiline = "Line one\nLine two"
 print multiline
 
 let quoted = "She said \"Hello\""
 print quoted
 
-# String concatenation
-let full_greeting = greeting + ", " + name + "!"
-print full_greeting
+let full = greeting + ", " + name + "!"
+print full
 ```
-
 **File:** `examples/strings.wsp`
 
-Output:
-```text
-Hello
-World
-Whispem is minimalist
-Line one
-Line two
-She said "Hello"
-Hello, World!
-```
-
 ---
 
-## Booleans
-```wsp
-let is_true = true
-let is_false = false
-
-print is_true
-print is_false
-
-let valid = true
-print valid
-```
-
-**File:** `examples/boolean.wsp`
-
-Output:
-```text
-true
-false
-true
-```
-
----
-
-## Comparisons
-```wsp
-let x = 10
-let y = 20
-
-# Less than
-if x < y {
-    print "10 is less than 20"
-}
-
-# Greater than
-if y > x {
-    print "20 is greater than 10"
-}
-
-# Equal
-let a = 5
-if a == 5 {
-    print "a equals 5"
-}
-
-# Not equal
-if x != y {
-    print "x and y are different"
-}
-```
-
-**File:** `examples/comparison.wsp`
-
-Output:
-```text
-10 is less than 20
-20 is greater than 10
-a equals 5
-x and y are different
-```
-
----
-
-## Conditional Execution
+## Conditionals
 ```wsp
 let temperature = 18
 
@@ -206,28 +107,8 @@ if temperature > 20 {
 } else {
     print "It's cool"
 }
-
-# Nested conditions
-let score = 85
-
-if score >= 90 {
-    print "Grade: A"
-} else {
-    if score >= 80 {
-        print "Grade: B"
-    } else {
-        print "Grade: C"
-    }
-}
 ```
-
 **File:** `examples/condition.wsp`
-
-Output:
-```text
-It's cool
-Grade: B
-```
 
 ---
 
@@ -239,151 +120,38 @@ while counter < 5 {
     print counter
     let counter = counter + 1
 }
-
-print "Done!"
 ```
-
 **File:** `examples/while_loop.wsp`
 
-Output:
-```text
-0
-1
-2
-3
-4
-Done!
-```
-
 ---
 
-## Countdown
+## For Loops
 ```wsp
-let countdown = 5
-
-print "Countdown starts:"
-
-while countdown > 0 {
-    print countdown
-    let countdown = countdown - 1
+for num in [1, 2, 3, 4, 5] {
+    print num
 }
 
-print "Liftoff!"
+for i in range(0, 10) {
+    print i
+}
 ```
-
-**File:** `examples/countdown.wsp`
-
-Output:
-```text
-Countdown starts:
-5
-4
-3
-2
-1
-Liftoff!
-```
+**File:** `examples/for_loop.wsp`
 
 ---
 
-## Logical Operators
+## Break and Continue
 ```wsp
-let x = 10
-let y = 20
-
-# Using 'and'
-if x > 5 and y > 15 {
-    print "Both conditions are true"
-}
-
-# Using 'or'
-if x > 100 or y > 15 {
-    print "At least one condition is true"
-}
-
-# Using 'not'
-let is_false = false
-if not is_false {
-    print "Negation works!"
-}
-
-# Complex logical expression
-let a = true
-let b = false
-
-if a and not b {
-    print "a is true AND b is false"
-}
-
-# Combining with comparisons
-let temperature = 25
-
-if temperature > 20 and temperature < 30 {
-    print "Perfect temperature!"
+for num in range(1, 20) {
+    if num > 10 { break }
+    if num % 2 == 0 { continue }
+    print num
 }
 ```
-
-**File:** `examples/logical_operators.wsp`
-
-Output:
-```text
-Both conditions are true
-At least one condition is true
-Negation works!
-a is true AND b is false
-Perfect temperature!
-```
+**File:** `examples/break_continue.wsp`
 
 ---
 
-## FizzBuzz
-```wsp
-let n = 1
-
-while n <= 15 {
-    # Check divisibility by 3 and 5
-    if n == 3 or n == 6 or n == 9 or n == 12 {
-        print "Fizz"
-    } else {
-        if n == 5 or n == 10 {
-            print "Buzz"
-        } else {
-            if n == 15 {
-                print "FizzBuzz"
-            } else {
-                print n
-            }
-        }
-    }
-    
-    let n = n + 1
-}
-```
-
-**File:** `examples/fizzbuzz.wsp`
-
-Output:
-```text
-1
-2
-Fizz
-4
-Buzz
-Fizz
-7
-8
-Fizz
-Buzz
-11
-Fizz
-13
-14
-FizzBuzz
-```
-
----
-
-## Functions - Basic
+## Functions
 ```wsp
 fn greet(name) {
     print "Hello, " + name + "!"
@@ -392,358 +160,206 @@ fn greet(name) {
 greet("World")
 greet("Whispem")
 ```
-
 **File:** `examples/function_basic.wsp`
 
-Output:
-```text
-Hello, World!
-Hello, Whispem!
-```
-
 ---
 
-## Functions - Return Values
-```wsp
-fn add(a, b) {
-    return a + b
-}
-
-fn multiply(x, y) {
-    return x * y
-}
-
-let sum = add(5, 3)
-let product = multiply(4, 7)
-
-print sum
-print product
-
-let result = add(10, multiply(2, 5))
-print result
-```
-
-**File:** `examples/function_return.wsp`
-
-Output:
-```text
-8
-28
-20
-```
-
----
-
-## Functions - Recursion
+## Recursion
 ```wsp
 fn factorial(n) {
-    if n <= 1 {
-        return 1
-    } else {
-        return n * factorial(n - 1)
-    }
+    if n <= 1 { return 1 }
+    return n * factorial(n - 1)
 }
 
-print factorial(5)
-print factorial(6)
-print factorial(10)
+print factorial(5)   # 120
+print factorial(10)  # 3628800
 ```
-
 **File:** `examples/function_recursive.wsp`
 
-Output:
-```text
-120
-720
-3628800
-```
-
 ---
 
-## Functions - No Parameters
-```wsp
-fn say_hello() {
-    print "Hello from a function!"
-}
-
-fn get_pi() {
-    return 3.14159
-}
-
-say_hello()
-let pi = get_pi()
-print pi
-```
-
-**File:** `examples/function_no_params.wsp`
-
-Output:
-```text
-Hello from a function!
-3.14159
-```
-
----
-
-## Arrays - Basic Operations
+## Arrays — Basic
 ```wsp
 let numbers = [1, 2, 3, 4, 5]
 print numbers
 
-let first = numbers[0]
-print first
-
-let last = numbers[4]
-print last
-
-# Array assignment
+print numbers[0]   # 1
 numbers[2] = 10
-print numbers
+print numbers      # [1, 2, 10, 4, 5]
 ```
-
 **File:** `examples/array_basic.wsp`
 
-Output:
-```text
-[1, 2, 3, 4, 5]
-1
-5
-[1, 2, 10, 4, 5]
-```
-
 ---
 
-## Arrays - Iteration
-```wsp
-let numbers = [10, 20, 30, 40, 50]
-let i = 0
-
-print "Array elements:"
-while i < length(numbers) {
-    print numbers[i]
-    let i = i + 1
-}
-```
-
-**File:** `examples/array_iteration.wsp`
-
-Output:
-```text
-Array elements:
-10
-20
-30
-40
-50
-```
-
----
-
-## Arrays - Built-in Functions
+## Arrays — Built-in Functions
 ```wsp
 let items = [1, 2, 3]
 
-# Get length
-let len = length(items)
-print "Length:"
-print len
-
-# Push new element
-let new_items = push(items, 4)
-print "After push:"
-print new_items
-
-# Original array unchanged
-print "Original:"
-print items
-
-# Chain push operations
-let more_items = push(push(push(items, 4), 5), 6)
-print "Chained push:"
-print more_items
+print length(items)              # 3
+print push(items, 4)             # [1, 2, 3, 4]
+print pop([1, 2, 3, 4])          # 4
+print reverse([1, 2, 3])         # [3, 2, 1]
+print slice([1, 2, 3, 4, 5], 1, 4)  # [2, 3, 4]
+print range(0, 5)                # [0, 1, 2, 3, 4]
 ```
-
 **File:** `examples/array_functions.wsp`
-
-Output:
-```text
-Length:
-3
-After push:
-[1, 2, 3, 4]
-Original:
-[1, 2, 3]
-Chained push:
-[1, 2, 3, 4, 5, 6]
-```
 
 ---
 
-## Arrays - With Functions
+## Dictionaries — Basic
 ```wsp
+let person = {"name": "Em", "age": 26, "city": "Marseille"}
+
+print person["name"]           # Em
+person["city"] = "Paris"
+print person["city"]           # Paris
+
+print has_key(person, "name")  # true
+print has_key(person, "phone") # false
+print keys(person)
+print length(person)           # 3
+```
+**File:** `examples/dict_basic.wsp`
+
+---
+
+## Dictionaries — Phonebook
+```wsp
+fn add_contact(book, name, phone) {
+    book[name] = phone
+    return book
+}
+
+fn lookup(book, name) {
+    if has_key(book, name) {
+        return book[name]
+    }
+    return "Contact not found"
+}
+
+let phonebook = {}
+let phonebook = add_contact(phonebook, "Alice", "06 12 34 56 78")
+let phonebook = add_contact(phonebook, "Bob",   "07 98 76 54 32")
+
+print lookup(phonebook, "Alice")
+print lookup(phonebook, "Charlie")
+```
+**File:** `examples/dict_phonebook.wsp`
+
+---
+
+## Dictionaries — Word Counter
+```wsp
+fn count_words(words) {
+    let counts = {}
+    for word in words {
+        if has_key(counts, word) {
+            counts[word] = counts[word] + 1
+        } else {
+            counts[word] = 1
+        }
+    }
+    return counts
+}
+
+let words  = ["rust", "whispem", "rust", "language", "whispem", "rust"]
+let counts = count_words(words)
+
+let word_keys = keys(counts)
+for word in word_keys {
+    print word + ": " + counts[word]
+}
+```
+**File:** `examples/dict_word_count.wsp`
+
+---
+
+## File I/O
+```wsp
+write_file("hello.txt", "Hello from Whispem 1.5!")
+
+let content = read_file("hello.txt")
+print content
+```
+**File:** `examples/file_io.wsp`
+
+---
+
+## User Input
+```wsp
+let name = input("What's your name? ")
+print "Hello, " + name + "!"
+```
+**File:** `examples/user_input.wsp`
+
+---
+
+## Data Processing
+```wsp
+fn filter_positive(numbers) {
+    let result = []
+    for num in numbers {
+        if num > 0 {
+            let result = push(result, num)
+        }
+    }
+    return result
+}
+
 fn sum_array(arr) {
     let total = 0
-    let i = 0
-    
-    while i < length(arr) {
-        let total = total + arr[i]
-        let i = i + 1
+    for num in arr {
+        let total = total + num
     }
-    
     return total
 }
 
-fn find_max(numbers) {
-    let max = numbers[0]
-    let i = 1
-    
-    while i < length(numbers) {
-        if numbers[i] > max {
-            let max = numbers[i]
-        }
-        let i = i + 1
-    }
-    
-    return max
-}
+let data     = [-5, 3, -2, 8, 0, 12, -1, 7]
+let positive = filter_positive(data)
 
-let values = [5, 2, 9, 1, 7, 3]
-
-let total = sum_array(values)
+print "Positive:"
+print positive
 print "Sum:"
-print total
-
-let maximum = find_max(values)
-print "Max:"
-print maximum
+print sum_array(positive)
 ```
-
-**File:** `examples/array_with_functions.wsp`
-
-Output:
-```text
-Sum:
-27
-Max:
-9
-```
+**File:** `examples/data_processing.wsp`
 
 ---
 
-## Arrays - Mixed Types
+## Prime Numbers
 ```wsp
-let mixed = [1, "hello", true, 3.14]
-print mixed
+fn is_prime(n) {
+    if n < 2 { return false }
+    if n == 2 { return true }
 
-# Access different types
-print mixed[0]
-print mixed[1]
-print mixed[2]
-print mixed[3]
-
-# Array of arrays
-let nested = [[1, 2], [3, 4], [5, 6]]
-print nested
-
-let first_row = nested[0]
-print first_row
-
-# Access nested element
-let value = nested[1][0]
-print value
-```
-
-**File:** `examples/array_mixed_types.wsp`
-
-Output:
-```text
-[1, hello, true, 3.14]
-1
-hello
-true
-3.14
-[[1, 2], [3, 4], [5, 6]]
-[1, 2]
-3
-```
-
----
-
-## Arrays - Dynamic Building
-```wsp
-fn make_range(start, end) {
-    let result = []
-    let i = start
-    
-    while i < end {
-        let result = push(result, i)
-        let i = i + 1
+    for i in range(2, n) {
+        let quotient = n / i
+        let product  = i * quotient
+        if product == n { return false }
     }
-    
-    return result
+    return true
 }
 
-fn make_squares(n) {
-    let result = []
-    let i = 1
-    
-    while i <= n {
-        let result = push(result, i * i)
-        let i = i + 1
+print "Primes up to 30:"
+for num in range(2, 31) {
+    if is_prime(num) {
+        print num
     }
-    
-    return result
 }
-
-let range = make_range(0, 5)
-print "Range 0-5:"
-print range
-
-let squares = make_squares(5)
-print "First 5 squares:"
-print squares
 ```
-
-**File:** `examples/array_build_dynamic.wsp`
-
-Output:
-```text
-Range 0-5:
-[0, 1, 2, 3, 4]
-First 5 squares:
-[1, 4, 9, 16, 25]
-```
-
----
-
-## Comments
-```wsp
-# This is a comment
-# Comments start with # and continue to the end of the line
-
-let x = 42  # You can also put comments after code
-
-# Comments are ignored by the interpreter
-# They're useful for documentation and explanations
-
-print x  # Output: 42
-```
-
-**File:** `examples/comments.wsp`
-
-Output:
-```text
-42
-```
+**File:** `examples/prime_numbers.wsp`
 
 ---
 
 ## Notes
 
 - Examples are intentionally small and readable
-- There is no hidden control flow
-- Execution always happens top-to-bottom
-- Each example focuses on a single concept
-- All examples are runnable and tested
+- No hidden control flow — execution is always top-to-bottom
 - Functions must be defined before they are called
 - Arrays use 0-based indexing
+- `push()` returns a new array (original unchanged)
+- Dictionary keys are always strings internally
+
+---
+
+**Whispem v1.5.0 — 37+ examples covering all language features**

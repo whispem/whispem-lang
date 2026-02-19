@@ -1,0 +1,31 @@
+# Word frequency counter using a dictionary
+
+fn count_words(words) {
+    let counts = {}
+    for word in words {
+        if has_key(counts, word) {
+            let current = counts[word]
+            counts[word] = current + 1
+        } else {
+            counts[word] = 1
+        }
+    }
+    return counts
+}
+
+fn show_counts(counts) {
+    let word_keys = keys(counts)
+    for word in word_keys {
+        print word + ": " + counts[word]
+    }
+}
+
+let words = ["rust", "whispem", "rust", "language", "whispem", "rust", "code"]
+
+print "=== Word frequencies ==="
+let counts = count_words(words)
+show_counts(counts)
+
+print ""
+print "Occurrences of 'rust':"
+print counts["rust"]

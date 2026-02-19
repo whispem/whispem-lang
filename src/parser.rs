@@ -1,242 +1,295 @@
-use crate::ast::{Expr, Stmt};
-use crate::token::Token;
+use crate::ast::{BinaryOp, Expr, LogicalOp, Stmt, UnaryOp};
+use crate::error::{ErrorKind, WhispemError, WhispemResult};
+use crate::token::{Spanned, Token};
 
 pub struct Parser {
-    tokens: Vec<Token>,
+    tokens: Vec<Spanned>,
     position: usize,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<Spanned>) -> Self {
         Self { tokens, position: 0 }
     }
 
-    fn current(&self) -> &Token {
-        self.tokens.get(self.position).unwrap_or(&Token::EOF)
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    fn current(&self) -> &Spanned {
+        // The last token is always Eof, so this is always valid.
+        &self.tokens[self.position.min(self.tokens.len() - 1)]
+    }
+
+    fn line(&self) -> usize {
+        self.current().line
     }
 
     fn advance(&mut self) {
-        self.position += 1;
-    }
-
-    fn consume(&mut self, expected: Token) {
-        if *self.current() == expected {
-            self.advance();
-        } else {
-            panic!(
-                "Expected {:?}, found {:?}",
-                expected,
-                self.current()
-            );
+        if self.position + 1 < self.tokens.len() {
+            self.position += 1;
         }
     }
 
-    // =========================
-    // Entry point
-    // =========================
+    fn skip_newlines(&mut self) {
+        while self.current().token == Token::Newline {
+            self.advance();
+        }
+    }
 
-    pub fn parse_program(&mut self) -> Vec<Stmt> {
+    fn consume(&mut self, expected: Token) -> WhispemResult<()> {
+        if self.current().token == expected {
+            self.advance();
+            Ok(())
+        } else {
+            Err(WhispemError::new(
+                ErrorKind::UnexpectedToken {
+                    expected: expected.to_string(),
+                    found: self.current().token.to_string(),
+                },
+                self.current().line,
+                self.current().column,
+            ))
+        }
+    }
+
+    fn consume_identifier(&mut self) -> WhispemResult<String> {
+        if let Token::Identifier(name) = &self.current().token {
+            let name = name.clone();
+            self.advance();
+            Ok(name)
+        } else {
+            Err(WhispemError::new(
+                ErrorKind::UnexpectedToken {
+                    expected: "identifier".to_string(),
+                    found: self.current().token.to_string(),
+                },
+                self.current().line,
+                self.current().column,
+            ))
+        }
+    }
+
+    // ── public entry point ────────────────────────────────────────────────────
+
+    pub fn parse_program(&mut self) -> WhispemResult<Vec<Stmt>> {
         let mut statements = Vec::new();
 
-        while *self.current() != Token::EOF {
-            if *self.current() == Token::Newline {
-                self.advance();
-                continue;
+        loop {
+            self.skip_newlines();
+            if self.current().token == Token::Eof {
+                break;
             }
-            statements.push(self.parse_statement());
+            statements.push(self.parse_statement()?);
         }
 
-        statements
+        Ok(statements)
     }
 
-    // =========================
-    // Statements
-    // =========================
+    // ── statements ────────────────────────────────────────────────────────────
 
-    fn parse_statement(&mut self) -> Stmt {
-        match self.current() {
-            Token::Let => self.parse_let(),
-            Token::Print => self.parse_print(),
-            Token::If => self.parse_if(),
-            Token::While => self.parse_while(),
-            Token::For => self.parse_for(),
-            Token::Fn => self.parse_function(),
-            Token::Return => self.parse_return(),
-            Token::Break => {
+    fn parse_statement(&mut self) -> WhispemResult<Stmt> {
+        match &self.current().token {
+            Token::Let      => self.parse_let(),
+            Token::Print    => self.parse_print(),
+            Token::If       => self.parse_if(),
+            Token::While    => self.parse_while(),
+            Token::For      => self.parse_for(),
+            Token::Fn       => self.parse_function(),
+            Token::Return   => self.parse_return(),
+            Token::Break    => {
+                let line = self.line();
                 self.advance();
-                Stmt::Break
+                Ok(Stmt::Break { line })
             }
             Token::Continue => {
+                let line = self.line();
                 self.advance();
-                Stmt::Continue
+                Ok(Stmt::Continue { line })
             }
+            // Built-ins that can appear as bare statements (write_file, etc.)
             Token::WriteFile | Token::ReadFile => {
-                // Handle built-in functions as statements
-                let name = match self.current() {
-                    Token::WriteFile => "write_file".to_string(),
-                    Token::ReadFile => "read_file".to_string(),
+                let line = self.line();
+                let name = match &self.current().token {
+                    Token::WriteFile => "write_file",
+                    Token::ReadFile  => "read_file",
                     _ => unreachable!(),
-                };
+                }
+                .to_string();
                 self.advance();
-                
-                self.consume(Token::LParen);
-                let mut arguments = Vec::new();
-                
-                if *self.current() != Token::RParen {
-                    arguments.push(self.parse_expression());
-                    while *self.current() == Token::Comma {
-                        self.advance();
-                        arguments.push(self.parse_expression());
-                    }
-                }
-                
-                self.consume(Token::RParen);
-                Stmt::Expression(Expr::Call { name, arguments })
+                let arguments = self.parse_call_args()?;
+                Ok(Stmt::Expression {
+                    expr: Expr::Call { name, arguments, line },
+                    line,
+                })
             }
-            Token::Identifier(_) => {
-                // Check if this is an index assignment or function call
-                let name = if let Token::Identifier(n) = self.current() {
-                    n.clone()
-                } else {
-                    panic!("Expected identifier");
-                };
-                
-                self.advance();
-                
-                if *self.current() == Token::LeftBracket {
-                    self.advance(); // consume '['
-                    let index = self.parse_expression();
-                    self.consume(Token::RightBracket);
-                    self.consume(Token::Equals);
-                    let value = self.parse_expression();
-                    return Stmt::IndexAssign {
-                        array: name,
-                        index,
-                        value,
-                    };
-                }
-                
-                // Handle function call as a statement
-                if *self.current() == Token::LParen {
-                    self.advance(); // consume '('
-                    let mut arguments = Vec::new();
-                    
-                    if *self.current() != Token::RParen {
-                        arguments.push(self.parse_expression());
-                        while *self.current() == Token::Comma {
-                            self.advance();
-                            arguments.push(self.parse_expression());
-                        }
-                    }
-                    
-                    self.consume(Token::RParen);
-                    return Stmt::Expression(Expr::Call { name, arguments });
-                }
-                
-                panic!("Unexpected identifier in statement position");
+            Token::Identifier(_) => self.parse_identifier_stmt(),
+            _ => {
+                Err(WhispemError::new(
+                    ErrorKind::UnexpectedToken {
+                        expected: "statement".to_string(),
+                        found: self.current().token.to_string(),
+                    },
+                    self.current().line,
+                    self.current().column,
+                ))
             }
-            _ => panic!("Unexpected statement: {:?}", self.current()),
         }
     }
 
-    fn parse_let(&mut self) -> Stmt {
+    fn parse_let(&mut self) -> WhispemResult<Stmt> {
+        let line = self.line();
         self.advance(); // consume 'let'
-
-        let name = if let Token::Identifier(name) = self.current() {
-            name.clone()
-        } else {
-            panic!("Expected identifier after let");
-        };
-
-        self.advance();
-        self.consume(Token::Equals);
-
-        let expr = self.parse_expression();
-        Stmt::Let(name, expr)
+        let name = self.consume_identifier()?;
+        self.consume(Token::Equals)?;
+        let value = self.parse_expression()?;
+        Ok(Stmt::Let { name, value, line })
     }
 
-    fn parse_print(&mut self) -> Stmt {
+    fn parse_print(&mut self) -> WhispemResult<Stmt> {
+        let line = self.line();
         self.advance(); // consume 'print'
-        let expr = self.parse_expression();
-        Stmt::Print(expr)
+        let value = self.parse_expression()?;
+        Ok(Stmt::Print { value, line })
     }
 
-    fn parse_if(&mut self) -> Stmt {
+    fn parse_if(&mut self) -> WhispemResult<Stmt> {
+        let line = self.line();
         self.advance(); // consume 'if'
+        let condition = self.parse_expression()?;
+        let then_branch = self.parse_block()?;
 
-        let condition = self.parse_expression();
-        let then_branch = self.parse_block();
-
-        let else_branch = if *self.current() == Token::Else {
-            self.advance(); // consume 'else'
-            Some(self.parse_block())
+        let else_branch = if self.current().token == Token::Else {
+            self.advance();
+            Some(self.parse_block()?)
         } else {
             None
         };
 
-        Stmt::If {
-            condition,
-            then_branch,
-            else_branch,
-        }
+        Ok(Stmt::If { condition, then_branch, else_branch, line })
     }
 
-    fn parse_while(&mut self) -> Stmt {
+    fn parse_while(&mut self) -> WhispemResult<Stmt> {
+        let line = self.line();
         self.advance(); // consume 'while'
-
-        let condition = self.parse_expression();
-        let body = self.parse_block();
-
-        Stmt::While { condition, body }
+        let condition = self.parse_expression()?;
+        let body = self.parse_block()?;
+        Ok(Stmt::While { condition, body, line })
     }
 
-    fn parse_for(&mut self) -> Stmt {
+    fn parse_for(&mut self) -> WhispemResult<Stmt> {
+        let line = self.line();
         self.advance(); // consume 'for'
-
-        let variable = if let Token::Identifier(name) = self.current() {
-            name.clone()
-        } else {
-            panic!("Expected variable name after 'for'");
-        };
-
-        self.advance();
-        self.consume(Token::In);
-
-        let iterable = self.parse_expression();
-        let body = self.parse_block();
-
-        Stmt::For {
-            variable,
-            iterable,
-            body,
-        }
+        let variable = self.consume_identifier()?;
+        self.consume(Token::In)?;
+        let iterable = self.parse_expression()?;
+        let body = self.parse_block()?;
+        Ok(Stmt::For { variable, iterable, body, line })
     }
 
-    fn parse_function(&mut self) -> Stmt {
+    fn parse_function(&mut self) -> WhispemResult<Stmt> {
+        let line = self.line();
         self.advance(); // consume 'fn'
-
-        let name = if let Token::Identifier(name) = self.current() {
-            name.clone()
-        } else {
-            panic!("Expected function name after fn");
-        };
-
-        self.advance();
-        self.consume(Token::LParen);
+        let name = self.consume_identifier()?;
+        self.consume(Token::LParen)?;
 
         let mut params = Vec::new();
-
-        // Parse parameters
-        if *self.current() != Token::RParen {
+        if self.current().token != Token::RParen {
             loop {
-                if let Token::Identifier(param) = self.current() {
-                    params.push(param.clone());
+                params.push(self.consume_identifier()?);
+                if self.current().token == Token::Comma {
                     self.advance();
                 } else {
-                    panic!("Expected parameter name");
+                    break;
                 }
+            }
+        }
+        self.consume(Token::RParen)?;
+        let body = self.parse_block()?;
+        Ok(Stmt::Function { name, params, body, line })
+    }
 
-                if *self.current() == Token::Comma {
+    fn parse_return(&mut self) -> WhispemResult<Stmt> {
+        let line = self.line();
+        self.advance(); // consume 'return'
+
+        let value = if matches!(
+            self.current().token,
+            Token::Newline | Token::RightBrace | Token::Eof
+        ) {
+            None
+        } else {
+            Some(self.parse_expression()?)
+        };
+
+        Ok(Stmt::Return { value, line })
+    }
+
+    fn parse_block(&mut self) -> WhispemResult<Vec<Stmt>> {
+        self.consume(Token::LeftBrace)?;
+        let mut stmts = Vec::new();
+
+        loop {
+            self.skip_newlines();
+            if self.current().token == Token::RightBrace {
+                break;
+            }
+            if self.current().token == Token::Eof {
+                return Err(WhispemError::new(
+                    ErrorKind::UnexpectedEof,
+                    self.current().line,
+                    self.current().column,
+                ));
+            }
+            stmts.push(self.parse_statement()?);
+        }
+
+        self.consume(Token::RightBrace)?;
+        Ok(stmts)
+    }
+
+    /// Handle statements that start with an identifier:
+    /// - array/dict index assignment:  name[expr] = expr
+    /// - function call as statement:   name(args)
+    fn parse_identifier_stmt(&mut self) -> WhispemResult<Stmt> {
+        let line = self.line();
+        let name = self.consume_identifier()?;
+
+        if self.current().token == Token::LeftBracket {
+            // index assignment
+            self.advance();
+            let index = self.parse_expression()?;
+            self.consume(Token::RightBracket)?;
+            self.consume(Token::Equals)?;
+            let value = self.parse_expression()?;
+            return Ok(Stmt::IndexAssign { object: name, index, value, line });
+        }
+
+        if self.current().token == Token::LParen {
+            let arguments = self.parse_call_args()?;
+            return Ok(Stmt::Expression {
+                expr: Expr::Call { name, arguments, line },
+                line,
+            });
+        }
+
+        Err(WhispemError::new(
+            ErrorKind::UnexpectedToken {
+                expected: "'(' or '['".to_string(),
+                found: self.current().token.to_string(),
+            },
+            self.current().line,
+            self.current().column,
+        ))
+    }
+
+    /// Parse `(arg, arg, ...)` — the opening paren must still be current.
+    fn parse_call_args(&mut self) -> WhispemResult<Vec<Expr>> {
+        self.consume(Token::LParen)?;
+        let mut args = Vec::new();
+
+        if self.current().token != Token::RParen {
+            loop {
+                args.push(self.parse_expression()?);
+                if self.current().token == Token::Comma {
                     self.advance();
                 } else {
                     break;
@@ -244,299 +297,226 @@ impl Parser {
             }
         }
 
-        self.consume(Token::RParen);
-
-        let body = self.parse_block();
-
-        Stmt::Function { name, params, body }
+        self.consume(Token::RParen)?;
+        Ok(args)
     }
 
-    fn parse_return(&mut self) -> Stmt {
-        self.advance(); // consume 'return'
+    // ── expressions (precedence climbing) ────────────────────────────────────
 
-        // Check if there's a return value
-        if *self.current() == Token::Newline || *self.current() == Token::RightBrace {
-            return Stmt::Return(None);
-        }
-
-        let expr = self.parse_expression();
-        Stmt::Return(Some(expr))
-    }
-
-    fn parse_block(&mut self) -> Vec<Stmt> {
-        self.consume(Token::LeftBrace);
-
-        let mut statements = Vec::new();
-
-        while *self.current() != Token::RightBrace {
-            if *self.current() == Token::Newline {
-                self.advance();
-                continue;
-            }
-            statements.push(self.parse_statement());
-        }
-
-        self.consume(Token::RightBrace);
-        statements
-    }
-
-    // =========================
-    // Expressions (precedence)
-    // =========================
-
-    fn parse_expression(&mut self) -> Expr {
+    fn parse_expression(&mut self) -> WhispemResult<Expr> {
         self.parse_or()
     }
 
-    fn parse_or(&mut self) -> Expr {
-        let mut expr = self.parse_and();
-
-        while *self.current() == Token::Or {
+    fn parse_or(&mut self) -> WhispemResult<Expr> {
+        let mut expr = self.parse_and()?;
+        while self.current().token == Token::Or {
             self.advance();
-            let right = self.parse_and();
-
+            let right = self.parse_and()?;
             expr = Expr::Logical {
                 left: Box::new(expr),
-                op: "or".to_string(),
+                op: LogicalOp::Or,
                 right: Box::new(right),
             };
         }
-
-        expr
+        Ok(expr)
     }
 
-    fn parse_and(&mut self) -> Expr {
-        let mut expr = self.parse_comparison();
-
-        while *self.current() == Token::And {
+    fn parse_and(&mut self) -> WhispemResult<Expr> {
+        let mut expr = self.parse_comparison()?;
+        while self.current().token == Token::And {
             self.advance();
-            let right = self.parse_comparison();
-
+            let right = self.parse_comparison()?;
             expr = Expr::Logical {
                 left: Box::new(expr),
-                op: "and".to_string(),
+                op: LogicalOp::And,
                 right: Box::new(right),
             };
         }
-
-        expr
+        Ok(expr)
     }
 
-    fn parse_comparison(&mut self) -> Expr {
-        let mut expr = self.parse_addition();
-
-        while matches!(
-            self.current(),
-            Token::Less
-                | Token::LessEqual
-                | Token::Greater
-                | Token::GreaterEqual
-                | Token::EqualEqual
-                | Token::BangEqual
-        ) {
-            let op = format!("{:?}", self.current());
+    fn parse_comparison(&mut self) -> WhispemResult<Expr> {
+        let mut expr = self.parse_addition()?;
+        loop {
+            let op = match self.current().token {
+                Token::Less         => BinaryOp::Less,
+                Token::LessEqual    => BinaryOp::LessEqual,
+                Token::Greater      => BinaryOp::Greater,
+                Token::GreaterEqual => BinaryOp::GreaterEqual,
+                Token::EqualEqual   => BinaryOp::EqualEqual,
+                Token::BangEqual    => BinaryOp::BangEqual,
+                _ => break,
+            };
             self.advance();
-            let right = self.parse_addition();
-
+            let right = self.parse_addition()?;
             expr = Expr::Binary {
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
             };
         }
-
-        expr
+        Ok(expr)
     }
 
-    fn parse_addition(&mut self) -> Expr {
-        let mut expr = self.parse_multiplication();
-
-        while matches!(self.current(), Token::Plus | Token::Minus) {
-            let op = match self.current() {
-                Token::Plus => "+",
-                Token::Minus => "-",
-                _ => unreachable!(),
-            }
-            .to_string();
-
+    fn parse_addition(&mut self) -> WhispemResult<Expr> {
+        let mut expr = self.parse_multiplication()?;
+        loop {
+            let op = match self.current().token {
+                Token::Plus  => BinaryOp::Add,
+                Token::Minus => BinaryOp::Sub,
+                _ => break,
+            };
             self.advance();
-            let right = self.parse_multiplication();
-
+            let right = self.parse_multiplication()?;
             expr = Expr::Binary {
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
             };
         }
-
-        expr
+        Ok(expr)
     }
 
-    fn parse_multiplication(&mut self) -> Expr {
-        let mut expr = self.parse_unary();
-
-        while matches!(self.current(), Token::Star | Token::Slash) {
-            let op = match self.current() {
-                Token::Star => "*",
-                Token::Slash => "/",
-                _ => unreachable!(),
-            }
-            .to_string();
-
+    fn parse_multiplication(&mut self) -> WhispemResult<Expr> {
+        let mut expr = self.parse_unary()?;
+        loop {
+            let op = match self.current().token {
+                Token::Star    => BinaryOp::Mul,
+                Token::Slash   => BinaryOp::Div,
+                Token::Percent => BinaryOp::Mod,
+                _ => break,
+            };
             self.advance();
-            let right = self.parse_unary();
-
+            let right = self.parse_unary()?;
             expr = Expr::Binary {
                 left: Box::new(expr),
                 op,
                 right: Box::new(right),
             };
         }
-
-        expr
+        Ok(expr)
     }
 
-    fn parse_unary(&mut self) -> Expr {
-        if matches!(self.current(), Token::Not | Token::Bang | Token::Minus) {
-            let op = match self.current() {
-                Token::Not => "not",
-                Token::Bang => "!",
-                Token::Minus => "-",
-                _ => unreachable!(),
+    fn parse_unary(&mut self) -> WhispemResult<Expr> {
+        match self.current().token {
+            Token::Not | Token::Bang => {
+                self.advance();
+                let operand = self.parse_unary()?;
+                Ok(Expr::Unary { op: UnaryOp::Not, operand: Box::new(operand) })
             }
-            .to_string();
-
-            self.advance();
-            let operand = self.parse_unary();
-
-            return Expr::Unary {
-                op,
-                operand: Box::new(operand),
-            };
+            Token::Minus => {
+                self.advance();
+                let operand = self.parse_unary()?;
+                Ok(Expr::Unary { op: UnaryOp::Neg, operand: Box::new(operand) })
+            }
+            _ => self.parse_postfix(),
         }
-
-        self.parse_postfix()
     }
 
-    fn parse_postfix(&mut self) -> Expr {
-        let mut expr = self.parse_call();
+    fn parse_postfix(&mut self) -> WhispemResult<Expr> {
+        let mut expr = self.parse_call()?;
 
-        // Handle array indexing
-        while *self.current() == Token::LeftBracket {
-            self.advance(); // consume '['
-            let index = self.parse_expression();
-            self.consume(Token::RightBracket);
-
+        // Chained indexing: expr[i][j]...
+        while self.current().token == Token::LeftBracket {
+            self.advance();
+            let index = self.parse_expression()?;
+            self.consume(Token::RightBracket)?;
             expr = Expr::Index {
-                array: Box::new(expr),
+                object: Box::new(expr),
                 index: Box::new(index),
             };
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn parse_call(&mut self) -> Expr {
-        let expr = self.parse_term();
+    fn parse_call(&mut self) -> WhispemResult<Expr> {
+        let expr = self.parse_term()?;
 
-        // Check if this is a function call
-        if let Expr::Variable(name) = &expr {
-            if *self.current() == Token::LParen {
-                self.advance(); // consume '('
-
-                let mut arguments = Vec::new();
-
-                // Parse arguments
-                if *self.current() != Token::RParen {
-                    loop {
-                        arguments.push(self.parse_expression());
-
-                        if *self.current() == Token::Comma {
-                            self.advance();
-                        } else {
-                            break;
-                        }
-                    }
-                }
-
-                self.consume(Token::RParen);
-
-                return Expr::Call {
-                    name: name.clone(),
-                    arguments,
-                };
+        // If the expression is a variable and is immediately followed by '(',
+        // treat it as a function call.
+        if let Expr::Variable(ref name) = expr {
+            if self.current().token == Token::LParen {
+                let line = self.current().line;
+                let name = name.clone();
+                let arguments = self.parse_call_args()?;
+                return Ok(Expr::Call { name, arguments, line });
             }
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn parse_term(&mut self) -> Expr {
-        match self.current() {
+    fn parse_term(&mut self) -> WhispemResult<Expr> {
+        let spanned = self.current().clone();
+
+        match &spanned.token {
             Token::Number(n) => {
                 let v = *n;
                 self.advance();
-                Expr::Number(v)
+                Ok(Expr::Number(v))
             }
-            Token::String(s) => {
+            Token::Str(s) => {
                 let v = s.clone();
                 self.advance();
-                Expr::String(v)
+                Ok(Expr::Str(v))
             }
             Token::True => {
                 self.advance();
-                Expr::Bool(true)
+                Ok(Expr::Bool(true))
             }
             Token::False => {
                 self.advance();
-                Expr::Bool(false)
+                Ok(Expr::Bool(false))
             }
-            // Handle built-in functions as identifiers
-            Token::Length => {
-                self.advance();
-                Expr::Variable("length".to_string())
-            }
-            Token::Push => {
-                self.advance();
-                Expr::Variable("push".to_string())
-            }
-            Token::Pop => {
-                self.advance();
-                Expr::Variable("pop".to_string())
-            }
-            Token::Reverse => {
-                self.advance();
-                Expr::Variable("reverse".to_string())
-            }
-            Token::Slice => {
-                self.advance();
-                Expr::Variable("slice".to_string())
-            }
-            Token::Range => {
-                self.advance();
-                Expr::Variable("range".to_string())
-            }
-            Token::Input => {
-                self.advance();
-                Expr::Variable("input".to_string())
-            }
-            Token::ReadFile => {
-                self.advance();
-                Expr::Variable("read_file".to_string())
-            }
-            Token::WriteFile => {
-                self.advance();
-                Expr::Variable("write_file".to_string())
-            }
+
+            // Built-in functions used as expressions (length(x), push(a,b), …)
+            Token::Length    => { self.advance(); Ok(Expr::Variable("length".to_string())) }
+            Token::Push      => { self.advance(); Ok(Expr::Variable("push".to_string())) }
+            Token::Pop       => { self.advance(); Ok(Expr::Variable("pop".to_string())) }
+            Token::Reverse   => { self.advance(); Ok(Expr::Variable("reverse".to_string())) }
+            Token::Slice     => { self.advance(); Ok(Expr::Variable("slice".to_string())) }
+            Token::Range     => { self.advance(); Ok(Expr::Variable("range".to_string())) }
+            Token::Input     => { self.advance(); Ok(Expr::Variable("input".to_string())) }
+            Token::ReadFile  => { self.advance(); Ok(Expr::Variable("read_file".to_string())) }
+            Token::WriteFile => { self.advance(); Ok(Expr::Variable("write_file".to_string())) }
+            Token::Keys      => { self.advance(); Ok(Expr::Variable("keys".to_string())) }
+            Token::Values    => { self.advance(); Ok(Expr::Variable("values".to_string())) }
+            Token::HasKey    => { self.advance(); Ok(Expr::Variable("has_key".to_string())) }
+
+            // Array literal
             Token::LeftBracket => {
-                self.advance(); // consume '['
+                self.advance();
                 let mut elements = Vec::new();
-
-                if *self.current() != Token::RightBracket {
+                if self.current().token != Token::RightBracket {
                     loop {
-                        elements.push(self.parse_expression());
+                        elements.push(self.parse_expression()?);
+                        if self.current().token == Token::Comma {
+                            self.advance();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                self.consume(Token::RightBracket)?;
+                Ok(Expr::Array(elements))
+            }
 
-                        if *self.current() == Token::Comma {
+            // Dict literal  {key: value, ...}
+            Token::LeftBrace => {
+                self.advance();
+                self.skip_newlines();
+                let mut pairs = Vec::new();
+
+                if self.current().token != Token::RightBrace {
+                    loop {
+                        self.skip_newlines();
+                        let key = self.parse_expression()?;
+                        self.consume(Token::Colon)?;
+                        let value = self.parse_expression()?;
+                        pairs.push((key, value));
+                        self.skip_newlines();
+                        if self.current().token == Token::Comma {
                             self.advance();
                         } else {
                             break;
@@ -544,21 +524,32 @@ impl Parser {
                     }
                 }
 
-                self.consume(Token::RightBracket);
-                Expr::Array(elements)
+                self.skip_newlines();
+                self.consume(Token::RightBrace)?;
+                Ok(Expr::Dict(pairs))
             }
+
             Token::Identifier(name) => {
                 let v = name.clone();
                 self.advance();
-                Expr::Variable(v)
+                Ok(Expr::Variable(v))
             }
+
             Token::LParen => {
-                self.advance(); // '('
-                let expr = self.parse_expression();
-                self.consume(Token::RParen);
-                expr
+                self.advance();
+                let expr = self.parse_expression()?;
+                self.consume(Token::RParen)?;
+                Ok(expr)
             }
-            _ => panic!("Unexpected expression: {:?}", self.current()),
+
+            _ => Err(WhispemError::new(
+                ErrorKind::UnexpectedToken {
+                    expected: "expression".to_string(),
+                    found: spanned.token.to_string(),
+                },
+                spanned.line,
+                spanned.column,
+            )),
         }
     }
 }
