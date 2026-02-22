@@ -1,8 +1,8 @@
 # Whispem Examples
 
-**Version 1.0.0**
+**Version 1.5.0**
 
-A complete collection of example programs demonstrating all Whispem language features.
+A collection of example programs covering all Whispem language features.
 
 ```bash
 cargo run examples/<file>.wsp
@@ -10,144 +10,134 @@ cargo run examples/<file>.wsp
 
 ---
 
-## 📚 Examples by Category
-
-### Basics
+## Basics
 
 | File | Description |
 |------|-------------|
-| **hello.wsp** | Hello World - your first Whispem program |
-| **variables.wsp** | Variable declaration with `let` |
-| **arithmetic.wsp** | Arithmetic operators and precedence |
-| **strings.wsp** | String literals, escapes, and concatenation |
-| **boolean.wsp** | Boolean values `true` and `false` |
-| **comments.wsp** | Comment syntax with `#` |
+| `hello.wsp` | Hello World — first Whispem program |
+| `variables.wsp` | Variable declaration with `let` |
+| `arithmetic.wsp` | Arithmetic operators and precedence |
+| `strings.wsp` | String literals, escapes, and concatenation |
+| `boolean.wsp` | Boolean values `true` and `false` |
+| `comments.wsp` | Comment syntax with `#` |
+| `modulo.wsp` | Modulo operator `%` and practical uses |
 
 ---
 
-### Control Flow
+## Control Flow
 
 | File | Description |
 |------|-------------|
-| **comparison.wsp** | Comparison operators: `<`, `>`, `<=`, `>=`, `==`, `!=` |
-| **condition.wsp** | Conditional execution with `if/else` |
-| **logical_operators.wsp** | Logical operators: `and`, `or`, `not` |
+| `comparison.wsp` | Comparison operators |
+| `condition.wsp` | `if / else` |
+| `logical_operators.wsp` | `and`, `or`, `not` |
 
 ---
 
-### Loops
+## Loops
 
 | File | Description |
 |------|-------------|
-| **while_loop.wsp** | Basic `while` loop iteration |
-| **for_loop.wsp** | `for` loop with arrays and `range()` |
-| **countdown.wsp** | Countdown example using `while` |
-| **break_continue.wsp** | Loop control with `break` and `continue` |
+| `while_loop.wsp` | Basic `while` loop |
+| `for_loop.wsp` | `for` loop with arrays and `range()` |
+| `countdown.wsp` | Countdown with `while` |
+| `break_continue.wsp` | Loop control with `break` and `continue` |
 
 ---
 
-### Functions
+## Functions
 
 | File | Description |
 |------|-------------|
-| **function_basic.wsp** | Function declaration and calling |
-| **function_return.wsp** | Functions with return values |
-| **function_recursive.wsp** | Recursive functions (factorial) |
-| **function_no_params.wsp** | Functions without parameters |
+| `function_basic.wsp` | Function declaration and calling |
+| `function_return.wsp` | Return values |
+| `function_recursive.wsp` | Recursion — factorial |
+| `function_no_params.wsp` | Functions without parameters |
 
 ---
 
-### Arrays
+## Arrays
 
 | File | Description |
 |------|-------------|
-| **array_basic.wsp** | Array creation, indexing, and assignment |
-| **array_iteration.wsp** | Iterating over arrays |
-| **array_functions.wsp** | Built-in functions: `length()`, `push()` |
-| **array_with_functions.wsp** | Passing arrays to functions |
-| **array_mixed_types.wsp** | Mixed types and nested arrays |
-| **array_build_dynamic.wsp** | Building arrays dynamically |
-| **array_advanced.wsp** | Advanced: `pop()`, `reverse()`, `slice()`, `range()` |
+| `array_basic.wsp` | Creation, indexing, assignment |
+| `array_iteration.wsp` | Iterating over arrays |
+| `array_functions.wsp` | `length()`, `push()` |
+| `array_advanced.wsp` | `pop()`, `reverse()`, `slice()`, `range()` |
+| `array_with_functions.wsp` | Passing arrays to functions |
+| `array_mixed_types.wsp` | Mixed types and nested arrays |
+| `array_build_dynamic.wsp` | Building arrays dynamically |
 
 ---
 
-### I/O
+## Dictionaries
 
 | File | Description |
 |------|-------------|
-| **user_input.wsp** | Reading user input with `input()` |
-| **file_io.wsp** | File operations: `read_file()`, `write_file()` |
+| `dict_basic.wsp` | Creation, access, assignment, `has_key`, `keys`, `values` |
+| `dict_nested.wsp` | Nested dicts and dict-aware functions |
+| `dict_phonebook.wsp` | Practical example — phonebook |
+| `dict_word_count.wsp` | Word frequency counter |
 
 ---
 
-### Complete Programs
+## I/O
 
 | File | Description |
 |------|-------------|
-| **fizzbuzz.wsp** | Classic FizzBuzz implementation |
-| **prime_numbers.wsp** | Prime number generator |
-| **data_processing.wsp** | Data filtering and aggregation |
-| **task_manager.wsp** | Simple task manager application |
-| **interactive_game.wsp** | Number guessing game with user input |
+| `user_input.wsp` | Reading user input with `input()` |
+| `file_io.wsp` | `read_file()` and `write_file()` |
 
 ---
 
-### Test Files
+## Complete Programs
 
-| File | Location | Description |
-|------|----------|-------------|
-| **test_control_flow.wsp** | `examples/` | Tests if/else, comparisons, booleans |
-| **test_v1.0.0.wsp** | `tests/` | Comprehensive v1.0.0 test suite |
+| File | Description |
+|------|-------------|
+| `fizzbuzz.wsp` | FizzBuzz with `while` (v1.0 style) |
+| `fizzbuzz_proper.wsp` | FizzBuzz with modulo — the right way |
+| `prime_numbers.wsp` | Prime number generator |
+| `data_processing.wsp` | Filtering and aggregation |
+| `task_manager.wsp` | Simple task manager |
+| `interactive_game.wsp` | Number guessing game |
 
 ---
 
-## 📖 Learning Path
+## Learning Path
 
 Recommended order for beginners:
 
-1. **hello.wsp** - Start here
-2. **variables.wsp** - Variable basics
-3. **arithmetic.wsp** - Expressions
-4. **strings.wsp** - String handling
-5. **boolean.wsp** - Boolean values
-6. **comparison.wsp** - Comparisons
-7. **condition.wsp** - If/else
-8. **logical_operators.wsp** - and/or/not
-9. **while_loop.wsp** - Basic loops
-10. **for_loop.wsp** - For loops
-11. **function_basic.wsp** - Functions intro
-12. **function_return.wsp** - Return values
-13. **function_recursive.wsp** - Recursion
-14. **array_basic.wsp** - Arrays intro
-15. **array_iteration.wsp** - Loop through arrays
-16. **array_functions.wsp** - Built-in functions
-17. **fizzbuzz.wsp** - Putting it all together
+1. `hello.wsp`
+2. `variables.wsp`
+3. `arithmetic.wsp`
+4. `modulo.wsp`
+5. `strings.wsp`
+6. `boolean.wsp`
+7. `comparison.wsp`
+8. `condition.wsp`
+9. `logical_operators.wsp`
+10. `while_loop.wsp`
+11. `for_loop.wsp`
+12. `break_continue.wsp`
+13. `function_basic.wsp`
+14. `function_return.wsp`
+15. `function_recursive.wsp`
+16. `array_basic.wsp`
+17. `array_functions.wsp`
+18. `dict_basic.wsp`
+19. `dict_word_count.wsp`
+20. `fizzbuzz_proper.wsp`
 
 ---
 
-## 🎯 Quick Test
+## Notes
 
-Run all examples:
-```bash
-for file in examples/*.wsp; do
-    echo "=== $file ==="
-    cargo run "$file"
-done
-```
-
----
-
-## 💡 Tips
-
-- Each example is self-contained and runnable
-- Examples include comments explaining the code
+- All examples are self-contained and runnable
 - Functions must be defined before they are called
 - Arrays use 0-based indexing
-- `push()` returns a new array (original unchanged)
-- Interactive examples (`user_input.wsp`, `interactive_game.wsp`) require terminal input
+- `push()` returns a new array — the original is unchanged
+- Dictionary keys are always strings internally
 
 ---
 
-**Version:** 1.0.0  
-**Examples:** 31 files  
-**Status:** All language features covered
+**Whispem v1.5.0 — all language features covered**
