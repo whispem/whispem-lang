@@ -1,39 +1,32 @@
 # Whispem Tutorial
 
-**Version 1.0.0**
+**Version 1.5.0**
 
-Welcome to Whispem! This tutorial will guide you from your very first program to building complete applications. By the end, you'll understand the entire language and be ready to create your own projects.
+Welcome to Whispem. 
+This tutorial covers the entire language from first program to complete applications. 
+By the end you'll know everything Whispem has to offer — because everything it has to offer fits in a single document.
 
 ---
 
 ## Table of Contents
 
 1. [Getting Started](#getting-started)
-2. [Your First Program](#your-first-program)
-3. [Variables and Types](#variables-and-types)
-4. [Expressions and Operators](#expressions-and-operators)
-5. [Working with Strings](#working-with-strings)
-6. [Control Flow](#control-flow)
-7. [Loops](#loops)
-8. [Functions](#functions)
-9. [Arrays](#arrays)
+2. [Variables and Types](#variables-and-types)
+3. [Expressions and Operators](#expressions-and-operators)
+4. [Strings](#strings)
+5. [Conditionals](#conditionals)
+6. [Loops](#loops)
+7. [Functions](#functions)
+8. [Arrays](#arrays)
+9. [Dictionaries](#dictionaries)
 10. [User Input and File I/O](#user-input-and-file-io)
-11. [Building Complete Programs](#building-complete-programs)
-12. [Next Steps](#next-steps)
+11. [Complete Examples](#complete-examples)
 
 ---
 
 ## Getting Started
 
-### Prerequisites
-
-- Basic familiarity with using a terminal/command line
-- A code editor (VS Code, Sublime Text, or any text editor)
-- Rust installed (to build Whispem)
-
-### Installation
-
-Clone and build Whispem:
+### Install
 
 ```bash
 git clone https://github.com/whispem/whispem-lang.git
@@ -41,128 +34,55 @@ cd whispem-lang
 cargo build --release
 ```
 
-The binary will be at `target/release/whispem`.
-
-### Running Your First Program
-
-Create a file called `test.wsp`:
-
-```wsp
-print "Hello, Whispem!"
-```
-
-Run it:
+### Run a file
 
 ```bash
-cargo run examples/test.wsp
+cargo run examples/hello.wsp
 ```
 
-You should see:
-```
-Hello, Whispem!
-```
+### Interactive REPL
 
-**Congratulations!** You just ran your first Whispem program!
-
----
-
-## Your First Program
-
-Let's understand what happened:
-
-```wsp
-print "Hello, Whispem!"
+```bash
+cargo run
 ```
 
-- `print` is a built-in statement that outputs to the console
-- `"Hello, Whispem!"` is a string (text in double quotes)
-- No semicolons needed—Whispem is line-oriented
-
-### Exercise 1: Modify Your Program
-
-Try changing the message:
-
-```wsp
-print "I'm learning Whispem!"
-print "This is my first program"
 ```
+Whispem v1.5.0 — REPL
+Type 'exit' or press Ctrl-D to quit.
 
-**Output:**
-```
-I'm learning Whispem!
-This is my first program
+>>> let x = 42
+>>> print x
+42
+>>> exit
+Bye!
 ```
 
 ---
 
 ## Variables and Types
 
-### Declaring Variables
-
-Variables store values. Use `let` to create them:
-
 ```wsp
-let name = "Emilie"
-let age = 26
-let is_learning = true
-
-print name
-print age
-print is_learning
+let name = "Whispem"
+let version = 1.5
+let ready = true
 ```
 
-**Output:**
-```
-Emilie
-26
-true
-```
+Variables are declared with `let`. Types are inferred automatically. There are five types:
 
-### Understanding Types
+| Type | Examples |
+|------|----------|
+| `number` | `42`, `3.14`, `-7` |
+| `string` | `"hello"`, `""` |
+| `bool` | `true`, `false` |
+| `array` | `[1, 2, 3]` |
+| `dict` | `{"key": "value"}` |
 
-Whispem has four basic types:
-
-1. **Numbers** (floating point): `42`, `3.14`, `-10`
-2. **Strings**: `"hello"`, `"Whispem"`
-3. **Booleans**: `true`, `false`
-4. **Arrays**: `[1, 2, 3]`, `["a", "b"]`
-
-Types are inferred automatically—you don't need to specify them!
-
-### Reassigning Variables
-
-You can change a variable's value:
+To update a variable, use `let` again:
 
 ```wsp
 let counter = 0
-print counter          # 0
-
-let counter = 10
-print counter          # 10
-
-let counter = counter + 5
-print counter          # 15
-```
-
-**Important:** Each reassignment uses `let` again—it creates a new binding with the same name.
-
-### Exercise 2: Variables Practice
-
-```wsp
-let favorite_color = "blue"
-let lucky_number = 7
-let loves_rust = true
-
-print favorite_color
-print lucky_number
-print loves_rust
-
-# Now change them!
-let favorite_color = "green"
-let lucky_number = 13
-
-print favorite_color
-print lucky_number
+let counter = counter + 1
+print counter   # 1
 ```
 
 ---
@@ -171,253 +91,99 @@ print lucky_number
 
 ### Arithmetic
 
-Whispem supports basic math:
-
 ```wsp
-let a = 10
-let b = 3
-
-print a + b    # 13
-print a - b    # 7
-print a * b    # 30
-print a / b    # 3.333...
+print 10 + 3    # 13
+print 10 - 3    # 7
+print 10 * 3    # 30
+print 10 / 3    # 3.333...
+print 10 % 3    # 1  ← modulo
 ```
 
-### Operator Precedence
-
-Just like in math, multiplication and division happen before addition and subtraction:
+Operator precedence follows standard math rules. Use parentheses when in doubt:
 
 ```wsp
-let result = 10 + 5 * 2
-print result    # 20 (not 30!)
-
-let result2 = (10 + 5) * 2
-print result2   # 30
+print 10 + 5 * 2     # 20
+print (10 + 5) * 2   # 30
 ```
 
-**Rule of thumb:** Use parentheses when in doubt!
-
-### Negative Numbers
-
-Use the `-` operator:
+### Comparisons
 
 ```wsp
-let negative = -42
-let opposite = -negative
-
-print negative    # -42
-print opposite    # 42
+print 10 == 10   # true
+print 10 != 5    # true
+print 10 > 5     # true
+print 10 < 5     # false
+print 10 >= 10   # true
+print 10 <= 9    # false
 ```
 
-### Exercise 3: Calculator
-
-Create a simple calculator:
+### Logic
 
 ```wsp
-let num1 = 15
-let num2 = 4
-
-let sum = num1 + num2
-let difference = num1 - num2
-let product = num1 * num2
-let quotient = num1 / num2
-
-print "Sum:"
-print sum
-print "Difference:"
-print difference
-print "Product:"
-print product
-print "Quotient:"
-print quotient
+print true and false   # false
+print true or false    # true
+print not true         # false
 ```
+
+`and` and `or` short-circuit: they stop evaluating as soon as the result is known.
 
 ---
 
-## Working with Strings
-
-### String Basics
-
-Strings are text in double quotes:
+## Strings
 
 ```wsp
 let greeting = "Hello"
-let name = "World"
+let name = "Whispem"
+
+# Concatenation with +
+print greeting + ", " + name + "!"   # Hello, Whispem!
+
+# Length
+print length("hello")   # 5
 ```
 
-### String Concatenation
-
-Use `+` to join strings:
+### Escape sequences
 
 ```wsp
-let greeting = "Hello"
-let name = "World"
-let message = greeting + ", " + name + "!"
-
-print message    # Hello, World!
+print "Line one\nLine two"
+print "She said \"hello\""
+print "Tab\there"
 ```
 
-### Escape Sequences
-
-Special characters inside strings:
-
-```wsp
-let multiline = "Line 1\nLine 2\nLine 3"
-print multiline
-
-let quoted = "She said \"Hello!\""
-print quoted
-
-let tabbed = "Name:\tEmilie"
-print tabbed
-```
-
-**Output:**
-```
-Line 1
-Line 2
-Line 3
-She said "Hello!"
-Name:	Emilie
-```
-
-**Available escape sequences:**
-- `\n` - newline
-- `\t` - tab
-- `\r` - carriage return
-- `\\` - backslash
-- `\"` - double quote
-
-### String Length
-
-```wsp
-let text = "Whispem"
-let len = length(text)
-print len    # 7
-```
-
-### Exercise 4: Personal Introduction
-
-```wsp
-let first_name = "Emilie"
-let last_name = "Peretti"
-let city = "Marseille"
-
-let intro = "Hello! I'm " + first_name + " " + last_name
-let location = "I live in " + city
-let passion = "I love learning Rust and building languages!"
-
-print intro
-print location
-print passion
-```
+| Sequence | Meaning |
+|----------|---------|
+| `\n` | newline |
+| `\t` | tab |
+| `\r` | carriage return |
+| `\\` | backslash |
+| `\"` | double quote |
 
 ---
 
-## Control Flow
-
-### If/Else Statements
-
-Make decisions in your code:
+## Conditionals
 
 ```wsp
-let temperature = 25
+let temperature = 18
 
 if temperature > 20 {
-    print "It's warm!"
+    print "warm"
 } else {
-    print "It's cool!"
+    print "cool"
 }
 ```
 
-### Comparison Operators
-
-- `<` less than
-- `>` greater than
-- `<=` less than or equal
-- `>=` greater than or equal
-- `==` equal to
-- `!=` not equal to
-
-```wsp
-let x = 10
-let y = 20
-
-if x < y {
-    print "x is smaller"
-}
-
-if x == 10 {
-    print "x equals 10"
-}
-
-if x != y {
-    print "x and y are different"
-}
-```
-
-### Nested Conditions
+Conditions can be chained:
 
 ```wsp
 let score = 85
 
 if score >= 90 {
-    print "Grade: A"
+    print "A"
 } else {
     if score >= 80 {
-        print "Grade: B"
+        print "B"
     } else {
-        if score >= 70 {
-            print "Grade: C"
-        } else {
-            print "Grade: F"
-        }
-    }
-}
-```
-
-### Logical Operators
-
-Combine conditions with `and`, `or`, and `not`:
-
-```wsp
-let age = 26
-let has_license = true
-
-# AND - both conditions must be true
-if age >= 18 and has_license {
-    print "Can drive!"
-}
-
-# OR - at least one condition must be true
-if age < 18 or not has_license {
-    print "Cannot drive"
-}
-
-# NOT - negates a boolean
-let is_raining = false
-if not is_raining {
-    print "No umbrella needed!"
-}
-```
-
-### Exercise 5: Temperature Advisor
-
-```wsp
-let temp = 18
-let is_sunny = true
-
-if temp > 25 {
-    print "It's hot! Stay hydrated."
-} else {
-    if temp > 15 and is_sunny {
-        print "Perfect weather for a walk!"
-    } else {
-        if temp < 10 {
-            print "It's cold! Wear a jacket."
-        } else {
-            print "It's mild."
-        }
+        print "C"
     }
 }
 ```
@@ -426,92 +192,37 @@ if temp > 25 {
 
 ## Loops
 
-### While Loops
-
-Repeat code while a condition is true:
+### While
 
 ```wsp
-let counter = 0
-
-while counter < 5 {
-    print counter
-    let counter = counter + 1
-}
-
-print "Done!"
-```
-
-**Output:**
-```
-0
-1
-2
-3
-4
-Done!
-```
-
-### For Loops
-
-Iterate over arrays:
-
-```wsp
-for number in [1, 2, 3, 4, 5] {
-    print number
-}
-```
-
-**Output:**
-```
-1
-2
-3
-4
-5
-```
-
-### Using range()
-
-Generate number sequences:
-
-```wsp
-for i in range(0, 10) {
+let i = 0
+while i < 5 {
     print i
+    let i = i + 1
 }
+# prints 0 1 2 3 4
 ```
 
-**Output:** 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
-
-### Break and Continue
-
-Control loop flow:
+### For
 
 ```wsp
-# Break - exit the loop early
-for num in range(1, 20) {
-    if num > 10 {
-        break
-    }
-    print num
+for item in ["apple", "banana", "cherry"] {
+    print item
 }
 
-# Continue - skip to next iteration
-for num in range(1, 10) {
-    if num == 5 {
-        continue
-    }
-    print num
+for n in range(0, 5) {
+    print n
 }
+# prints 0 1 2 3 4
 ```
 
-### Exercise 6: Multiplication Table
+### Break and continue
 
 ```wsp
-let number = 7
-
-for i in range(1, 11) {
-    let result = number * i
-    print result
+for n in range(1, 20) {
+    if n > 10 { break }
+    if n % 2 == 0 { continue }
+    print n   # prints odd numbers: 1 3 5 7 9
 }
 ```
 
@@ -519,601 +230,269 @@ for i in range(1, 11) {
 
 ## Functions
 
-### Defining Functions
-
-Group reusable code:
-
 ```wsp
 fn greet(name) {
-    print "Hello, " + name + "!"
+    return "Hello, " + name + "!"
 }
 
-greet("Emilie")
-greet("World")
+print greet("world")   # Hello, world!
 ```
 
-**Output:**
-```
-Hello, Emilie!
-Hello, World!
-```
-
-### Return Values
-
-Functions can return values:
-
-```wsp
-fn add(a, b) {
-    return a + b
-}
-
-let sum = add(5, 3)
-print sum    # 8
-```
-
-### Multiple Parameters
-
-```wsp
-fn calculate_area(width, height) {
-    return width * height
-}
-
-let area = calculate_area(10, 5)
-print area    # 50
-```
-
-### Functions Without Parameters
-
-```wsp
-fn say_hello() {
-    print "Hello from a function!"
-}
-
-fn get_pi() {
-    return 3.14159
-}
-
-say_hello()
-let pi = get_pi()
-print pi
-```
-
-### Recursion
-
-Functions can call themselves:
+Functions can call themselves (recursion):
 
 ```wsp
 fn factorial(n) {
-    if n <= 1 {
-        return 1
-    }
+    if n <= 1 { return 1 }
     return n * factorial(n - 1)
 }
 
 print factorial(5)    # 120
-print factorial(6)    # 720
+print factorial(10)   # 3628800
 ```
 
-### Exercise 7: Temperature Converter
+Functions without a return value implicitly return `none`:
 
 ```wsp
-fn celsius_to_fahrenheit(celsius) {
-    return celsius * 9 / 5 + 32
+fn say(msg) {
+    print msg
 }
 
-fn fahrenheit_to_celsius(fahrenheit) {
-    return (fahrenheit - 32) * 5 / 9
-}
-
-let temp_c = 25
-let temp_f = celsius_to_fahrenheit(temp_c)
-print "25°C in Fahrenheit:"
-print temp_f
-
-let back_to_c = fahrenheit_to_celsius(temp_f)
-print "Back to Celsius:"
-print back_to_c
+say("hi")
 ```
 
 ---
 
 ## Arrays
 
-### Creating Arrays
-
-```wsp
-let numbers = [1, 2, 3, 4, 5]
-let names = ["Alice", "Bob", "Charlie"]
-let mixed = [1, "hello", true, 3.14]
-let empty = []
-```
-
-### Accessing Elements
-
-Use `[index]` (0-based indexing):
+### Creating and indexing
 
 ```wsp
 let fruits = ["apple", "banana", "cherry"]
 
-print fruits[0]    # apple
-print fruits[1]    # banana
-print fruits[2]    # cherry
+print fruits[0]   # apple
+print fruits[2]   # cherry
+print length(fruits)   # 3
 ```
 
-### Modifying Elements
+### Modifying elements
 
 ```wsp
-let numbers = [1, 2, 3]
-numbers[1] = 10
-
-print numbers    # [1, 10, 3]
+let scores = [10, 20, 30]
+scores[1] = 99
+print scores   # [10, 99, 30]
 ```
 
-### Array Functions
-
-**length()** - get array size:
+### Built-in array functions
 
 ```wsp
-let items = [1, 2, 3, 4, 5]
-let size = length(items)
-print size    # 5
+let nums = [1, 2, 3]
+
+let nums = push(nums, 4)          # [1, 2, 3, 4]
+let last = pop([1, 2, 3])         # 3
+let rev  = reverse([1, 2, 3])     # [3, 2, 1]
+let mid  = slice([1,2,3,4,5], 1, 4)  # [2, 3, 4]
+let seq  = range(0, 5)            # [0, 1, 2, 3, 4]
 ```
 
-**push()** - add element (returns new array):
+### Iterating
 
 ```wsp
-let numbers = [1, 2, 3]
-let numbers = push(numbers, 4)
-print numbers    # [1, 2, 3, 4]
-```
-
-**pop()** - remove last element:
-
-```wsp
-let items = [1, 2, 3, 4]
-let last = pop(items)
-print last    # 4
-```
-
-**reverse()** - reverse array:
-
-```wsp
-let nums = [1, 2, 3, 4, 5]
-let reversed = reverse(nums)
-print reversed    # [5, 4, 3, 2, 1]
-```
-
-**slice()** - get sub-array:
-
-```wsp
-let data = [10, 20, 30, 40, 50]
-let middle = slice(data, 1, 4)
-print middle    # [20, 30, 40]
-```
-
-**range()** - generate sequence:
-
-```wsp
-let nums = range(0, 5)
-print nums    # [0, 1, 2, 3, 4]
-```
-
-### Iterating Over Arrays
-
-```wsp
-let colors = ["red", "green", "blue"]
-
-for color in colors {
-    print color
+let total = 0
+for n in [10, 20, 30, 40] {
+    let total = total + n
 }
+print total   # 100
 ```
 
-### Nested Arrays
+---
+
+## Dictionaries
+
+Dictionaries store key-value pairs. Keys are always strings.
+
+### Creating and accessing
 
 ```wsp
-let matrix = [[1, 2], [3, 4], [5, 6]]
-print matrix[0]       # [1, 2]
-print matrix[1][0]    # 3
+let person = {"name": "Em", "city": "Marseille", "age": 26}
+
+print person["name"]   # Em
+print person["age"]    # 26
 ```
 
-### Exercise 8: Array Processing
+### Adding and updating keys
 
 ```wsp
-fn sum_array(arr) {
-    let total = 0
-    for num in arr {
-        let total = total + num
-    }
-    return total
+person["city"] = "Paris"      # update
+person["job"] = "developer"   # add new key
+
+print person["city"]   # Paris
+```
+
+### Built-in dict functions
+
+```wsp
+let d = {"b": 2, "a": 1, "c": 3}
+
+print has_key(d, "a")   # true
+print has_key(d, "z")   # false
+print keys(d)           # [a, b, c]  (sorted)
+print values(d)         # [1, 2, 3]  (sorted by key)
+print length(d)         # 3
+```
+
+### Dicts in functions
+
+```wsp
+fn describe(person) {
+    return person["name"] + " lives in " + person["city"]
 }
 
-fn find_max(arr) {
-    let max = arr[0]
-    for num in arr {
-        if num > max {
-            let max = num
+let em = {"name": "Em", "city": "Marseille"}
+print describe(em)   # Em lives in Marseille
+```
+
+### Practical example — word counter
+
+```wsp
+fn count_words(words) {
+    let counts = {}
+    for word in words {
+        if has_key(counts, word) {
+            counts[word] = counts[word] + 1
+        } else {
+            counts[word] = 1
         }
     }
-    return max
+    return counts
 }
 
-let numbers = [5, 2, 9, 1, 7, 3]
+let words = ["rust", "whispem", "rust", "rust", "whispem"]
+let counts = count_words(words)
 
-let sum = sum_array(numbers)
-print "Sum:"
-print sum
-
-let max = find_max(numbers)
-print "Max:"
-print max
+for word in keys(counts) {
+    print word + ": " + counts[word]
+}
+# a: 1
+# rust: 3
+# whispem: 2
 ```
 
 ---
 
 ## User Input and File I/O
 
-### Reading User Input
-
 ```wsp
+# Read from stdin
 let name = input("What's your name? ")
 print "Hello, " + name + "!"
 
-let age = input("How old are you? ")
-print "You are " + age + " years old."
-```
+# Write to file
+write_file("output.txt", "Hello from Whispem!")
 
-### Writing to Files
-
-```wsp
-let message = "Hello from Whispem!"
-write_file("output.txt", message)
-print "File written!"
-```
-
-### Reading from Files
-
-```wsp
+# Read from file
 let content = read_file("output.txt")
-print "File contents:"
 print content
 ```
 
-### Exercise 9: Guest Book
-
-```wsp
-# Collect guest information
-let name = input("Enter your name: ")
-let message = input("Leave a message: ")
-
-# Create entry
-let entry = name + ": " + message + "\n"
-
-# Write to file
-write_file("guestbook.txt", entry)
-
-print "Thank you! Your message has been saved."
-```
-
 ---
 
-## Building Complete Programs
+## Complete Examples
 
-### Project 1: Number Guessing Game
+### FizzBuzz
 
 ```wsp
-let secret = 7
-let attempts = 0
-let found = false
-
-print "=== Number Guessing Game ==="
-print "I'm thinking of a number between 1 and 10"
-
-while not found {
-    let guess_str = input("Enter your guess: ")
-    let attempts = attempts + 1
-    
-    # Simple number conversion
-    let guess = 0
-    if guess_str == "1" { let guess = 1 }
-    if guess_str == "2" { let guess = 2 }
-    if guess_str == "3" { let guess = 3 }
-    if guess_str == "4" { let guess = 4 }
-    if guess_str == "5" { let guess = 5 }
-    if guess_str == "6" { let guess = 6 }
-    if guess_str == "7" { let guess = 7 }
-    if guess_str == "8" { let guess = 8 }
-    if guess_str == "9" { let guess = 9 }
-    if guess_str == "10" { let guess = 10 }
-    
-    if guess == secret {
-        print "Correct! You found it!"
-        let found = true
+for n in range(1, 101) {
+    if n % 15 == 0 {
+        print "FizzBuzz"
     } else {
-        if guess < secret {
-            print "Too low! Try again."
+        if n % 3 == 0 {
+            print "Fizz"
         } else {
-            print "Too high! Try again."
+            if n % 5 == 0 {
+                print "Buzz"
+            } else {
+                print n
+            }
         }
-    }
-}
-
-print "Game over! Total attempts: " + guess_str
-```
-
-### Project 2: Todo List Manager
-
-```wsp
-fn show_menu() {
-    print ""
-    print "=== Todo List ==="
-    print "1. Show tasks"
-    print "2. Add task"
-    print "3. Remove last task"
-    print "4. Exit"
-}
-
-fn show_tasks(tasks) {
-    if length(tasks) == 0 {
-        print "No tasks yet!"
-        return
-    }
-    
-    print ""
-    print "Your tasks:"
-    let i = 1
-    for task in tasks {
-        print i
-        print ". " + task
-        let i = i + 1
-    }
-}
-
-# Main program
-let tasks = []
-let running = true
-
-print "Welcome to Whispem Todo!"
-
-while running {
-    show_menu()
-    let choice = input("Choose an option: ")
-    
-    if choice == "1" {
-        show_tasks(tasks)
-    }
-    
-    if choice == "2" {
-        let task = input("Enter task: ")
-        let tasks = push(tasks, task)
-        print "Task added!"
-    }
-    
-    if choice == "3" {
-        if length(tasks) > 0 {
-            let removed = pop(tasks)
-            print "Removed: " + removed
-        } else {
-            print "No tasks to remove!"
-        }
-    }
-    
-    if choice == "4" {
-        let running = false
-        print "Goodbye!"
     }
 }
 ```
 
-### Project 3: Data Analyzer
+### Phonebook
 
 ```wsp
-fn filter_positive(numbers) {
+fn add(book, name, number) {
+    book[name] = number
+    return book
+}
+
+fn lookup(book, name) {
+    if has_key(book, name) {
+        return book[name]
+    }
+    return "not found"
+}
+
+let phonebook = {}
+let phonebook = add(phonebook, "Alice", "06 12 34 56 78")
+let phonebook = add(phonebook, "Bob",   "07 98 76 54 32")
+
+print lookup(phonebook, "Alice")    # 06 12 34 56 78
+print lookup(phonebook, "Charlie")  # not found
+
+for name in keys(phonebook) {
+    print name + ": " + phonebook[name]
+}
+```
+
+### Data processing
+
+```wsp
+fn filter(numbers, threshold) {
     let result = []
-    for num in numbers {
-        if num > 0 {
-            let result = push(result, num)
+    for n in numbers {
+        if n > threshold {
+            let result = push(result, n)
         }
     }
     return result
 }
 
-fn calculate_average(arr) {
-    if length(arr) == 0 {
-        return 0
-    }
-    
+fn sum(numbers) {
     let total = 0
-    for num in arr {
-        let total = total + num
+    for n in numbers {
+        let total = total + n
     }
-    
-    return total / length(arr)
+    return total
 }
 
-fn find_min_max(arr) {
-    let min = arr[0]
-    let max = arr[0]
-    
-    for num in arr {
-        if num < min {
-            let min = num
-        }
-        if num > max {
-            let max = num
-        }
-    }
-    
-    print "Min: " + min
-    print "Max: " + max
+fn average(numbers) {
+    if length(numbers) == 0 { return 0 }
+    return sum(numbers) / length(numbers)
 }
 
-# Main program
-let data = [-5, 3, -2, 8, 0, 12, -1, 7, 4]
+let data = [3, 17, 2, 41, 8, 25, 6, 33]
+let high = filter(data, 10)
 
-print "Original data:"
-print data
+print "Values above 10:"
+print high
 
-let positive = filter_positive(data)
-print ""
-print "Positive numbers:"
-print positive
+print "Sum:"
+print sum(high)
 
-let avg = calculate_average(positive)
-print ""
-print "Average of positive numbers:"
-print avg
-
-print ""
-find_min_max(positive)
+print "Average:"
+print average(high)
 ```
 
 ---
 
-## Next Steps
+## What's next
 
-Congratulations! You've completed the Whispem tutorial. You now know:
+You've seen the whole language. Everything Whispem has is in this document.
 
-- Variables and types  
-- Expressions and operators  
-- Strings and concatenation  
-- Control flow (if/else)  
-- Loops (while, for, break, continue)  
-- Functions and recursion  
-- Arrays and array operations  
-- User input and file I/O  
-- Building complete programs
+From here:
+- Browse the `examples/` directory for more runnable programs
+- Read `docs/syntax.md` for the complete reference
+- Open the REPL and experiment
 
-### What to Do Next
-
-1. **Build Your Own Projects**
-   - Create a calculator
-   - Build a text-based game
-   - Make a file organizer
-   - Write a data processor
-
-2. **Explore the Examples**
-   - Check out `examples/` directory
-   - Study the code patterns
-   - Modify and experiment
-
-3. **Read the Documentation**
-   - `docs/syntax.md` - Complete syntax reference
-   - `docs/examples.md` - More code examples
-   - `docs/vision.md` - Language philosophy
-
-4. **Join the Community**
-   - Report bugs on GitHub Issues
-   - Share your projects
-   - Ask questions in Discussions
-
-5. **Challenge Yourself**
-   - Implement a sorting algorithm
-   - Create a simple database
-   - Build a text adventure game
-   - Write a Markdown parser
-
-### Learning Resources
-
-- **The Whispem Repository**: [github.com/whispem/whispem-lang](https://github.com/whispem/whispem-lang)
-- **Syntax Reference**: `docs/syntax.md`
-- **Example Programs**: `examples/` directory
-
-### Tips for Success
-
-- **Write code every day** - even just 10 minutes!
-- **Read error messages carefully** - they tell you exactly what's wrong
-- **Start small** - build simple things first
-- **Experiment** - try things out, break stuff, learn
-- **Have fun** - programming should be enjoyable!
-
----
-
-## Common Patterns
-
-### Input Validation
-
-```wsp
-let valid = false
-
-while not valid {
-    let input = input("Enter a number 1-10: ")
-    
-    # Check if valid
-    let num = 0
-    if input == "1" { let num = 1; let valid = true }
-    if input == "2" { let num = 2; let valid = true }
-    # ... etc
-    
-    if not valid {
-        print "Invalid input! Try again."
-    }
-}
-```
-
-### Building Dynamic Arrays
-
-```wsp
-fn build_sequence(start, count) {
-    let result = []
-    let i = 0
-    
-    while i < count {
-        let result = push(result, start + i)
-        let i = i + 1
-    }
-    
-    return result
-}
-
-let nums = build_sequence(10, 5)
-print nums    # [10, 11, 12, 13, 14]
-```
-
-### Menu Systems
-
-```wsp
-let running = true
-
-while running {
-    print "1. Option A"
-    print "2. Option B"
-    print "3. Exit"
-    
-    let choice = input("Choose: ")
-    
-    if choice == "1" {
-        # Do option A
-    }
-    if choice == "2" {
-        # Do option B
-    }
-    if choice == "3" {
-        let running = false
-    }
-}
-```
-
----
-
-## Final Thoughts
-
-> *"Whispem whispers intent, not shout complexity. Code should be quiet, clear, and calm."*
-
-You've learned a complete programming language! The skills you've gained here—logic, problem-solving, structured thinking—transfer to any language.
-
-Remember:
-- Every expert was once a beginner
-- Making mistakes is how you learn
-- The best way to learn is by building
-
-Now go create something amazing! 
-
----
-
-**Happy coding!**
-
-*— Emilie Peretti*
-
-**Version:** 1.0.0  
-**Tutorial Status:** Complete  
-**Your Status:** Ready to build!
+**Whispem v1.5.0**
