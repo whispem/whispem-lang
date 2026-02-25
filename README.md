@@ -2,7 +2,7 @@
 
 ![Logo Whispem](https://imgur.com/YDjrAKR.png)
 
-[![Version](https://img.shields.io/badge/version-1.5.0-cyan.svg)](https://github.com/whispem/whispem-lang/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0-cyan.svg)](https://github.com/whispem/whispem-lang/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > *Whisper your intent. The machine listens.*
