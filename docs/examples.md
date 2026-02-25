@@ -1,12 +1,17 @@
 # Whispem Examples
 
-**Version 1.5.0**
+**Version 2.0.0**
 
-A curated collection of example programs demonstrating the Whispem programming language.
+A curated collection of example programs covering all Whispem language features.
 
 Run any example with:
 ```bash
 cargo run examples/<file>.wsp
+```
+
+Inspect compiled bytecode with:
+```bash
+cargo run -- --dump examples/<file>.wsp
 ```
 
 ---
@@ -195,12 +200,12 @@ print numbers      # [1, 2, 10, 4, 5]
 ```wsp
 let items = [1, 2, 3]
 
-print length(items)              # 3
-print push(items, 4)             # [1, 2, 3, 4]
-print pop([1, 2, 3, 4])          # 4
-print reverse([1, 2, 3])         # [3, 2, 1]
-print slice([1, 2, 3, 4, 5], 1, 4)  # [2, 3, 4]
-print range(0, 5)                # [0, 1, 2, 3, 4]
+print length(items)                      # 3
+print push(items, 4)                     # [1, 2, 3, 4]
+print pop([1, 2, 3, 4])                  # 4
+print reverse([1, 2, 3])                 # [3, 2, 1]
+print slice([1, 2, 3, 4, 5], 1, 4)      # [2, 3, 4]
+print range(0, 5)                        # [0, 1, 2, 3, 4]
 ```
 **File:** `examples/array_functions.wsp`
 
@@ -265,8 +270,7 @@ fn count_words(words) {
 let words  = ["rust", "whispem", "rust", "language", "whispem", "rust"]
 let counts = count_words(words)
 
-let word_keys = keys(counts)
-for word in word_keys {
+for word in keys(counts) {
     print word + ": " + counts[word]
 }
 ```
@@ -276,7 +280,7 @@ for word in word_keys {
 
 ## File I/O
 ```wsp
-write_file("hello.txt", "Hello from Whispem 1.5!")
+write_file("hello.txt", "Hello from Whispem 2.0!")
 
 let content = read_file("hello.txt")
 print content
@@ -353,13 +357,13 @@ for num in range(2, 31) {
 
 ## Notes
 
-- Examples are intentionally small and readable
-- No hidden control flow — execution is always top-to-bottom
-- Functions must be defined before they are called
+- Examples are self-contained and runnable
+- Functions can be called before they are defined (forward calls work since v2.0.0)
 - Arrays use 0-based indexing
-- `push()` returns a new array (original unchanged)
+- `push()` returns a new array — the original is unchanged
 - Dictionary keys are always strings internally
+- Use `--dump` to inspect the bytecode of any example
 
 ---
 
-**Whispem v1.5.0 — 37+ examples covering all language features**
+**Whispem v2.0.0**

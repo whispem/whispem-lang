@@ -1,0 +1,59 @@
+# Types et print
+let x = 42
+let s = "hello"
+let b = true
+print x
+print s
+print b
+
+# Arithmétique
+print 2 + 3
+print 10 / 4
+print 10 % 3
+
+# String concat
+print "foo" + "bar"
+
+# Condition
+if x > 10 {
+    print "big"
+} else {
+    print "small"
+}
+
+# While
+let i = 0
+while i < 3 {
+    print i
+    let i = i + 1
+}
+
+# For + range
+for n in range(0, 5) {
+    print n
+}
+
+# Fonction
+fn double(n) {
+    return n * 2
+}
+print double(7)
+
+# Récursion
+fn factorial(n) {
+    if n <= 1 { return 1 }
+    return n * factorial(n - 1)
+}
+print factorial(5)
+
+# Array + index assignment
+let arr = [10, 20, 30]
+arr[1] = 99
+print arr[0]
+print arr[1]
+print arr[2]
+
+# Dict
+let d = {"a": 1, "b": 2}
+print has_key(d, "a")
+print has_key(d, "z")

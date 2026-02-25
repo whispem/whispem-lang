@@ -1,6 +1,5 @@
-# Whispem v1.5.0 — Test Suite
-
-print "=== v1.5.0 Test Suite ==="
+# Whispem v2.0.0 — Test Suite
+print "=== v2.0.0 Test Suite ==="
 
 # ── Modulo ──────────────────────────────────────────────────────────
 print ""
@@ -9,9 +8,9 @@ print 10 % 3        # 1
 print 15 % 5        # 0
 print 7 % 2         # 1
 
-# Real FizzBuzz with modulo
+# ── FizzBuzz ────────────────────────────────────────────────────────
 print ""
-print "=== FizzBuzz (with modulo) ==="
+print "=== FizzBuzz ==="
 for n in range(1, 16) {
     if n % 15 == 0 {
         print "FizzBuzz"
@@ -31,13 +30,12 @@ for n in range(1, 16) {
 # ── Dictionaries ────────────────────────────────────────────────────
 print ""
 print "=== Dictionaries ==="
-
 let person = {"name": "Emilie", "age": 26, "city": "Marseille"}
 print person["name"]
 print person["age"]
 print person["city"]
 
-# Dict assignment
+# Dict index assignment (fixed in v2.0.0 — SET_INDEX now mutates correctly)
 person["city"] = "Paris"
 print person["city"]
 
@@ -61,11 +59,19 @@ print config["debug"]
 fn greet_person(p) {
     return "Hello, " + p["name"] + " from " + p["city"] + "!"
 }
-
 let em = {"name": "Em", "city": "Marseille"}
 print greet_person(em)
 
-# ── Error messages (these would normally error — just showing syntax) ──
+# ── Array index assignment ───────────────────────────────────────────
+print ""
+print "=== Array index assignment ==="
+let arr = [10, 20, 30, 40, 50]
+arr[0] = 99
+arr[4] = 1
+print arr[0]    # 99
+print arr[4]    # 1
+
+# ── String comparison ────────────────────────────────────────────────
 print ""
 print "=== String comparison ==="
 let a = "apple"
@@ -74,7 +80,17 @@ if a < b {
     print "apple comes before banana"
 }
 
-# ── All v1.0 features still work ────────────────────────────────────
+# ── Bytecode VM — bare function calls (POP tested implicitly) ────────
+print ""
+print "=== Bare function calls ==="
+fn side_effect(msg) {
+    print msg
+    return 42
+}
+side_effect("called once")
+side_effect("called twice")
+
+# ── Backwards compatibility ──────────────────────────────────────────
 print ""
 print "=== Backwards compatibility ==="
 
@@ -92,6 +108,17 @@ print reversed
 
 let sliced = slice([10, 20, 30, 40, 50], 1, 4)
 print sliced
+
+# break / continue
+print ""
+print "=== Break / Continue ==="
+let i = 0
+while i < 10 {
+    let i = i + 1
+    if i % 2 == 0 { continue }
+    if i > 7 { break }
+    print i   # 1 3 5 7
+}
 
 print ""
 print "All tests passed!"

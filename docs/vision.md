@@ -1,39 +1,39 @@
 # Whispem Vision
 
-**Version 1.5.0**
+**Version 2.0.0**
 
 Whispem is not designed to compete with large general-purpose languages.
 
-It is designed to be **understandable in its entirety**.
+It is designed to be **understandable in its entirety** — including its own implementation.
 
 ---
 
 ## Philosophy
 
+> *Code should whisper intent, not shout complexity.*
+
 Whispem values:
 
 - Clarity over cleverness
 - Explicitness over magic
-- Calm readability
 - Small, intentional feature sets
+- Calm readability
 
-Every feature must justify its existence.
+Every feature must justify its existence. Every design decision asks: *would a future Whispem program be able to do this too?*
 
 ---
 
-## Why an interpreter?
+## Why a bytecode VM?
 
-Whispem is interpreted by design.
+Whispem v2.0.0 compiles source code to bytecode and runs it on a stack-based virtual machine — instead of walking the AST directly.
 
-This allows:
+This is how Python, Lua, and Ruby work under the hood. The benefits:
 
-- Immediate feedback
-- Simple execution model
-- Easier experimentation
-- Full control over language semantics
+- **Separation of concerns** — the compiler and the runtime are independent
+- **Inspectability** — `--dump` shows the compiled bytecode in human-readable form
+- **Bootstrappability** — the VM is simple enough that a Whispem program could eventually target it
 
-Performance is not the primary goal.
-Understanding is.
+The VM has 31 opcodes. The entire instruction set fits on one page. See [`docs/vm.md`](vm.md) for the complete specification.
 
 ---
 
@@ -45,38 +45,36 @@ Whispem avoids:
 - Hidden state
 - Complex syntax
 - Unnecessary abstractions
-- Syntactic sugar without purpose
+- Features that exist just because other languages have them
 
-If something can be explained simply, it should be.
+The entire language fits in your head:
 
----
-
-## Growth Model
-
-Whispem grew in layers:
-
-1. Expressions
-2. Variables
-3. Control flow (if/else)
-4. Loops (while)
-5. Logic (and/or/not)
-6. Functions
-7. Collections (arrays)
-8. Advanced loops (for, break, continue)
-9. I/O (input, files)
-10. Quality (error messages)
-11. Dictionaries
-12. Modulo operator
-13. REPL
-14. Proper error system (Result, line/column)
-
-Each layer remained stable before the next was added.
+- **14 keywords**
+- **12 built-in functions**
+- **5 data types**
+- **31 VM opcodes**
 
 ---
 
-## Design Principles
+## How Whispem grew
 
-### 1. Readability First
+Each version added one layer. Each layer stayed stable before the next was added.
+
+| Version | What was added |
+|---------|----------------|
+| 0.1–0.5 | Expressions, variables, control flow |
+| 0.6–0.7 | Booleans, loops, logic |
+| 0.8 | Functions and recursion |
+| 0.9 | Arrays |
+| 1.0.0 | `for`, `break`, `continue`, file I/O, complete error messages |
+| 1.5.0 | Dictionaries, modulo, interactive REPL, error overhaul |
+| **2.0.0** | **Bytecode compiler, stack VM, `--dump`, `docs/vm.md`** |
+
+---
+
+## Design principles
+
+### Readability first
 
 Code should read like intent:
 
@@ -85,8 +83,7 @@ fn count_words(words) {
     let counts = {}
     for word in words {
         if has_key(counts, word) {
-            let current = counts[word]
-            counts[word] = current + 1
+            counts[word] = counts[word] + 1
         } else {
             counts[word] = 1
         }
@@ -95,78 +92,43 @@ fn count_words(words) {
 }
 ```
 
-### 2. No Surprises
+### No surprises
 
 What you see is what you get:
 
-- No operator overloading (except `+` for strings)
-- No implicit conversions
+- No operator overloading (except `+` for string concatenation)
+- No implicit type conversions
 - No hidden mutations
-- Explicit, located error messages
+- Error messages with line and column numbers
 
-### 3. Small Surface Area
+### Teachable by design
 
-The entire language fits in your head:
-
-- 14 keywords
-- 12 built-in functions
-- 12 operators
-- 5 data types
-
-### 4. Teachable
-
-Someone new to programming can write their first program in 5 minutes, understand the full language in a weekend, and read the entire implementation in an afternoon.
+Someone new to programming can:
+- Write their first program in 5 minutes
+- Understand the full language in a weekend
+- Read the entire implementation in an afternoon
+- Inspect compiled bytecode with `--dump`
 
 ---
 
-## What Whispem Is Not
+## Roadmap
 
-Whispem is **not**:
+### [x] 2.0.0 — Bytecode VM
 
-- A systems programming language
-- Performance-focused
-- Trying to replace Python, JavaScript, or Rust
-- Aiming for maximum expressiveness
-
-Whispem **is**:
-
-- A teaching tool
-- An exploration of minimalism
-- A language you can fully understand
-- Production-ready for scripting and learning
-
----
-
-## Post-1.5.0 Roadmap
-
-### v2.0.0 — Bytecode VM
-
-The real architectural leap. Instead of walking the AST directly, compile to bytecode and run on a small VM. This is how Python, Lua, and Ruby work under the hood.
+Compile to bytecode, run on a stack machine. Proper call frames, constants pool, disassembler.
 
 ```
 Source → Lexer → Parser → AST → Compiler → Bytecode → VM
 ```
 
-Benefits: real performance, proper stack traces, debugger possible.
+### 2.5.0 — Bytecode serialisation + test suite
 
-### v2.5.0 — Optional Typing
+Write compiled bytecode to disk (`.whbc` files). Re-execute without recompiling. Richer error spans. Automated test suite.
 
-Not full static types — optional annotations like TypeScript:
+### 3.0.0 — Self-hosting
 
-```wsp
-fn add(a: number, b: number) -> number {
-    return a + b
-}
-```
+The Whispem compiler written in Whispem, targeting the WVM. The symbolic milestone that defines a "real" language.
 
-Ignored if absent, checked if present. Opens the door to a real LSP and VS Code extension.
+---
 
-### v3.0.0 — Self-hosting
-
-The lexer and parser of Whispem written in Whispem. The symbolic milestone that defines a "real" language.
-
-**Version:** 1.5.0  
-**Status:** Complete  
-**Philosophy:** Whisper, don't shout.
-
-**Whispem — Simple. Clear. Complete.**
+**Whispem v2.0.0 — Simple. Explicit. Bootstrappable.**

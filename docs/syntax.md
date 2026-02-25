@@ -1,10 +1,10 @@
 # Whispem Syntax Reference
 
-**Version 1.5.0**
+**Version 2.0.0**
 
-This document provides a complete reference for the Whispem programming language syntax.
+Complete reference for the Whispem programming language syntax.
 
-Whispem is line-oriented and whitespace-tolerant. There are no semicolons.
+Whispem is line-oriented. No semicolons. Blocks delimited by `{` and `}`.
 
 ---
 
@@ -31,30 +31,35 @@ Whispem is line-oriented and whitespace-tolerant. There are no semicolons.
 
 ## Variables
 
-Variables are declared using `let`.
+Variables are declared using `let`:
+
 ```wsp
 let x = 10
 let name = "Whispem"
-let is_valid = true
+let ready = true
 ```
 
-Variables can be reassigned:
+To update a variable, use `let` again:
+
 ```wsp
 let counter = 0
 let counter = counter + 1
 ```
 
+There is no bare assignment — only `let x = expr` and `x[i] = expr`.
+
 ---
 
 ## Types
 
-Whispem supports these types:
-
-- **Numbers** (floating point): `42`, `3.14`, `-10`
-- **Strings** (with escape sequences): `"hello"`, `"line\n"`
-- **Booleans**: `true`, `false`
-- **Arrays** (ordered collections): `[1, 2, 3]`, `["a", "b"]`
-- **Dictionaries** (key-value maps): `{"key": value}`
+| Type | Examples | Notes |
+|------|----------|-------|
+| `number` | `42`, `3.14`, `-7` | All numbers are `f64` |
+| `string` | `"hello"`, `""` | UTF-8 |
+| `bool` | `true`, `false` | |
+| `array` | `[1, "two", true]` | Ordered, mixed types |
+| `dict` | `{"key": "value"}` | Keys are always strings |
+| `none` | — | Returned by void functions |
 
 Types are inferred automatically.
 
@@ -62,60 +67,45 @@ Types are inferred automatically.
 
 ## Arrays
 
-### Array Literals
+### Literals
 
 ```wsp
 let numbers = [1, 2, 3, 4, 5]
-let names   = ["Alice", "Bob", "Charlie"]
-let mixed   = [1, "hello", true, [1, 2, 3]]
+let names   = ["Alice", "Bob"]
+let mixed   = [1, "hello", true]
 let empty   = []
 ```
 
-### Array Indexing
-
-Access elements with `[index]` (0-based):
-```wsp
-let numbers = [10, 20, 30]
-let first   = numbers[0]   # 10
-let second  = numbers[1]   # 20
-```
-
-### Array Assignment
+### Indexing (0-based)
 
 ```wsp
-let numbers = [1, 2, 3]
-numbers[0] = 10
-print numbers  # [10, 2, 3]
+let fruits = ["apple", "banana", "cherry"]
+print fruits[0]   # apple
+print fruits[2]   # cherry
 ```
+
+### Index assignment
+
+```wsp
+let scores = [10, 20, 30]
+scores[1] = 99
+print scores   # [10, 99, 30]
+```
+
+Under the hood, `scores[1] = 99` compiles to `LOAD`, `GET_INDEX`, `SET_INDEX`, `STORE` — the array is mutated and written back.
 
 ---
 
 ## Dictionaries
 
-### Dictionary Literals
+### Literals
 
 ```wsp
 let person = {"name": "Em", "age": 26, "city": "Marseille"}
 let empty  = {}
 ```
 
-Keys must be strings or numbers. Values can be any type.
-
-### Dictionary Access
-
-```wsp
-print person["name"]   # Em
-print person["age"]    # 26
-```
-
-### Dictionary Assignment
-
-```wsp
-person["city"] = "Paris"   # update existing key
-person["job"]  = "developer"  # add new key
-```
-
-### Multi-line Dictionary
+Keys must be strings. Values can be any type. Multi-line syntax is supported:
 
 ```wsp
 let config = {
@@ -125,83 +115,107 @@ let config = {
 }
 ```
 
+### Access
+
+```wsp
+print person["name"]   # Em
+print person["age"]    # 26
+```
+
+### Assignment
+
+```wsp
+person["city"] = "Paris"       # update existing key
+person["job"]  = "developer"   # add new key
+```
+
 ---
 
 ## Expressions
 
-### Arithmetic Operators
+### Arithmetic
 
 ```wsp
-let x = 10 + 5 * 2    # 20
-let y = (10 + 5) * 2  # 30
-let r = 17 % 5        # 2
+10 + 5    # 15
+10 - 5    # 5
+10 * 5    # 50
+10 / 3    # 3.333...
+10 % 3    # 1  ← modulo
 ```
 
-- `+` addition (also string concatenation)
-- `-` subtraction
-- `*` multiplication
-- `/` division
-- `%` modulo
-
-### Unary Operators
+### Unary
 
 ```wsp
-let negative = -42
-let opposite = not true
+let n = -42
+let b = not true
+```
+
+### String concatenation
+
+```wsp
+"Hello" + ", " + "world!"
+```
+
+Numbers and booleans are converted to string automatically when concatenated with a string:
+
+```wsp
+print "Count: " + 42   # Count: 42
 ```
 
 ---
 
 ## Comparisons
 
-- `<` less than
-- `>` greater than
-- `<=` less than or equal
-- `>=` greater than or equal
-- `==` equal to
-- `!=` not equal to
+| Operator | Meaning |
+|----------|---------|
+| `==` | equal |
+| `!=` | not equal |
+| `<` | less than |
+| `<=` | less than or equal |
+| `>` | greater than |
+| `>=` | greater than or equal |
 
-```wsp
-if x > 5 {
-    print x
-}
-
-if name == "Whispem" {
-    print "Correct!"
-}
-```
+Works on numbers, strings (lexicographic), and booleans.
 
 ---
 
 ## Logical Operators
 
-- `and` — both conditions must be true
-- `or` — at least one condition must be true
-- `not` — negates a boolean
-
 ```wsp
-if x > 5 and x < 15 {
-    print "x is in range"
-}
-
-if not is_error {
-    print "No errors!"
-}
+a and b   # true if both truthy
+a or b    # true if at least one truthy
+not a     # negates
 ```
 
 **Short-circuit evaluation:**
-- `and` stops if the left side is false
-- `or` stops if the left side is true
+- `and` stops if the left side is falsy
+- `or` stops if the left side is truthy
+
+**Truthiness:** a value is falsy if it is `false`, `0`, `""`, `[]`, `{}`, or `none`. Everything else is truthy.
 
 ---
 
 ## Conditionals
 
 ```wsp
-if x < 10 {
-    print x
+if condition {
+    ...
 } else {
-    print 10
+    ...
+}
+```
+
+The `else` branch is optional. There is no `else if` — nest another `if` inside `else`:
+
+```wsp
+if score >= 90 {
+    print "A"
+} else {
+    if score >= 80 {
+        print "B"
+    } else {
+        print "C"
+    }
 }
 ```
 
@@ -209,21 +223,20 @@ if x < 10 {
 
 ## Loops
 
-### While Loops
+### While
 
 ```wsp
-let counter = 0
-
-while counter < 5 {
-    print counter
-    let counter = counter + 1
+let i = 0
+while i < 5 {
+    print i
+    let i = i + 1
 }
 ```
 
-### For Loops
+### For
 
 ```wsp
-for item in [1, 2, 3, 4, 5] {
+for item in [1, 2, 3] {
     print item
 }
 
@@ -232,13 +245,15 @@ for i in range(0, 10) {
 }
 ```
 
-### Break and Continue
+`for` desugars to a counter-based while loop at compile time. The iterable must be an array.
+
+### Break and continue
 
 ```wsp
-for num in range(1, 100) {
-    if num > 10 { break }
-    if num % 2 == 0 { continue }
-    print num
+for n in range(1, 100) {
+    if n > 10 { break }
+    if n % 2 == 0 { continue }
+    print n
 }
 ```
 
@@ -251,117 +266,85 @@ fn greet(name) {
     return "Hello, " + name + "!"
 }
 
+print greet("world")
+```
+
+### Recursion
+
+```wsp
 fn factorial(n) {
     if n <= 1 { return 1 }
     return n * factorial(n - 1)
 }
-
-print greet("World")
-print factorial(5)  # 120
 ```
 
-### Variable Scope
+### Return values
 
-```wsp
-let x = 10  # global
+A function with no explicit `return` returns `none`. A bare `return` also returns `none`.
 
-fn test() {
-    let y = 20  # local
-    print x     # can access global
-    print y
-}
-```
+### Scope
+
+- Variables declared at the top level go into globals
+- Variables declared inside a function go into that function's locals
+- Functions have read access to globals (copied in at call time)
+- Functions cannot mutate globals — there is no bare assignment statement
+
+### Forward calls
+
+Functions are compiled in a first pass before the main program. You can call a function defined later in the file.
 
 ---
 
 ## Strings
 
-### Escape Sequences
+### Escape sequences
 
-- `\n` — newline
-- `\t` — tab
-- `\r` — carriage return
-- `\\` — backslash
-- `\"` — double quote
+| Sequence | Character |
+|----------|-----------|
+| `\n` | newline |
+| `\t` | tab |
+| `\r` | carriage return |
+| `\\` | backslash |
+| `\"` | double quote |
 
 ### Concatenation
 
 ```wsp
-let greeting = "Hello, " + "World!"
+let full = "Hello" + ", " + "world!"
 ```
 
 ---
 
 ## Built-in Functions
 
-### Array Functions
+Built-ins are resolved at call time by the VM before checking user-defined functions.
 
-**`length(array/string/dict)`** — get length
-```wsp
-length([1, 2, 3])      # 3
-length("hello")        # 5
-length({"a": 1})       # 1
-```
+### Arrays
 
-**`push(array, item)`** — append (returns new array)
-```wsp
-let arr = push([1, 2], 3)  # [1, 2, 3]
-```
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `length` | `(array\|string\|dict) → number` | Number of elements |
+| `push` | `(array, value) → array` | New array with value appended |
+| `pop` | `(array) → value` | Last element (error if empty) |
+| `reverse` | `(array) → array` | New reversed array |
+| `slice` | `(array, start, end) → array` | Sub-array `[start, end)` |
+| `range` | `(start, end) → array` | Integer range `[start, end)` |
 
-**`pop(array)`** — remove and return last element
-```wsp
-let last = pop([1, 2, 3])  # 3
-```
+### Dictionaries
 
-**`reverse(array)`** — reverse array
-```wsp
-reverse([1, 2, 3])  # [3, 2, 1]
-```
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `keys` | `(dict) → array` | Sorted list of keys |
+| `values` | `(dict) → array` | Values in key-sorted order |
+| `has_key` | `(dict, key) → bool` | Check if key exists |
 
-**`slice(array, start, end)`** — sub-array
-```wsp
-slice([1, 2, 3, 4, 5], 1, 4)  # [2, 3, 4]
-```
+### I/O
 
-**`range(start, end)`** — number sequence
-```wsp
-range(0, 5)  # [0, 1, 2, 3, 4]
-```
-
-### Dictionary Functions
-
-**`keys(dict)`** — sorted array of keys
-```wsp
-keys({"b": 2, "a": 1})  # [a, b]
-```
-
-**`values(dict)`** — array of values sorted by key
-```wsp
-values({"b": 2, "a": 1})  # [1, 2]
-```
-
-**`has_key(dict, key)`** — check if key exists
-```wsp
-has_key({"name": "Em"}, "name")   # true
-has_key({"name": "Em"}, "phone")  # false
-```
-
-### I/O Functions
-
-**`input(prompt)`** — read user input
-```wsp
-let name = input("Enter your name: ")
-```
-
-**`read_file(filename)`** — read file contents
-```wsp
-let content = read_file("data.txt")
-```
-
-**`write_file(filename, content)`** — write to file
-```wsp
-write_file("output.txt", "Hello!")
-```
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `input` | `(prompt?) → string` | Read line from stdin |
+| `read_file` | `(path) → string` | Read file contents |
+| `write_file` | `(path, content) → none` | Write string to file |
 
 ---
 
@@ -369,7 +352,7 @@ write_file("output.txt", "Hello!")
 
 ```wsp
 # This is a comment
-let x = 10  # inline comment
+let x = 10   # inline comment
 ```
 
 ---
@@ -378,27 +361,39 @@ let x = 10  # inline comment
 
 From highest to lowest:
 
-1. Parentheses `( )`
-2. Array/dict indexing `[index]`
-3. Function calls `func(args)`
-4. Unary operators `-`, `not`, `!`
-5. Multiplication, division, modulo `*`, `/`, `%`
-6. Addition and subtraction `+`, `-`
-7. Comparisons `<`, `>`, `<=`, `>=`, `==`, `!=`
-8. Logical AND `and`
-9. Logical OR `or`
+| Level | Operators |
+|-------|-----------|
+| 1 (highest) | `( )` parentheses |
+| 2 | `[ ]` indexing |
+| 3 | function calls |
+| 4 | `-` (unary), `not` |
+| 5 | `*`, `/`, `%` |
+| 6 | `+`, `-` |
+| 7 | `<`, `>`, `<=`, `>=`, `==`, `!=` |
+| 8 | `and` |
+| 9 (lowest) | `or` |
 
 ---
 
 ## Reserved Keywords
 
-`let` `print` `if` `else` `while` `for` `in` `and` `or` `not` `fn` `return` `break` `continue` `true` `false` `length` `push` `pop` `reverse` `slice` `range` `input` `read_file` `write_file` `keys` `values` `has_key`
+```
+let  print  if  else  while  for  in  fn  return  break  continue
+and  or  not  true  false
+```
+
+Built-in function names are also reserved:
+```
+length  push  pop  reverse  slice  range
+input  read_file  write_file
+keys  values  has_key
+```
 
 ---
 
 ## Error Messages
 
-Whispem provides helpful error messages with line and column numbers:
+Errors include line and column numbers:
 
 ```
 [line 3, col 12] Error: Undefined variable: 'counter'
@@ -411,4 +406,25 @@ Error: Failed to read file 'data.txt': No such file or directory
 
 ---
 
-**Whispem v1.5.0 — Complete Syntax Reference**
+## The `--dump` flag
+
+Inspect compiled bytecode without running it:
+
+```bash
+whispem --dump examples/hello.wsp
+```
+
+```
+== <main> ==
+0000     1  PUSH_CONST         0    'Hello, Whispem!'
+0002     3  STORE              1    'message'
+0004     4  LOAD               1    'message'
+0006     4  PRINT
+0007     4  HALT
+```
+
+See [`docs/vm.md`](vm.md) for the complete VM specification and instruction set.
+
+---
+
+**Whispem v2.0.0 — Complete Syntax Reference**

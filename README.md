@@ -1,322 +1,272 @@
 # Whispem
 
-> *"Code should whisper intent, not shout complexity."*
-
-A minimalist programming language you can **fully understand** — built in Rust, designed for clarity.
-
 ![Logo Whispem](https://imgur.com/YDjrAKR.png)
 
+[![Version](https://img.shields.io/badge/version-1.5.0-cyan.svg)](https://github.com/whispem/whispem-lang/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)](https://github.com/whispem/whispem-lang/releases)
-[![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
+
+> *Whisper your intent. The machine listens.*
+
+Whispem is a small, readable scripting language written in Rust.  
+It is designed to be learnable in an afternoon and understandable in its entirety — including its own implementation.
+
+**Current version: 2.0.0** — bytecode VM
 
 ---
 
-## What is Whispem?
-
-Whispem is a **complete programming language small enough to learn in a weekend**.
-
-Unlike most languages that grow complex over time, Whispem is intentionally minimal:
-- **14 keywords** - that's the whole language
-- **12 built-in functions** - everything you need, nothing you don't
-- **5 data types** - numbers, strings, booleans, arrays, dictionaries
-- **0 hidden behavior** - what you see is what you get
-
-**Perfect for:**
-- Learning how programming languages work
-- Teaching programming concepts
-- Understanding interpreters and compilers
-- Quick scripting and automation
-- Grasping language design principles
-
-**Not trying to be:**
-- A replacement for Python, JavaScript, or Rust
-- Performance-focused or production web framework
-- Feature-complete for every use case
-
----
-
-## Quick Start (2 minutes)
+## Quick start
 
 ```bash
-# Clone and build
-git clone https://github.com/whispem/whispem-lang.git
-cd whispem-lang
-cargo build --release
-```
+# Run a file
+cargo run -- examples/hello.wsp
 
-Create `hello.wsp`:
-```wsp
-let name = input("What's your name? ")
-print "Hello, " + name + "! Welcome to Whispem."
-```
-
-Run it:
-```bash
-cargo run examples/hello.wsp
-```
-
-**Or launch the interactive REPL:**
-```bash
+# Interactive REPL
 cargo run
+
+# Inspect compiled bytecode
+cargo run -- --dump examples/fizzbuzz.wsp
 ```
 
 ---
 
-## What's New in v1.5.0
+## The language
 
-### Dictionaries
 ```wsp
-let person = {"name": "Em", "city": "Marseille"}
-print person["name"]          # Em
+# Variables
+let name = "Em"
+let age  = 25
 
-person["city"] = "Paris"      # assignment
-print has_key(person, "name") # true
-print keys(person)            # [city, name]
-```
+# Print
+print "Hello, " + name
 
-### Modulo Operator
-```wsp
-print 10 % 3    # 1
-
-# Real FizzBuzz — finally!
-for n in range(1, 101) {
-    if n % 15 == 0 {
-        print "FizzBuzz"
-    } else {
-        if n % 3 == 0 { print "Fizz" }
-        else {
-            if n % 5 == 0 { print "Buzz" }
-            else { print n }
-        }
-    }
-}
-```
-
-### Proper Error Messages
-```
-[line 3, col 12] Error: Undefined variable: 'counter'
-[line 7, col 5]  Error: Array index 10 out of bounds (array length: 5)
-[line 12, col 1] Error: Function 'add' expected 2 arguments, got 3
-```
-
-### Interactive REPL
-```bash
-$ cargo run
-Whispem v1.5.0 — REPL
-Type 'exit' or press Ctrl-C to quit.
-
->>> let x = 42
->>> print x
-42
->>> exit
-```
-
----
-
-## Features
-
-### Core Language
-```wsp
-# Variables and types
-let x = 42
-let name = "Whispem"
-let is_valid = true
-let data = [1, 2, 3, 4, 5]
-let config = {"host": "localhost", "port": 8080}
-
-# Expressions with proper precedence
-let result = (10 + 5) * 2   # 30
-let rest   = 17 % 5          # 2
-```
-
-### Control Flow
-```wsp
-if temperature > 20 {
-    print "It's warm!"
+# Conditionals
+if age >= 18 {
+    print "adult"
 } else {
-    print "It's cool!"
+    print "minor"
 }
 
-while counter < 10 {
-    print counter
-    let counter = counter + 1
+# While loop
+let i = 0
+while i < 5 {
+    print i
+    let i = i + 1
 }
 
-for num in range(1, 10) {
-    if num % 2 == 0 { continue }
-    if num > 7      { break }
-    print num
+# For loop
+let fruits = ["apple", "banana", "cherry"]
+for fruit in fruits {
+    print fruit
+}
+
+# Functions
+fn greet(person) {
+    return "Hello, " + person + "!"
+}
+print greet("world")
+
+# Arrays
+let nums = [1, 2, 3, 4, 5]
+let nums = push(nums, 6)
+print length(nums)       # 6
+
+# Dicts
+let person = {"name": "Em", "age": 25}
+print person["name"]
+print has_key(person, "email")    # false
+
+# Index assignment
+let scores = [10, 20, 30]
+scores[1] = 99
+print scores                       # [10, 99, 30]
+```
+
+---
+
+## Language reference
+
+### Types
+
+| Type     | Examples                        |
+|----------|---------------------------------|
+| `number` | `42`, `3.14`, `-7`             |
+| `string` | `"hello"`, `""`                |
+| `bool`   | `true`, `false`                |
+| `array`  | `[1, "two", true]`             |
+| `dict`   | `{"key": "value", "n": 42}`    |
+| `none`   | returned by void functions      |
+
+### Operators
+
+```wsp
+# Arithmetic
+a + b   a - b   a * b   a / b   a % b
+
+# Comparison
+a == b   a != b   a < b   a <= b   a > b   a >= b
+
+# Logic
+a and b   a or b   not a
+
+# String concatenation
+"Hello" + " " + "world"
+```
+
+### Control flow
+
+```wsp
+# if / else
+if condition {
+    ...
+} else {
+    ...
+}
+
+# while
+while condition {
+    ...
+}
+
+# for
+for item in collection {
+    ...
+}
+
+# break / continue
+while true {
+    if done { break }
+    if skip { continue }
+    ...
 }
 ```
 
 ### Functions
+
 ```wsp
-fn greet(name) {
-    return "Hello, " + name + "!"
+fn add(a, b) {
+    return a + b
 }
 
-fn fibonacci(n) {
-    if n <= 1 { return n }
-    return fibonacci(n - 1) + fibonacci(n - 2)
-}
-```
+# Functions are called by name
+print add(3, 4)      # 7
 
-### Arrays
-```wsp
-let numbers = [1, 2, 3, 4, 5]
-let last    = pop(numbers)
-let rev     = reverse([1, 2, 3])
-let mid     = slice([10, 20, 30, 40, 50], 1, 4)
-let seq     = range(0, 10)
-```
-
-### Dictionaries
-```wsp
-let scores = {}
-scores["Alice"] = 95
-scores["Bob"]   = 87
-
-print has_key(scores, "Alice")  # true
-print keys(scores)              # [Alice, Bob]
-print values(scores)            # [95, 87]
-print length(scores)            # 2
-```
-
-### I/O
-```wsp
-let name    = input("Enter your name: ")
-let content = read_file("data.txt")
-write_file("output.txt", "Hello from Whispem!")
-```
-
----
-
-## Complete Example: Word Counter
-
-```wsp
-fn count_words(words) {
-    let counts = {}
-    for word in words {
-        if has_key(counts, word) {
-            counts[word] = counts[word] + 1
-        } else {
-            counts[word] = 1
-        }
-    }
-    return counts
-}
-
-let words  = ["rust", "whispem", "rust", "language", "whispem", "rust"]
-let counts = count_words(words)
-
-let word_keys = keys(counts)
-for word in word_keys {
-    print word + ": " + counts[word]
+# Recursive functions work
+fn factorial(n) {
+    if n <= 1 { return 1 }
+    return n * factorial(n - 1)
 }
 ```
 
----
+### Built-in functions
 
-## Documentation
+| Function              | Description                                     |
+|-----------------------|-------------------------------------------------|
+| `length(x)`           | Length of array, string, or dict               |
+| `push(arr, val)`      | Return new array with val appended             |
+| `pop(arr)`            | Return last element (error if empty)           |
+| `reverse(arr)`        | Return new reversed array                      |
+| `slice(arr, s, e)`    | Sub-array `[s, e)`                             |
+| `range(start, end)`   | Array of integers `[start, end)`               |
+| `input(prompt?)`      | Read a line from stdin                         |
+| `read_file(path)`     | Read file to string                            |
+| `write_file(path, s)` | Write string to file                           |
+| `keys(dict)`          | Sorted list of keys                            |
+| `values(dict)`        | Values in key-sorted order                     |
+| `has_key(dict, key)`  | Check if key exists                            |
 
-Comprehensive docs in the `docs/` directory:
+### Comments
 
-| Document | Description |
-|----------|-------------|
-| **[Tutorial](docs/tutorial.md)** | Step-by-step guide from zero to building apps |
-| **[Syntax Reference](docs/syntax.md)** | Complete language syntax |
-| **[Examples](docs/examples.md)** | 37+ runnable examples |
-| **[Vision](docs/vision.md)** | Philosophy and design principles |
-| **[My Journey](docs/journey.md)** | How I went from literature to building this |
-| **[Changelog](CHANGELOG.md)** | Full version history |
-
----
-
-## Project Status
-
-**Current Version:** 1.5.0
-
-### Complete Feature Set
-
-- Variables and reassignment
-- Five data types (numbers, strings, booleans, arrays, **dictionaries**)
-- Arithmetic with operator precedence, including **modulo**
-- Comparisons and logical operators
-- If/else conditionals
-- While and for loops, break and continue
-- Functions with parameters, return values, recursion
-- Arrays with full operations
-- **Dictionaries with keys/values/has_key**
-- String concatenation and escape sequences
-- User input and file I/O
-- **Helpful error messages with line and column numbers**
-- **Interactive REPL**
-- Complete documentation
+```wsp
+# This is a comment
+let x = 42   # inline comment
+```
 
 ---
 
-## Quick Facts
+## Architecture
 
-| Metric | Value |
-|--------|-------|
-| **Keywords** | 14 |
-| **Built-in functions** | 12 |
-| **Data types** | 5 |
-| **Example programs** | 37+ |
-| **Documentation pages** | 5 comprehensive guides |
-| **Lines of implementation** | ~1,800 (readable!) |
-| **Time to learn basics** | 1-2 hours |
-| **Time to master** | A weekend |
+Whispem v2.0.0 uses a **bytecode virtual machine**:
 
----
+```
+source code
+    ↓  Lexer     src/lexer.rs
+tokens
+    ↓  Parser    src/parser.rs
+AST
+    ↓  Compiler  src/compiler.rs
+bytecode chunks
+    ↓  VM        src/vm.rs
+output
+```
 
-## Why I Built This
+The VM is a stack machine with 31 opcodes. Every `fn` declaration compiles to its own `Chunk`. The `--dump` flag disassembles all chunks:
 
-I'm Emilie (Em'), and I went from studying **literature and linguistics** to building programming languages in Rust — in just a few months.
+```
+== <main> ==
+0000     1  PUSH_CONST       1    '7'
+0002     1  CALL             0    'double' (1 args)
+0005     1  PRINT
+0006     1  HALT
 
-**Timeline:**
-- **October 27, 2025** — Wrote my first Rust "Hello World"
-- **December 16, 2025** — Gave a public talk at Epitech Marseille
-- **January 19, 2026** — Featured in *Programmez!* magazine
-- **February 1, 2026** — Released Whispem 1.0.0
-- **February 19, 2026** — Released Whispem 1.5.0 — dictionaries, modulo, REPL, proper errors
+== double ==
+0000     1  STORE            0    'n'
+0002     2  LOAD             0    'n'
+0004     2  PUSH_CONST       1    '2'
+0006     2  MUL
+0007     2  RETURN
+0008     2  RETURN_NONE
+```
 
-Read my full journey: **[docs/journey.md](docs/journey.md)**
-
----
-
-## Community
-
-- Report bugs: [GitHub Issues](https://github.com/whispem/whispem-lang/issues)
-- Discuss: [GitHub Discussions](https://github.com/whispem/whispem-lang/discussions)
-- **RAM** (Rust Aix-Marseille): [Discord](https://discord.gg/zgGWvVFJQg) | [LinkedIn](https://www.linkedin.com/company/rust-aix-marseille-ram)
-
----
-
-## Design Principles
-
-> *Every feature must justify its existence.*
-
-1. **Clarity over cleverness** — Code reads like what it does
-2. **Explicitness over magic** — No hidden behavior
-3. **Small over large** — The whole language fits in your head
-4. **Calm over chaos** — No syntactic noise
-5. **Teachable over powerful** — Understanding first, features second
+See [`docs/vm.md`](docs/vm.md) for the complete VM specification.
 
 ---
 
-## License
+## Project layout
 
-MIT License — See [LICENSE](LICENSE) file for details.
+```
+whispem/
+├── src/
+│   ├── main.rs        entry point + CLI
+│   ├── repl.rs        interactive REPL
+│   ├── lexer.rs       tokeniser
+│   ├── token.rs       token types
+│   ├── parser.rs      recursive descent parser
+│   ├── ast.rs         AST node types
+│   ├── error.rs       error types
+│   ├── value.rs       runtime value types
+│   ├── opcode.rs      VM instruction set
+│   ├── chunk.rs       bytecode chunk + disassembler
+│   ├── compiler.rs    AST → bytecode compiler
+│   └── vm.rs          VM execution loop + built-ins
+├── docs/
+│   └── vm.md          VM specification
+├── examples/
+│   ├── hello.wsp
+│   ├── fizzbuzz.wsp
+│   └── ...
+├── CHANGELOG.md
+└── README.md
+```
 
 ---
 
-**Made with Rust and care by Emilie Peretti (@whispem)**
+## Roadmap
 
-*From literature student to language designer.*  
-*If I can do this, so can you.*
+| Version | Goal                                                             |
+|---------|------------------------------------------------------------------|
+| [x] 1.5.0 | Tree-walking interpreter, full language, REPL                  |
+| [x] 2.0.0 | Bytecode VM, compiler, `--dump`, `docs/vm.md`                  |
+| 2.5.0   | Bytecode serialisation, richer error spans, test suite          |
+| 3.0.0   | Self-hosting: Whispem compiler written in Whispem               |
 
 ---
 
-Star this repo | Share it | Join RAM on Discord
+## Philosophy
+
+Whispem is intentionally small. The goal is a language whose entire implementation — lexer, parser, compiler, VM — can be read and understood in a single sitting. No magic, no hidden complexity.
+
+Every design decision asks: *would a future Whispem program be able to do this too?*
+
+---
+
+*Whispem v2.0.0 — Simple. Explicit. Bootstrappable.*

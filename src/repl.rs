@@ -1,82 +1,47 @@
-use crate::interpreter::Interpreter;
+use crate::compiler::Compiler;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use crate::vm::Vm;
 use std::io::{self, Write};
 
 pub fn run_repl() {
-    println!("Whispem v1.5.0 — REPL");
-    println!("Type 'exit' or press Ctrl-C to quit.\n");
-
-    let mut interpreter = Interpreter::new();
-
+    println!("Whispem v2.0.0 — REPL");
+    println!("Type 'exit' or press Ctrl-D to quit.\n");
+    let mut vm = Vm::new();
     loop {
         print!(">>> ");
         io::stdout().flush().unwrap();
-
         let mut line = String::new();
         match io::stdin().read_line(&mut line) {
-            Ok(0) => {
-                // EOF (Ctrl-D)
-                println!();
-                break;
-            }
-            Err(e) => {
-                eprintln!("Input error: {}", e);
-                break;
-            }
-            Ok(_) => {}
+            Ok(0)  => { println!(); break; }
+            Err(e) => { eprintln!("Input error: {}", e); break; }
+            Ok(_)  => {}
         }
-
         let trimmed = line.trim();
-        if trimmed == "exit" || trimmed == "quit" {
-            break;
-        }
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        // Allow multi-line blocks: if the line ends with '{', keep reading.
+        if trimmed == "exit" || trimmed == "quit" { break; }
+        if trimmed.is_empty() { continue; }
         let mut source = line.clone();
-        if needs_more_input(trimmed) {
+        if trimmed.ends_with('{') {
             loop {
-                print_prompt("... ");
-                io::stdout().flush().unwrap();
-                let mut continuation = String::new();
-                match io::stdin().read_line(&mut continuation) {
-                    Ok(0) | Err(_) => break,
-                    Ok(_) => {}
-                }
-                source.push_str(&continuation);
-                // Stop when we see a closing brace on its own line.
-                if continuation.trim() == "}" {
-                    break;
-                }
+                print!("... "); io::stdout().flush().unwrap();
+                let mut cont = String::new();
+                match io::stdin().read_line(&mut cont) { Ok(0)|Err(_) => break, Ok(_) => {} }
+                source.push_str(&cont);
+                if cont.trim() == "}" { break; }
             }
         }
-
-        match run_source(&source, &mut interpreter) {
-            Ok(_) => {}
-            Err(e) => eprintln!("{}", e),
-        }
+        if let Err(e) = run_source(&source, &mut vm) { eprintln!("{}", e); }
     }
-
     println!("Bye!");
 }
 
-fn needs_more_input(line: &str) -> bool {
-    line.ends_with('{')
-}
-
-fn print_prompt(s: &str) {
-    print!("{}", s);
-}
-
-pub fn run_source(source: &str, interpreter: &mut Interpreter) -> Result<(), String> {
+fn run_source(source: &str, vm: &mut Vm) -> Result<(), String> {
     let mut lexer = Lexer::new(source);
     let tokens = lexer.tokenize().map_err(|e| e.to_string())?;
-
     let mut parser = Parser::new(tokens);
     let program = parser.parse_program().map_err(|e| e.to_string())?;
-
-    interpreter.execute(program).map_err(|e| e.to_string())
+    let compiler = Compiler::new();
+    let (main_chunk, fn_chunks) = compiler.compile(program).map_err(|e| e.to_string())?;
+    for (name, chunk) in fn_chunks { vm.functions.insert(name, chunk); }
+    vm.run(main_chunk).map_err(|e| e.to_string())
 }

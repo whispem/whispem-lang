@@ -1,11 +1,15 @@
 # Whispem Examples
 
-**Version 1.5.0**
+**Version 2.0.0**
 
 A collection of example programs covering all Whispem language features.
 
 ```bash
+# Run an example
 cargo run examples/<file>.wsp
+
+# Inspect compiled bytecode
+cargo run -- --dump examples/<file>.wsp
 ```
 
 ---
@@ -133,11 +137,12 @@ Recommended order for beginners:
 ## Notes
 
 - All examples are self-contained and runnable
-- Functions must be defined before they are called
+- Functions can be called before they are defined — forward calls work since v2.0.0
 - Arrays use 0-based indexing
 - `push()` returns a new array — the original is unchanged
 - Dictionary keys are always strings internally
+- Use `--dump` to inspect the bytecode of any example
 
 ---
 
-**Whispem v1.5.0 — all language features covered**
+**Whispem v2.0.0**
