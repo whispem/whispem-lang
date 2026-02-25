@@ -7,7 +7,7 @@
 
 > *Whisper your intent. The machine listens.*
 
-Whispem is a small, readable scripting language written in Rust.  
+Whispem is a small, readable programming language written in Rust.  
 It is designed to be learnable in an afternoon and understandable in its entirety — including its own implementation.
 
 **Current version: 2.0.0** — bytecode VM
