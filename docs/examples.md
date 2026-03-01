@@ -1,6 +1,6 @@
 # Whispem Examples
 
-**Version 2.0.0**
+**Version 2.5.0**
 
 A curated collection of example programs covering all Whispem language features.
 
@@ -183,6 +183,30 @@ print factorial(10)  # 3628800
 
 ---
 
+## Short-circuit Logic
+```wsp
+# and: stops at first falsy value
+let r = false and (1 == 1)
+print r   # false — right side never evaluated
+
+# or: stops at first truthy value
+let r = true or (1 == 1)
+print r   # true — right side never evaluated
+
+# practical: guard before expensive call
+fn expensive(n) {
+    print "called!"
+    return n * 2
+}
+
+let safe = length([]) != 0 and expensive(42)
+# "called!" is never printed
+print safe   # false
+```
+**File:** `examples/short_circuit.wsp`
+
+---
+
 ## Arrays — Basic
 ```wsp
 let numbers = [1, 2, 3, 4, 5]
@@ -280,7 +304,7 @@ for word in keys(counts) {
 
 ## File I/O
 ```wsp
-write_file("hello.txt", "Hello from Whispem 2.0!")
+write_file("hello.txt", "Hello from Whispem 2.5!")
 
 let content = read_file("hello.txt")
 print content
@@ -359,11 +383,13 @@ for num in range(2, 31) {
 
 - Examples are self-contained and runnable
 - Functions can be called before they are defined (forward calls work since v2.0.0)
+- Calling a function with the wrong number of arguments produces a clear runtime error
 - Arrays use 0-based indexing
 - `push()` returns a new array — the original is unchanged
 - Dictionary keys are always strings internally
+- `and`/`or` short-circuit correctly: the short-circuited value is the result of the expression
 - Use `--dump` to inspect the bytecode of any example
 
 ---
 
-**Whispem v2.0.0**
+**Whispem v2.5.0**

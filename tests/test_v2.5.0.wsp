@@ -1,0 +1,155 @@
+# Whispem v2.5.0 — Test Suite
+print "\n=== v2.5.0 Test Suite ==="
+
+# --- Modulo ---
+print "\n=== Modulo ==="
+print 10 % 3    # 1
+print 15 % 5    # 0
+print 7 % 2     # 1
+
+# --- FizzBuzz ---
+print "\n=== FizzBuzz ==="
+for n in range(1, 16) {
+    if n % 15 == 0 {
+        print "FizzBuzz"
+    } else if n % 3 == 0 {
+        print "Fizz"
+    } else if n % 5 == 0 {
+        print "Buzz"
+    } else {
+        print n
+    }
+}
+
+# --- Dictionaries ---
+print "\n=== Dictionaries ==="
+let person = {"name": "Emilie", "age": 26, "city": "Marseille"}
+print person["name"]    # Emilie
+print person["age"]     # 26
+print person["city"]    # Marseille
+
+# Dict index assignment (mutation)
+person["city"] = "Paris"
+print person["city"]    # Paris
+
+# Add new key
+person["job"] = "dev"
+print person["job"]     # dev
+
+# has_key
+print has_key(person, "name")   # true
+print has_key(person, "job")    # true
+print has_key(person, "foo")    # false
+
+# keys and values
+print keys(person)
+print values(person)
+print length(person)
+
+# Nested dict
+let config = {
+    "server": {"host": "localhost", "port": 8080},
+    "debug": true
+}
+print config["debug"]   # true
+
+# Dict in function
+fn greet_person(p) {
+    return "Hello, " + p["name"] + " from " + p["city"] + "!"
+}
+let em = {"name": "Em", "city": "Marseille"}
+print greet_person(em)  # Hello, Em from Marseille!
+
+# --- Arrays & Built-ins ---
+print "\n=== Arrays & Built-ins ==="
+let arr = [10, 20, 30, 40, 50]
+arr[0] = 99
+arr[4] = 1
+print arr[0]    # 99
+print arr[4]    # 1
+
+# Built-in: length
+print length(arr)   # 5
+
+# Built-in: reverse
+let rev = reverse(arr)
+print rev
+
+# Built-in: slice
+let s = slice([10, 20, 30, 40, 50], 1, 4)
+print s
+
+# Built-in: push
+let pushed = push(arr, 123)
+print pushed
+
+# Built-in: pop
+let popped = pop(pushed)
+print popped
+
+# --- String comparison ---
+print "\n=== String comparison ==="
+let a = "apple"
+let b = "banana"
+if a < b {
+    print "apple comes before banana"
+}
+
+# --- Bare function calls ---
+print "\n=== Bare function calls ==="
+fn side_effect(msg) {
+    print msg
+    return 42
+}
+side_effect("called once")
+side_effect("called twice")
+
+# --- Truthiness ---
+print "\n=== Truthiness ==="
+if 0 { print "fail" } else { print "0 is falsy" }
+if "" { print "fail" } else { print "empty string is falsy" }
+if [] { print "fail" } else { print "empty array is falsy" }
+if {} { print "fail" } else { print "empty dict is falsy" }
+if 1 { print "1 is truthy" }
+if "x" { print "non-empty string is truthy" }
+if [1] { print "non-empty array is truthy" }
+if {"a":1} { print "non-empty dict is truthy" }
+
+# --- Backwards compatibility ---
+print "\n=== Backwards compatibility ==="
+
+fn factorial(n) {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+print factorial(10)   # 3628800
+
+let nums = [1, 2, 3, 4, 5]
+let reversed = reverse(nums)
+print reversed        # [5, 4, 3, 2, 1]
+
+let sliced = slice([10, 20, 30, 40, 50], 1, 4)
+print sliced         # [20, 30, 40]
+
+# break / continue
+print "\n=== Break / Continue ==="
+let i = 0
+while i < 10 {
+    let i = i + 1
+    if i % 2 == 0 { continue }
+    if i > 7 { break }
+    print i   # 1 3 5 7
+}
+
+# --- Error handling (span) ---
+print "\n=== Error handling (span) ==="
+# Uncomment to test error reporting (should show [line, col] in error)
+# print not_defined_var
+# let arr = [1,2,3]
+# print arr[10]   # out-of-bounds
+# let f = fn(a) { return a }
+# print f()       # arity error
+
+print "\nAll tests passed!"

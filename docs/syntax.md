@@ -1,6 +1,6 @@
 # Whispem Syntax Reference
 
-**Version 2.0.0**
+**Version 2.5.0**
 
 Complete reference for the Whispem programming language syntax.
 
@@ -105,15 +105,7 @@ let person = {"name": "Em", "age": 26, "city": "Marseille"}
 let empty  = {}
 ```
 
-Keys must be strings. Values can be any type. Multi-line syntax is supported:
-
-```wsp
-let config = {
-    "host": "localhost",
-    "port": 8080,
-    "debug": true
-}
-```
+Keys must be strings. Values can be any type.
 
 ### Access
 
@@ -188,8 +180,13 @@ not a     # negates
 ```
 
 **Short-circuit evaluation:**
-- `and` stops if the left side is falsy
-- `or` stops if the left side is truthy
+- `and` stops evaluating if the left side is falsy — the left value becomes the result
+- `or` stops evaluating if the left side is truthy — the left value becomes the result
+
+```wsp
+let r = false and expensive_call()   # expensive_call() never runs
+let r = true  or  expensive_call()   # expensive_call() never runs
+```
 
 **Truthiness:** a value is falsy if it is `false`, `0`, `""`, `[]`, `{}`, or `none`. Everything else is truthy.
 
@@ -281,6 +278,14 @@ fn factorial(n) {
 ### Return values
 
 A function with no explicit `return` returns `none`. A bare `return` also returns `none`.
+
+### Arity checking
+
+Calling a function with the wrong number of arguments produces an error at runtime:
+
+```
+[line 5, col 0] Error: Function 'add' expected 2 arguments, got 3
+```
 
 ### Scope
 
@@ -393,16 +398,17 @@ keys  values  has_key
 
 ## Error Messages
 
-Errors include line and column numbers:
+Errors include source location as `[line N, col M]`:
 
 ```
-[line 3, col 12] Error: Undefined variable: 'counter'
-[line 7, col 5]  Error: Array index 10 out of bounds (array length: 5)
-[line 12, col 1] Error: Function 'add' expected 2 arguments, got 3
-[line 15, col 8] Error: Division by zero
-[line 20, col 3] Error: Type error: expected number, found string
-Error: Failed to read file 'data.txt': No such file or directory
+[line 3, col 0]  Error: Undefined variable: 'counter'
+[line 7, col 0]  Error: Array index 10 out of bounds (length: 5)
+[line 12, col 0] Error: Function 'add' expected 2 arguments, got 3
+[line 15, col 0] Error: Division by zero
+[line 20, col 0] Error: Type error: expected number, found string
 ```
+
+Line numbers are always accurate. Column precision is planned for v3.0.0.
 
 ---
 
@@ -417,14 +423,14 @@ whispem --dump examples/hello.wsp
 ```
 == <main> ==
 0000     1  PUSH_CONST         0    'Hello, Whispem!'
-0002     3  STORE              1    'message'
-0004     4  LOAD               1    'message'
-0006     4  PRINT
-0007     4  HALT
+0002     1  STORE              1    'message'
+0004     2  LOAD               1    'message'
+0006     2  PRINT
+0007     2  HALT
 ```
 
 See [`docs/vm.md`](vm.md) for the complete VM specification and instruction set.
 
 ---
 
-**Whispem v2.0.0 — Complete Syntax Reference**
+**Whispem v2.5.0 — Complete Syntax Reference**

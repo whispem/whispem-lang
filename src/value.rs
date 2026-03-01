@@ -22,8 +22,11 @@ impl Value {
     pub fn format(&self) -> String {
         match self {
             Value::Number(n) => {
-                if n.fract() == 0.0 && n.abs() < 1e15 { format!("{}", *n as i64) }
-                else { n.to_string() }
+                if n.fract() == 0.0 && n.abs() < 1e15 {
+                    format!("{}", *n as i64)
+                } else {
+                    n.to_string()
+                }
             }
             Value::Bool(b)  => b.to_string(),
             Value::Str(s)   => s.clone(),
@@ -32,7 +35,8 @@ impl Value {
                 format!("[{}]", parts.join(", "))
             }
             Value::Dict(map) => {
-                let mut parts: Vec<String> = map.iter()
+                let mut parts: Vec<String> = map
+                    .iter()
                     .map(|(k, v)| format!("\"{}\": {}", k, v.format()))
                     .collect();
                 parts.sort();

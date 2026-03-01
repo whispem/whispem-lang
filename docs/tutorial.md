@@ -1,6 +1,6 @@
 # Whispem Tutorial
 
-**Version 2.0.0**
+**Version 2.5.0**
 
 Welcome to Whispem. This tutorial covers the entire language from first program to complete applications. By the end you'll know everything Whispem has — because everything it has fits in a single document.
 
@@ -48,10 +48,10 @@ cargo run -- --dump examples/hello.wsp
 ```
 == <main> ==
 0000     1  PUSH_CONST         0    'Hello, Whispem!'
-0002     3  STORE              1    'message'
-0004     4  LOAD               1    'message'
-0006     4  PRINT
-0007     4  HALT
+0002     1  STORE              1    'message'
+0004     2  LOAD               1    'message'
+0006     2  PRINT
+0007     2  HALT
 ```
 
 ### Interactive REPL
@@ -61,7 +61,7 @@ cargo run
 ```
 
 ```
-Whispem v2.0.0 — REPL
+Whispem v2.5.0 — REPL
 Type 'exit' or press Ctrl-D to quit.
 
 >>> let x = 42
@@ -78,13 +78,21 @@ Bye!
 
 Function definitions persist across REPL lines.
 
+### Run the test suite
+
+```bash
+cargo test
+```
+
+72 tests covering all language features — arithmetic, strings, control flow, functions, arrays, dictionaries, error spans, and integration programs.
+
 ---
 
 ## Variables and Types
 
 ```wsp
 let name    = "Whispem"
-let version = 2.0
+let version = 2.5
 let ready   = true
 ```
 
@@ -146,7 +154,12 @@ print true or false    # true
 print not true         # false
 ```
 
-`and` and `or` short-circuit — they stop as soon as the result is known.
+`and` and `or` short-circuit — they stop evaluating as soon as the result is known, and the short-circuited value is the result of the whole expression:
+
+```wsp
+let r = false and expensive_call()   # false — call never runs, result is false
+let r = true  or  expensive_call()   # true  — call never runs, result is true
+```
 
 ---
 
@@ -266,15 +279,24 @@ print factorial(5)    # 120
 print factorial(10)   # 3628800
 ```
 
+### Arity is checked
+
+Calling a function with the wrong number of arguments produces a clear error:
+
+```wsp
+fn add(a, b) { return a + b }
+add(1, 2, 3)   # Error: Function 'add' expected 2 arguments, got 3
+```
+
 ### Scope
 
-Variables declared at the top level are globals. Variables inside a function are local to that function. Functions have read access to globals — but they cannot mutate them (there is no bare assignment statement).
+Variables declared at the top level are globals. Variables inside a function are local to that function. Functions have read access to globals — but cannot mutate them.
 
 ```wsp
 let greeting = "Hello"
 
 fn say(name) {
-    print greeting + ", " + name   # can read global
+    print greeting + ", " + name   # reads global
 }
 
 say("Em")   # Hello, Em
@@ -283,6 +305,14 @@ say("Em")   # Hello, Em
 ### Forward calls
 
 Functions can be called before they are defined in the file — the compiler handles them in a first pass.
+
+```wsp
+print triple(4)   # 12 — works even though triple is defined below
+
+fn triple(n) {
+    return n * 3
+}
+```
 
 ---
 
@@ -304,8 +334,6 @@ let scores = [10, 20, 30]
 scores[1] = 99
 print scores   # [10, 99, 30]
 ```
-
-Index assignment is real mutation — the array is updated in place and written back.
 
 ### Built-in functions
 
@@ -361,17 +389,6 @@ print has_key(d, "z")   # false
 print keys(d)           # [a, b, c]  (sorted)
 print values(d)         # [1, 2, 3]  (sorted by key)
 print length(d)         # 3
-```
-
-### Dicts in functions
-
-```wsp
-fn describe(person) {
-    return person["name"] + " lives in " + person["city"]
-}
-
-let em = {"name": "Em", "city": "Marseille"}
-print describe(em)   # Em lives in Marseille
 ```
 
 ### Word counter
@@ -517,9 +534,17 @@ You can inspect the compiled bytecode of any program with `--dump`:
 whispem --dump examples/fizzbuzz_proper.wsp
 ```
 
-The VM is a stack machine with 31 opcodes and a separate call stack with one frame per active function call. See [`docs/vm.md`](vm.md) for the complete specification.
+The VM is a stack machine with 33 opcodes and a separate call stack with one frame per active function call. See [`docs/vm.md`](vm.md) for the complete specification.
+
+### What changed in v2.5.0
+
+- Two new opcodes — `PEEK_JUMP_IF_FALSE` and `PEEK_JUMP_IF_TRUE` — fix short-circuit evaluation for `and`/`or`
+- `Chunk` now carries `param_count`; arity is checked at every user-function call
+- `Span { line, column }` replaces bare tuples in all error types
+- The VM writes output through a `Box<dyn Write>` sink — tests inject a buffer instead of stdout
+- 72 automated tests run with `cargo test`; zero warnings
 
 ---
 
-**Whispem v2.0.0**  
+**Whispem v2.5.0**  
 *You've seen the whole language. Everything Whispem has is in this document.*

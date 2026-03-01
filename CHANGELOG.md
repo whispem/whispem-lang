@@ -5,57 +5,69 @@ Format: [Semantic Versioning](https://semver.org). Dates are in YYYY-MM-DD forma
 
 ---
 
-## [2.0.0] — 2026-02-25
+## [2.5.0] — 2026-03-01
 
-**The bytecode VM release.** Whispem now compiles to bytecode and runs on a stack-based virtual machine instead of walking the AST directly. Programs run faster, error messages include more context, and the `--dump` flag lets you inspect compiled bytecode.
+**The quality release.** Zero warnings, richer error spans, and a full automated test suite.
 
 ### Added
 
-- **`src/value.rs`** — `Value` is now its own module, cleanly separated from the old interpreter
-- **`src/opcode.rs`** — `OpCode` enum with 31 opcodes, each mapping to a `u8` via `#[repr(u8)]`
-- **`src/chunk.rs`** — `Chunk` struct: bytecode array + constants pool + per-byte line numbers + disassembler
-- **`src/compiler.rs`** — single-pass AST → bytecode compiler producing `(main_chunk, HashMap<String, Chunk>)`
-- **`src/vm.rs`** — stack-based VM execution loop with call frame management and all built-in functions
-- **`--dump` flag** — `whispem --dump file.wsp` prints a human-readable bytecode disassembly and exits
-- **`POP` opcode (`0x71`)** — emitted after every bare expression statement to keep the stack clean
-- **`HALT` now pops its frame** — prevents frame leaks in the REPL across multiple snippets
-- **`docs/vm.md`** — complete VM specification: instruction set, chunk format, call frames, compilation rules, annotated examples
+- **`error::Span`** — new `Span { line, column }` type replacing bare `(usize, usize)` pairs throughout the codebase. Every `WhispemError` now carries a `Span` with a human-readable `Display` impl (`[line N, col M]`). The `WhispemError::at(kind, line, col)` convenience constructor replaces `WhispemError::new(kind, line, col)`.
+- **`WhispemError::at(kind, line, col)`** — convenience constructor for the common case; `::new(kind, span)` remains for when a `Span` is already in hand.
+- **`Compiler` now propagates source line to every opcode** — the `compile_expr` method receives a `ctx_line` argument, eliminating the `line: 0` that appeared on `POP` and expression-level opcodes in v2.0.0. `--dump` output is now accurate for every instruction.
+- **Automated test suite (`cargo test`)** — 60+ tests in `src/main.rs` covering:
+  - All arithmetic operators and precedence rules
+  - All comparison and logical operators (including short-circuit)
+  - String operations and escape sequences
+  - All control flow: `if/else`, `while`, `for`, `break`, `continue`
+  - Functions: basic calls, recursion, forward calls, global read access, arity errors
+  - Arrays: all built-in functions, index assignment, out-of-bounds errors
+  - Dictionaries: access, assignment, new keys, `has_key`, `keys`, `values`, `length`
+  - Truthiness for `0`, `""`, `[]`, `{}`
+  - Error message span verification (errors report the correct line number)
+  - Integration tests: FizzBuzz, word counter, Fibonacci
+- **`vm::CaptureVm`** (test-only) — a VM variant that captures `PRINT` output to `Vec<String>` for in-process test assertions. Uses `dup2`/pipe redirection on Linux; gated by `#[cfg(test)]`, zero cost in release builds.
 
 ### Changed
 
-- **`src/main.rs`** — updated to use the new `Compiler` + `Vm` pipeline; `interpreter.rs` is no longer invoked
-- **`src/repl.rs`** — REPL now compiles and runs each snippet through the VM; function definitions persist across lines
-- **`src/error.rs`** — three new `ErrorKind` variants: `StackUnderflow`, `InvalidOpcode(u8)`, `TooManyConstants`
+- **`error.rs`** — `WhispemError` now holds `pub span: Span` instead of separate `pub line` and `pub column` fields. All construction sites updated. Display format unchanged: `[line N, col M] Error: ...`.
+- **`compiler.rs`** — `compile_expr` gains a `ctx_line: usize` parameter. All call sites pass the statement's source line. `POP` after bare expression statements now correctly carries the statement's line number instead of `0`.
+- **`ast.rs`** — removed `#[allow(dead_code)]`; all variants are reachable via the compiler.
+- **`Cargo.toml`** — version bumped to `2.5.0`.
+- **`src/repl.rs`** — version string updated to `2.5.0`.
 
 ### Fixed
 
-- **`SET_INDEX` now actually mutates** — previously validated but did not persist changes; now performs real in-place mutation and pushes the mutated value back for `STORE` to write
-- **Function parameter binding order** — arguments are now pushed and popped in the correct order relative to the preamble's `STORE` sequence
-- **REPL frame leak** — `HALT` now pops the `<main>` frame, preventing dead frames from accumulating across REPL snippets
-- **Lexer double-match** — `read_ident()` had a redundant first match that produced dead code; collapsed into a single clean match
-- **Parser built-in token names** — `to_string().trim_matches('\'')` replaced with explicit per-token string literals
-
-### Removed
-
-- **`src/interpreter.rs`** as the execution backend — the tree-walking interpreter is no longer called at runtime. The file may be kept for reference but is not compiled into the binary.
+- **`POP` line number was always `0`** — expressions compiled as statements now emit `POP` with the correct source line. `--dump` output is now fully accurate.
+- **No warnings on `cargo build` or `cargo test`** — all `#[allow(dead_code)]`, unused imports, and unreachable code removed or justified.
 
 ### Architecture notes
 
-The new pipeline is:
+The `Span` type is intentionally minimal for v2.5.0: it stores `(line, column)` as reported by the lexer. Future versions may extend it to carry a byte offset or a range, which would enable underline-style error messages.
 
-```
-source
-  → Lexer      (unchanged)
-  → Parser     (unchanged)
-  → Compiler   (new) → (Chunk, HashMap<String, Chunk>)
-  → Vm         (new) → execution
-```
+The test harness uses `CaptureVm` for in-process execution. This avoids spawning subprocesses (which would require the binary to be pre-built) and keeps test latency low.
 
-Each `fn` declaration compiles to its own `Chunk` in a first pass. The second pass compiles top-level statements into `<main>`. This allows forward calls without any lookahead.
+---
 
-The constants pool is capped at **256 entries per chunk** by design. The compiler deduplicates string constants (variable names, function names) to maximise headroom.
+## [2.0.0] — 2026-02-25
 
-The scoping model is intentionally simple: top-level `let` stores to `globals`; function-local `let` stores to `CallFrame.locals`. On function entry, globals are copied into locals for read access. Since Whispem has no bare assignment statement, functions cannot mutate globals — no closures needed.
+**The bytecode VM release.** Whispem now compiles to bytecode and runs on a stack-based virtual machine instead of walking the AST directly.
+
+### Added
+- `src/value.rs`, `src/opcode.rs`, `src/chunk.rs`, `src/compiler.rs`, `src/vm.rs`
+- `--dump` flag — prints human-readable bytecode disassembly
+- `POP` opcode (`0x71`) — emitted after every bare expression statement
+- `HALT` now pops its frame
+- `docs/vm.md` — complete VM specification
+
+### Changed
+- `src/main.rs`, `src/repl.rs` — use new Compiler + Vm pipeline
+
+### Fixed
+- `SET_INDEX` now actually mutates
+- Function parameter binding order
+- REPL frame leak
+- Lexer double-match
+- Parser built-in token names
 
 ---
 
@@ -67,7 +79,9 @@ Tree-walking interpreter. Full language support including arrays, dicts, for loo
 
 ## Roadmap
 
-| Version | Goal                                                          |
-|---------|---------------------------------------------------------------|
-| 2.5.0   | Self-hosting preparation: bytecode serialisation, richer error spans, test suite |
-| 3.0.0   | Whispem compiler written in Whispem, targeting the WVM        |
+| Version | Goal |
+|---------|------|
+| [x] 1.5.0 | Tree-walking interpreter, full language, REPL |
+| [x] 2.0.0 | Bytecode VM, compiler, `--dump`, `docs/vm.md` |
+| [x] 2.5.0 | Richer error spans, `Span` type, automated test suite (60+ tests), 0 warnings |
+| 3.0.0   | Self-hosting: Whispem compiler written in Whispem, targeting the WVM |

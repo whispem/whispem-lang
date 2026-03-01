@@ -71,13 +71,20 @@ Not a toy. Not a clone. Something with a clear philosophy:
 
 **February 19, 2026** — Whispem 1.5.0. Dictionaries, modulo operator, interactive REPL, complete error overhaul.
 
-**February 25, 2026** — Whispem 2.0.0. The tree-walking interpreter replaced by a bytecode compiler and a stack-based virtual machine. 31 opcodes, proper call frames, constants pool, disassembler. The pipeline is now:
+**February 25, 2026** — Whispem 2.0.0. The tree-walking interpreter replaced by a bytecode compiler and a stack-based virtual machine. 31 opcodes, proper call frames, constants pool, disassembler. The pipeline became:
 
 ```
 Source → Lexer → Parser → AST → Compiler → Bytecode → VM
 ```
 
-The v1.x series was built in about five days of actual work. The v2.0.0 VM took another week on top of that.
+**March 1, 2026** — Whispem 2.5.0. The first version where correctness is *verified* rather than assumed:
+
+- `Span { line, column }` on every error — no more bare tuples
+- Arity checking for user-defined functions — wrong argument count is caught at runtime
+- Fixed `and`/`or` short-circuit evaluation — a subtle but real compiler bug, fixed with two new opcodes (`PEEK_JUMP_IF_FALSE` and `PEEK_JUMP_IF_TRUE`)
+- 72 automated tests covering the entire language — `cargo test` passes clean
+- Zero warnings in the compiler output
+- The VM output is now injectable — tests capture `print` output in a `Vec<u8>` buffer without touching stdout
 
 ---
 
@@ -96,6 +103,12 @@ The v1.x series was built in about five days of actual work. The v2.0.0 VM took 
 - How constants pools, jump patching, and parameter binding actually work
 - Why separating compilation from execution matters
 - What it means to inspect your own program with `--dump`
+
+**v2.5.0 — correctness:**
+- How to write an in-process test harness without platform-specific code
+- How short-circuit evaluation really works at the bytecode level — and how to get it wrong silently for months before tests catch it
+- How small struct additions (`param_count`, `Span`) propagate cleanly through a codebase when the architecture is right
+- That "zero warnings" is a discipline, not a milestone
 
 ---
 
@@ -121,6 +134,7 @@ The skills that matter most in programming — careful observation, systematic t
 | February 1, 2026 | Whispem 1.0.0 |
 | February 19, 2026 | Whispem 1.5.0 |
 | February 25, 2026 | Whispem 2.0.0 — bytecode VM |
+| March 1, 2026 | Whispem 2.5.0 — error spans, arity, short-circuit fix, 72 tests |
 
 ---
 

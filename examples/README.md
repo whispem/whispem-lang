@@ -1,6 +1,6 @@
 # Whispem Examples
 
-**Version 2.0.0**
+**Version 2.5.0**
 
 A collection of example programs covering all Whispem language features.
 
@@ -35,6 +35,7 @@ cargo run -- --dump examples/<file>.wsp
 | `comparison.wsp` | Comparison operators |
 | `condition.wsp` | `if / else` |
 | `logical_operators.wsp` | `and`, `or`, `not` |
+| `short_circuit.wsp` | Short-circuit evaluation of `and` / `or` |
 
 ---
 
@@ -120,17 +121,18 @@ Recommended order for beginners:
 7. `comparison.wsp`
 8. `condition.wsp`
 9. `logical_operators.wsp`
-10. `while_loop.wsp`
-11. `for_loop.wsp`
-12. `break_continue.wsp`
-13. `function_basic.wsp`
-14. `function_return.wsp`
-15. `function_recursive.wsp`
-16. `array_basic.wsp`
-17. `array_functions.wsp`
-18. `dict_basic.wsp`
-19. `dict_word_count.wsp`
-20. `fizzbuzz_proper.wsp`
+10. `short_circuit.wsp`
+11. `while_loop.wsp`
+12. `for_loop.wsp`
+13. `break_continue.wsp`
+14. `function_basic.wsp`
+15. `function_return.wsp`
+16. `function_recursive.wsp`
+17. `array_basic.wsp`
+18. `array_functions.wsp`
+19. `dict_basic.wsp`
+20. `dict_word_count.wsp`
+21. `fizzbuzz_proper.wsp`
 
 ---
 
@@ -138,11 +140,13 @@ Recommended order for beginners:
 
 - All examples are self-contained and runnable
 - Functions can be called before they are defined — forward calls work since v2.0.0
+- Calling a function with the wrong number of arguments produces a clear runtime error
 - Arrays use 0-based indexing
 - `push()` returns a new array — the original is unchanged
 - Dictionary keys are always strings internally
+- `and`/`or` short-circuit correctly: the short-circuited value is the result of the expression
 - Use `--dump` to inspect the bytecode of any example
 
 ---
 
-**Whispem v2.0.0**
+**Whispem v2.5.0**
