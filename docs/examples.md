@@ -1,16 +1,21 @@
 # Whispem Examples
 
-**Version 2.5.0**
+**Version 3.0.0**
 
-A curated collection of example programs covering all Whispem language features.
+Example programs covering all Whispem language features.
 
-Run any example with:
+Run any example (no Rust needed):
 ```bash
-cargo run examples/<file>.wsp
+make                                              # build wvm (once)
+./wvm compiler/wsc.whbc examples/<file>.wsp       # compile + run
+./wvm examples/<file>.whbc                        # run precompiled
+./wvm --dump examples/<file>.whbc                 # inspect bytecode
 ```
 
-Inspect compiled bytecode with:
+With the Rust reference implementation:
 ```bash
+cargo run -- examples/<file>.wsp
+cargo run -- --compile examples/<file>.wsp
 cargo run -- --dump examples/<file>.wsp
 ```
 
@@ -304,7 +309,7 @@ for word in keys(counts) {
 
 ## File I/O
 ```wsp
-write_file("hello.txt", "Hello from Whispem 2.5!")
+write_file("hello.txt", "Hello from Whispem 3.0!")
 
 let content = read_file("hello.txt")
 print content
@@ -379,6 +384,22 @@ for num in range(2, 31) {
 
 ---
 
+## Self-hosted Compiler (v3.0.0)
+
+```bash
+# Compile a .wsp file to .whbc bytecode
+./wvm compiler/wsc.whbc examples/hello.wsp
+# → examples/hello.whbc
+
+# Run the compiled bytecode
+./wvm examples/hello.whbc
+# → Hello, Whispem!
+```
+
+`compiler/wsc.wsp` is a Whispem compiler written in Whispem. It reads a `.wsp` source file, compiles it through the full pipeline (lexer, parser, compiler, serialiser), and writes a `.whbc` bytecode file — byte-for-byte identical to the Rust compiler’s output.
+
+---
+
 ## Notes
 
 - Examples are self-contained and runnable
@@ -387,9 +408,9 @@ for num in range(2, 31) {
 - Arrays use 0-based indexing
 - `push()` returns a new array — the original is unchanged
 - Dictionary keys are always strings internally
-- `and`/`or` short-circuit correctly: the short-circuited value is the result of the expression
-- Use `--dump` to inspect the bytecode of any example
+- `and`/`or` short-circuit correctly since v2.5.0
+- Use `--dump` to inspect bytecode, `--compile` to produce `.whbc` files (v3.0.0)
 
 ---
 
-**Whispem v2.5.0**
+**Whispem v3.0.0**

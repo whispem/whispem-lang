@@ -2,18 +2,22 @@
 
 fn filter_positive(numbers) {
     let result = []
-    for num in numbers {
-        if num > 0 {
-            let result = push(result, num)
+    let i = 0
+    while i < length(numbers) {
+        if numbers[i] > 0 {
+            let result = push(result, numbers[i])
         }
+        let i = i + 1
     }
     return result
 }
 
 fn sum_array(arr) {
     let total = 0
-    for num in arr {
-        let total = total + num
+    let i = 0
+    while i < length(arr) {
+        let total = total + arr[i]
+        let i = i + 1
     }
     return total
 }
@@ -36,9 +40,9 @@ let positive = filter_positive(data)
 print "Positive numbers:"
 print positive
 
-let total = sum_array(positive)
+let sum_pos = sum_array(positive)
 print "Sum of positive:"
-print total
+print sum_pos
 
 let avg = average(positive)
 print "Average of positive:"
@@ -46,10 +50,12 @@ print avg
 
 # Find max
 let max = positive[0]
-for num in positive {
-    if num > max {
-        let max = num
+let k = 1
+while k < length(positive) {
+    if positive[k] > max {
+        let max = positive[k]
     }
+    let k = k + 1
 }
 print "Maximum:"
 print max

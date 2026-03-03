@@ -1,0 +1,1618 @@
+# wsc.wsp — Whispem Self-hosted Compiler v3.0
+# Reads a .wsp source file, compiles it, writes a .whbc bytecode file.
+# Usage: whispem compiler/wsc.wsp <source.wsp>
+
+# ── Opcodes ───────────────────────────────────────────────────────────────────
+let OP_PUSH_CONST    = 0
+let OP_PUSH_TRUE     = 1
+let OP_PUSH_FALSE    = 2
+let OP_PUSH_NONE     = 3
+let OP_LOAD          = 16
+let OP_STORE         = 17
+let OP_LOAD_GLOBAL   = 18
+let OP_ADD           = 32
+let OP_SUB           = 33
+let OP_MUL           = 34
+let OP_DIV           = 35
+let OP_MOD           = 36
+let OP_NEG           = 37
+let OP_EQ            = 48
+let OP_NEQ           = 49
+let OP_LT            = 50
+let OP_LTE           = 51
+let OP_GT            = 52
+let OP_GTE           = 53
+let OP_NOT           = 54
+let OP_JUMP          = 64
+let OP_JUMP_IF_FALSE = 65
+let OP_JUMP_IF_TRUE  = 66
+let OP_PEEK_JUMP_F   = 67
+let OP_PEEK_JUMP_T   = 68
+let OP_CALL          = 80
+let OP_RETURN        = 81
+let OP_RETURN_NONE   = 82
+let OP_MAKE_ARRAY    = 96
+let OP_MAKE_DICT     = 97
+let OP_GET_INDEX     = 98
+let OP_SET_INDEX     = 99
+let OP_PRINT         = 112
+let OP_POP           = 113
+let OP_HALT          = 255
+
+# ── Char helpers ──────────────────────────────────────────────────────────────
+
+fn is_digit(ch) {
+    let c = ord(ch)
+    return c >= 48 and c <= 57
+}
+
+fn is_alpha(ch) {
+    let c = ord(ch)
+    return (c >= 65 and c <= 90) or (c >= 97 and c <= 122) or c == 95
+}
+
+fn is_alnum(ch) { return is_alpha(ch) or is_digit(ch) }
+
+fn is_space(ch) { return ch == " " or ch == "\t" or ch == "\r" }
+
+fn is_simple_punct(ch) {
+    return ch == "+" or ch == "-" or ch == "*" or ch == "%" or ch == "(" or ch == ")" or ch == "{" or ch == "}" or ch == "[" or ch == "]" or ch == "," or ch == ":" or ch == "/"
+}
+
+fn keyword_kind(word) {
+    if word == "let"      { return "LET" }
+    if word == "print"    { return "PRINT" }
+    if word == "if"       { return "IF" }
+    if word == "else"     { return "ELSE" }
+    if word == "while"    { return "WHILE" }
+    if word == "for"      { return "FOR" }
+    if word == "in"       { return "IN" }
+    if word == "fn"       { return "FN" }
+    if word == "return"   { return "RETURN" }
+    if word == "break"    { return "BREAK" }
+    if word == "continue" { return "CONTINUE" }
+    if word == "and"      { return "AND" }
+    if word == "or"       { return "OR" }
+    if word == "not"      { return "NOT" }
+    if word == "true"     { return "TRUE" }
+    if word == "false"    { return "FALSE" }
+    return "IDENT"
+}
+
+fn make_tok(kind, value, line) {
+    let t = {}
+    t["kind"]  = kind
+    t["value"] = value
+    t["line"]  = line
+    return t
+}
+
+fn lex_simple_punct(ch, line) {
+    if ch == "+" { return make_tok("PLUS",     "+", line) }
+    if ch == "-" { return make_tok("MINUS",    "-", line) }
+    if ch == "*" { return make_tok("STAR",     "*", line) }
+    if ch == "%" { return make_tok("PERCENT",  "%", line) }
+    if ch == "(" { return make_tok("LPAREN",   "(", line) }
+    if ch == ")" { return make_tok("RPAREN",   ")", line) }
+    if ch == "{" { return make_tok("LBRACE",   "{", line) }
+    if ch == "}" { return make_tok("RBRACE",   "}", line) }
+    if ch == "[" { return make_tok("LBRACKET", "[", line) }
+    if ch == "]" { return make_tok("RBRACKET", "]", line) }
+    if ch == "," { return make_tok("COMMA",    ",", line) }
+    if ch == ":" { return make_tok("COLON",    ":", line) }
+    if ch == "/" { return make_tok("SLASH",    "/", line) }
+    return make_tok("NONE", "", 0)
+}
+
+# ── Lexer ─────────────────────────────────────────────────────────────────────
+
+fn lex(src) {
+    let ls = {}
+    ls["tokens"]  = []
+    ls["pos"]     = 0
+    ls["line"]    = 1
+    ls["str_val"] = ""
+    let slen = length(src)
+
+    while ls["pos"] < slen {
+        let ch = char_at(src, ls["pos"])
+
+        if is_space(ch) {
+            ls["pos"] = ls["pos"] + 1
+        } else {
+            if ch == "#" {
+                while ls["pos"] < slen and char_at(src, ls["pos"]) != "\n" {
+                    ls["pos"] = ls["pos"] + 1
+                }
+            } else {
+                if ch == "\n" {
+                    ls["tokens"] = push(ls["tokens"], make_tok("NEWLINE", "\n", ls["line"]))
+                    ls["line"]   = ls["line"] + 1
+                    ls["pos"]    = ls["pos"]  + 1
+                } else {
+                    if is_simple_punct(ch) {
+                        ls["tokens"] = push(ls["tokens"], lex_simple_punct(ch, ls["line"]))
+                        ls["pos"]    = ls["pos"] + 1
+                    } else {
+                        if ch == "=" {
+                            if ls["pos"] + 1 < slen and char_at(src, ls["pos"] + 1) == "=" {
+                                ls["tokens"] = push(ls["tokens"], make_tok("EQEQ",   "==", ls["line"]))
+                                ls["pos"]    = ls["pos"] + 2
+                            } else {
+                                ls["tokens"] = push(ls["tokens"], make_tok("ASSIGN", "=",  ls["line"]))
+                                ls["pos"]    = ls["pos"] + 1
+                            }
+                        } else {
+                            if ch == "!" {
+                                if ls["pos"] + 1 < slen and char_at(src, ls["pos"] + 1) == "=" {
+                                    ls["tokens"] = push(ls["tokens"], make_tok("NEQ", "!=", ls["line"]))
+                                    ls["pos"]    = ls["pos"] + 2
+                                } else {
+                                    ls["pos"] = ls["pos"] + 1
+                                }
+                            } else {
+                                if ch == "<" {
+                                    if ls["pos"] + 1 < slen and char_at(src, ls["pos"] + 1) == "=" {
+                                        ls["tokens"] = push(ls["tokens"], make_tok("LTE", "<=", ls["line"]))
+                                        ls["pos"]    = ls["pos"] + 2
+                                    } else {
+                                        ls["tokens"] = push(ls["tokens"], make_tok("LT", "<", ls["line"]))
+                                        ls["pos"]    = ls["pos"] + 1
+                                    }
+                                } else {
+                                    if ch == ">" {
+                                        if ls["pos"] + 1 < slen and char_at(src, ls["pos"] + 1) == "=" {
+                                            ls["tokens"] = push(ls["tokens"], make_tok("GTE", ">=", ls["line"]))
+                                            ls["pos"]    = ls["pos"] + 2
+                                        } else {
+                                            ls["tokens"] = push(ls["tokens"], make_tok("GT", ">", ls["line"]))
+                                            ls["pos"]    = ls["pos"] + 1
+                                        }
+                                    } else {
+                                        if ch == "\"" {
+                                            ls["pos"]     = ls["pos"] + 1
+                                            ls["str_val"] = ""
+                                            while ls["pos"] < slen and char_at(src, ls["pos"]) != "\"" {
+                                                let c = char_at(src, ls["pos"])
+                                                if c == "\\" and ls["pos"] + 1 < slen {
+                                                    let nc = char_at(src, ls["pos"] + 1)
+                                                    if nc == "n" {
+                                                        ls["str_val"] = ls["str_val"] + "\n"
+                                                        ls["pos"]     = ls["pos"] + 2
+                                                    } else {
+                                                        if nc == "t" {
+                                                            ls["str_val"] = ls["str_val"] + "\t"
+                                                            ls["pos"]     = ls["pos"] + 2
+                                                        } else {
+                                                            if nc == "\"" {
+                                                                ls["str_val"] = ls["str_val"] + "\""
+                                                                ls["pos"]     = ls["pos"] + 2
+                                                            } else {
+                                                                if nc == "\\" {
+                                                                    ls["str_val"] = ls["str_val"] + "\\"
+                                                                    ls["pos"]     = ls["pos"] + 2
+                                                                } else {
+                                                                    ls["str_val"] = ls["str_val"] + c
+                                                                    ls["pos"]     = ls["pos"] + 1
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    ls["str_val"] = ls["str_val"] + c
+                                                    ls["pos"]     = ls["pos"] + 1
+                                                }
+                                            }
+                                            ls["pos"]    = ls["pos"] + 1
+                                            ls["tokens"] = push(ls["tokens"], make_tok("STRING", ls["str_val"], ls["line"]))
+                                        } else {
+                                            if is_digit(ch) {
+                                                let ns = ls["pos"]
+                                                while ls["pos"] < slen and (is_digit(char_at(src, ls["pos"])) or char_at(src, ls["pos"]) == ".") {
+                                                    ls["pos"] = ls["pos"] + 1
+                                                }
+                                                let nstr     = substr(src, ns, ls["pos"] - ns)
+                                                ls["tokens"] = push(ls["tokens"], make_tok("NUMBER", nstr, ls["line"]))
+                                            } else {
+                                                if is_alpha(ch) {
+                                                    let ws = ls["pos"]
+                                                    while ls["pos"] < slen and is_alnum(char_at(src, ls["pos"])) {
+                                                        ls["pos"] = ls["pos"] + 1
+                                                    }
+                                                    let word     = substr(src, ws, ls["pos"] - ws)
+                                                    let kind     = keyword_kind(word)
+                                                    ls["tokens"] = push(ls["tokens"], make_tok(kind, word, ls["line"]))
+                                                } else {
+                                                    ls["pos"] = ls["pos"] + 1
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ls["tokens"] = push(ls["tokens"], make_tok("EOF", "", ls["line"]))
+    return ls["tokens"]
+}
+
+# ── Chunk ─────────────────────────────────────────────────────────────────────
+
+fn make_chunk(name, param_count) {
+    let c = {}
+    c["name"]        = name
+    c["param_count"] = param_count
+    c["code"]        = []
+    c["constants"]   = []
+    c["lines"]       = []
+    return c
+}
+
+fn chunk_add_const(chunk, value) {
+    let consts = chunk["constants"]
+    let st = {}
+    st["i"] = 0
+    while st["i"] < length(consts) {
+        if consts[st["i"]] == value {
+            chunk["_idx"] = st["i"]
+            return chunk
+        }
+        st["i"] = st["i"] + 1
+    }
+    let idx = length(consts)
+    chunk["constants"] = push(consts, value)
+    chunk["_idx"] = idx
+    return chunk
+}
+
+fn chunk_emit(chunk, byte, line) {
+    chunk["code"]  = push(chunk["code"],  byte)
+    chunk["lines"] = push(chunk["lines"], line)
+    return chunk
+}
+
+fn chunk_emit2(chunk, b0, b1, line) {
+    let st = {}
+    st["c"] = chunk_emit(chunk, b0, line)
+    st["c"] = chunk_emit(st["c"], b1, line)
+    return st["c"]
+}
+
+fn chunk_emit3(chunk, b0, b1, b2, line) {
+    let st = {}
+    st["c"] = chunk_emit(chunk, b0, line)
+    st["c"] = chunk_emit(st["c"], b1, line)
+    st["c"] = chunk_emit(st["c"], b2, line)
+    return st["c"]
+}
+
+fn chunk_offset(chunk) { return length(chunk["code"]) }
+
+fn chunk_emit_jump(chunk, op, line) {
+    let st = {}
+    st["c"] = chunk_emit(chunk, op,  line)
+    st["c"] = chunk_emit(st["c"], 255, line)
+    st["c"] = chunk_emit(st["c"], 255, line)
+    let jmp = chunk_offset(st["c"]) - 2
+    let c = st["c"]
+    c["_jmp"] = jmp
+    return c
+}
+
+fn chunk_patch(chunk, at, target) {
+    let code = chunk["code"]
+    let st = {}
+    st["lo"] = target % 256
+    st["hi"] = (target - st["lo"]) / 256
+    code[at]      = st["hi"]
+    code[at + 1]  = st["lo"]
+    chunk["code"] = code
+    return chunk
+}
+
+fn chunk_name_const(chunk, name) {
+    return chunk_add_const(chunk, name)
+}
+
+fn emit_jump_back(chunk, target, line) {
+    let st = {}
+    st["lo"] = target % 256
+    st["hi"] = (target - st["lo"]) / 256
+    return chunk_emit3(chunk, OP_JUMP, st["hi"], st["lo"], line)
+}
+
+# ── Parser helpers ────────────────────────────────────────────────────────────
+
+fn make_ps(tok_list) {
+    let ps = {}
+    ps["tokens"] = tok_list
+    ps["pos"]    = 0
+    return ps
+}
+
+fn ps_cur(ps) {
+    let toks = ps["tokens"]
+    let idx  = ps["pos"]
+    if idx >= length(toks) { return toks[length(toks) - 1] }
+    return toks[idx]
+}
+
+fn ps_kind(ps)  { return ps_cur(ps)["kind"] }
+fn ps_val(ps)   { return ps_cur(ps)["value"] }
+fn ps_line(ps)  { return ps_cur(ps)["line"] }
+
+fn ps_adv(ps) {
+    if ps["pos"] + 1 < length(ps["tokens"]) {
+        ps["pos"] = ps["pos"] + 1
+    }
+    return ps
+}
+
+fn ps_skip(ps) {
+    let st = {}
+    st["ps"] = ps
+    while ps_kind(st["ps"]) == "NEWLINE" {
+        st["ps"] = ps_adv(st["ps"])
+    }
+    return st["ps"]
+}
+
+fn ps_eat(ps, kind) {
+    if ps_kind(ps) == kind {
+        return ps_adv(ps)
+    }
+    return ps
+}
+
+fn ps_ret(ps, val) {
+    ps["result"] = val
+    return ps
+}
+
+# ── AST node helper ──────────────────────────────────────────────────────────
+
+fn node(kind, data) {
+    let n = {}
+    n["kind"] = kind
+    n["data"] = data
+    return n
+}
+
+# ── Parser ────────────────────────────────────────────────────────────────────
+
+fn parse(tok_list) {
+    let st = {}
+    st["ps"]    = ps_skip(make_ps(tok_list))
+    st["stmts"] = []
+    while ps_kind(st["ps"]) != "EOF" {
+        st["ps"] = parse_stmt(st["ps"])
+        st["stmts"] = push(st["stmts"], st["ps"]["result"])
+        st["ps"] = ps_skip(st["ps"])
+    }
+    return st["stmts"]
+}
+
+fn parse_block(ps) {
+    let st = {}
+    st["ps"]    = ps_skip(ps)
+    st["stmts"] = []
+    while ps_kind(st["ps"]) != "RBRACE" and ps_kind(st["ps"]) != "EOF" {
+        st["ps"] = parse_stmt(st["ps"])
+        st["stmts"] = push(st["stmts"], st["ps"]["result"])
+        st["ps"] = ps_skip(st["ps"])
+    }
+    return ps_ret(st["ps"], st["stmts"])
+}
+
+fn parse_stmt(ps) {
+    let st = {}
+    st["ps"] = ps_skip(ps)
+    let k  = ps_kind(st["ps"])
+    let ln = ps_line(st["ps"])
+
+    if k == "LET" {
+        st["ps"] = ps_adv(st["ps"])
+        let name = ps_val(st["ps"])
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = ps_eat(st["ps"], "ASSIGN")
+        st["ps"] = parse_expr(st["ps"])
+        let val = st["ps"]["result"]
+        let d = {}
+        d["name"]  = name
+        d["value"] = val
+        d["line"]  = ln
+        return ps_ret(st["ps"], node("Let", d))
+    }
+
+    if k == "PRINT" {
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_expr(st["ps"])
+        let val = st["ps"]["result"]
+        let d = {}
+        d["value"] = val
+        d["line"]  = ln
+        return ps_ret(st["ps"], node("Print", d))
+    }
+
+    if k == "RETURN" {
+        st["ps"] = ps_adv(st["ps"])
+        if ps_kind(st["ps"]) == "NEWLINE" or ps_kind(st["ps"]) == "RBRACE" or ps_kind(st["ps"]) == "EOF" {
+            let d = {}
+            d["value"] = "NONE_SENTINEL"
+            d["line"]  = ln
+            return ps_ret(st["ps"], node("Return", d))
+        }
+        st["ps"] = parse_expr(st["ps"])
+        let val = st["ps"]["result"]
+        let d = {}
+        d["value"] = val
+        d["line"]  = ln
+        return ps_ret(st["ps"], node("Return", d))
+    }
+
+    if k == "BREAK" {
+        st["ps"] = ps_adv(st["ps"])
+        let d = {}
+        d["line"] = ln
+        return ps_ret(st["ps"], node("Break", d))
+    }
+
+    if k == "CONTINUE" {
+        st["ps"] = ps_adv(st["ps"])
+        let d = {}
+        d["line"] = ln
+        return ps_ret(st["ps"], node("Continue", d))
+    }
+
+    if k == "IF" {
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_expr(st["ps"])
+        let cond = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "LBRACE")
+        st["ps"] = ps_skip(st["ps"])
+        st["ps"] = parse_block(st["ps"])
+        let then_b = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "RBRACE")
+        st["else_b"] = []
+        st["ps"] = ps_skip(st["ps"])
+        if ps_kind(st["ps"]) == "ELSE" {
+            st["ps"] = ps_adv(st["ps"])
+            st["ps"] = ps_eat(st["ps"], "LBRACE")
+            st["ps"] = ps_skip(st["ps"])
+            st["ps"] = parse_block(st["ps"])
+            st["else_b"] = st["ps"]["result"]
+            st["ps"] = ps_eat(st["ps"], "RBRACE")
+        }
+        let d = {}
+        d["cond"] = cond
+        d["then"] = then_b
+        d["else"] = st["else_b"]
+        d["line"] = ln
+        return ps_ret(st["ps"], node("If", d))
+    }
+
+    if k == "WHILE" {
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_expr(st["ps"])
+        let cond = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "LBRACE")
+        st["ps"] = ps_skip(st["ps"])
+        st["ps"] = parse_block(st["ps"])
+        let body = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "RBRACE")
+        let d = {}
+        d["cond"] = cond
+        d["body"] = body
+        d["line"] = ln
+        return ps_ret(st["ps"], node("While", d))
+    }
+
+    if k == "FOR" {
+        st["ps"] = ps_adv(st["ps"])
+        let var_name = ps_val(st["ps"])
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = ps_eat(st["ps"], "IN")
+        st["ps"] = parse_expr(st["ps"])
+        let iter_expr = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "LBRACE")
+        st["ps"] = ps_skip(st["ps"])
+        st["ps"] = parse_block(st["ps"])
+        let body = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "RBRACE")
+        let d = {}
+        d["var"]  = var_name
+        d["iter"] = iter_expr
+        d["body"] = body
+        d["line"] = ln
+        return ps_ret(st["ps"], node("For", d))
+    }
+
+    if k == "FN" {
+        st["ps"] = ps_adv(st["ps"])
+        let fname = ps_val(st["ps"])
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = ps_eat(st["ps"], "LPAREN")
+        st["params"] = []
+        if ps_kind(st["ps"]) != "RPAREN" {
+            st["params"] = push(st["params"], ps_val(st["ps"]))
+            st["ps"] = ps_adv(st["ps"])
+            while ps_kind(st["ps"]) == "COMMA" {
+                st["ps"] = ps_adv(st["ps"])
+                st["params"] = push(st["params"], ps_val(st["ps"]))
+                st["ps"] = ps_adv(st["ps"])
+            }
+        }
+        st["ps"] = ps_eat(st["ps"], "RPAREN")
+        st["ps"] = ps_eat(st["ps"], "LBRACE")
+        st["ps"] = ps_skip(st["ps"])
+        st["ps"] = parse_block(st["ps"])
+        let body = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "RBRACE")
+        let d = {}
+        d["name"]   = fname
+        d["params"] = st["params"]
+        d["body"]   = body
+        d["line"]   = ln
+        return ps_ret(st["ps"], node("Function", d))
+    }
+
+    if k == "IDENT" {
+        let name = ps_val(st["ps"])
+        st["ps"] = ps_adv(st["ps"])
+        if ps_kind(st["ps"]) == "LBRACKET" {
+            st["ps"] = ps_adv(st["ps"])
+            st["ps"] = parse_expr(st["ps"])
+            let idx = st["ps"]["result"]
+            st["ps"] = ps_eat(st["ps"], "RBRACKET")
+            if ps_kind(st["ps"]) == "ASSIGN" {
+                st["ps"] = ps_adv(st["ps"])
+                st["ps"] = parse_expr(st["ps"])
+                let val = st["ps"]["result"]
+                let d = {}
+                d["name"]  = name
+                d["index"] = idx
+                d["value"] = val
+                d["line"]  = ln
+                return ps_ret(st["ps"], node("IndexAssign", d))
+            }
+            let ie = {}
+            ie["kind"] = "Index"
+            let ve = {}
+            ve["kind"] = "Variable"
+            ve["name"] = name
+            ie["object"] = ve
+            ie["index"] = idx
+            let d = {}
+            d["expr"] = ie
+            d["line"] = ln
+            return ps_ret(st["ps"], node("Expr", d))
+        }
+        if ps_kind(st["ps"]) == "ASSIGN" {
+            st["ps"] = ps_adv(st["ps"])
+            st["ps"] = parse_expr(st["ps"])
+            let val = st["ps"]["result"]
+            let d = {}
+            d["name"]  = name
+            d["value"] = val
+            d["line"]  = ln
+            return ps_ret(st["ps"], node("Let", d))
+        }
+        if ps_kind(st["ps"]) == "LPAREN" {
+            st["ps"] = ps_adv(st["ps"])
+            st["args"] = []
+            if ps_kind(st["ps"]) != "RPAREN" {
+                st["ps"] = parse_expr(st["ps"])
+                st["args"] = push(st["args"], st["ps"]["result"])
+                while ps_kind(st["ps"]) == "COMMA" {
+                    st["ps"] = ps_adv(st["ps"])
+                    st["ps"] = parse_expr(st["ps"])
+                    st["args"] = push(st["args"], st["ps"]["result"])
+                }
+            }
+            st["ps"] = ps_eat(st["ps"], "RPAREN")
+            let ce = {}
+            ce["kind"] = "Call"
+            ce["name"] = name
+            ce["args"] = st["args"]
+            let d = {}
+            d["expr"] = ce
+            d["line"] = ln
+            return ps_ret(st["ps"], node("Expr", d))
+        }
+        let ve = {}
+        ve["kind"] = "Variable"
+        ve["name"] = name
+        let d = {}
+        d["expr"] = ve
+        d["line"] = ln
+        return ps_ret(st["ps"], node("Expr", d))
+    }
+
+    st["ps"] = parse_expr(st["ps"])
+    let e = st["ps"]["result"]
+    let d = {}
+    d["expr"] = e
+    d["line"] = ln
+    return ps_ret(st["ps"], node("Expr", d))
+}
+
+fn parse_expr(ps)  { return parse_or(ps) }
+
+fn parse_or(ps) {
+    let st = {}
+    st["ps"] = parse_and(ps)
+    st["left"] = st["ps"]["result"]
+    while ps_kind(st["ps"]) == "OR" {
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_and(st["ps"])
+        let right = st["ps"]["result"]
+        let e = {}
+        e["kind"]  = "Logical"
+        e["op"]    = "or"
+        e["left"]  = st["left"]
+        e["right"] = right
+        st["left"] = e
+    }
+    return ps_ret(st["ps"], st["left"])
+}
+
+fn parse_and(ps) {
+    let st = {}
+    st["ps"] = parse_cmp_eq(ps)
+    st["left"] = st["ps"]["result"]
+    while ps_kind(st["ps"]) == "AND" {
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_cmp_eq(st["ps"])
+        let right = st["ps"]["result"]
+        let e = {}
+        e["kind"]  = "Logical"
+        e["op"]    = "and"
+        e["left"]  = st["left"]
+        e["right"] = right
+        st["left"] = e
+    }
+    return ps_ret(st["ps"], st["left"])
+}
+
+fn parse_cmp_eq(ps) {
+    let st = {}
+    st["ps"] = parse_cmp(ps)
+    st["left"] = st["ps"]["result"]
+    while ps_kind(st["ps"]) == "EQEQ" or ps_kind(st["ps"]) == "NEQ" {
+        let op = ps_val(st["ps"])
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_cmp(st["ps"])
+        let right = st["ps"]["result"]
+        let e = {}
+        e["kind"]  = "Binary"
+        e["op"]    = op
+        e["left"]  = st["left"]
+        e["right"] = right
+        st["left"] = e
+    }
+    return ps_ret(st["ps"], st["left"])
+}
+
+fn parse_cmp(ps) {
+    let st = {}
+    st["ps"] = parse_add(ps)
+    st["left"] = st["ps"]["result"]
+    while ps_kind(st["ps"]) == "LT" or ps_kind(st["ps"]) == "LTE" or ps_kind(st["ps"]) == "GT" or ps_kind(st["ps"]) == "GTE" {
+        let op = ps_val(st["ps"])
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_add(st["ps"])
+        let right = st["ps"]["result"]
+        let e = {}
+        e["kind"]  = "Binary"
+        e["op"]    = op
+        e["left"]  = st["left"]
+        e["right"] = right
+        st["left"] = e
+    }
+    return ps_ret(st["ps"], st["left"])
+}
+
+fn parse_add(ps) {
+    let st = {}
+    st["ps"] = parse_mul(ps)
+    st["left"] = st["ps"]["result"]
+    while ps_kind(st["ps"]) == "PLUS" or ps_kind(st["ps"]) == "MINUS" {
+        let op = ps_val(st["ps"])
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_mul(st["ps"])
+        let right = st["ps"]["result"]
+        let e = {}
+        e["kind"]  = "Binary"
+        e["op"]    = op
+        e["left"]  = st["left"]
+        e["right"] = right
+        st["left"] = e
+    }
+    return ps_ret(st["ps"], st["left"])
+}
+
+fn parse_mul(ps) {
+    let st = {}
+    st["ps"] = parse_unary(ps)
+    st["left"] = st["ps"]["result"]
+    while ps_kind(st["ps"]) == "STAR" or ps_kind(st["ps"]) == "SLASH" or ps_kind(st["ps"]) == "PERCENT" {
+        let op = ps_val(st["ps"])
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_unary(st["ps"])
+        let right = st["ps"]["result"]
+        let e = {}
+        e["kind"]  = "Binary"
+        e["op"]    = op
+        e["left"]  = st["left"]
+        e["right"] = right
+        st["left"] = e
+    }
+    return ps_ret(st["ps"], st["left"])
+}
+
+fn parse_unary(ps) {
+    if ps_kind(ps) == "NOT" {
+        let st = {}
+        st["ps"] = ps_adv(ps)
+        st["ps"] = parse_unary(st["ps"])
+        let operand = st["ps"]["result"]
+        let e = {}
+        e["kind"]    = "Unary"
+        e["op"]      = "not"
+        e["operand"] = operand
+        return ps_ret(st["ps"], e)
+    }
+    if ps_kind(ps) == "MINUS" {
+        let st = {}
+        st["ps"] = ps_adv(ps)
+        st["ps"] = parse_unary(st["ps"])
+        let operand = st["ps"]["result"]
+        let e = {}
+        e["kind"]    = "Unary"
+        e["op"]      = "neg"
+        e["operand"] = operand
+        return ps_ret(st["ps"], e)
+    }
+    return parse_postfix(ps)
+}
+
+fn parse_postfix(ps) {
+    let st = {}
+    st["ps"] = parse_primary(ps)
+    st["expr"] = st["ps"]["result"]
+
+    if ps_kind(st["ps"]) == "LPAREN" {
+        st["name"] = ""
+        if has_key(st["expr"], "name") { st["name"] = st["expr"]["name"] }
+        st["ps"] = ps_adv(st["ps"])
+        st["args"] = []
+        if ps_kind(st["ps"]) != "RPAREN" {
+            st["ps"] = parse_expr(st["ps"])
+            st["args"] = push(st["args"], st["ps"]["result"])
+            while ps_kind(st["ps"]) == "COMMA" {
+                st["ps"] = ps_adv(st["ps"])
+                st["ps"] = parse_expr(st["ps"])
+                st["args"] = push(st["args"], st["ps"]["result"])
+            }
+        }
+        st["ps"] = ps_eat(st["ps"], "RPAREN")
+        let e = {}
+        e["kind"] = "Call"
+        e["name"] = st["name"]
+        e["args"] = st["args"]
+        st["expr"] = e
+    }
+
+    while ps_kind(st["ps"]) == "LBRACKET" {
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_expr(st["ps"])
+        let idx = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "RBRACKET")
+        let e = {}
+        e["kind"]   = "Index"
+        e["object"] = st["expr"]
+        e["index"]  = idx
+        st["expr"] = e
+    }
+
+    return ps_ret(st["ps"], st["expr"])
+}
+
+fn parse_primary(ps) {
+    let k = ps_kind(ps)
+
+    if k == "NUMBER" {
+        let v = str_to_num(ps_val(ps))
+        let p2 = ps_adv(ps)
+        let e = {}
+        e["kind"]  = "Number"
+        e["value"] = v
+        return ps_ret(p2, e)
+    }
+
+    if k == "STRING" {
+        let v = ps_val(ps)
+        let p2 = ps_adv(ps)
+        let e = {}
+        e["kind"]  = "Str"
+        e["value"] = v
+        return ps_ret(p2, e)
+    }
+
+    if k == "TRUE" {
+        let p2 = ps_adv(ps)
+        let e = {}
+        e["kind"]  = "Bool"
+        e["value"] = true
+        return ps_ret(p2, e)
+    }
+
+    if k == "FALSE" {
+        let p2 = ps_adv(ps)
+        let e = {}
+        e["kind"]  = "Bool"
+        e["value"] = false
+        return ps_ret(p2, e)
+    }
+
+    if k == "LPAREN" {
+        let st = {}
+        st["ps"] = ps_adv(ps)
+        st["ps"] = parse_expr(st["ps"])
+        let e = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "RPAREN")
+        return ps_ret(st["ps"], e)
+    }
+
+    if k == "LBRACKET" {
+        let st = {}
+        st["ps"] = ps_adv(ps)
+        st["ps"] = ps_skip(st["ps"])
+        st["elems"] = []
+        if ps_kind(st["ps"]) != "RBRACKET" {
+            st["ps"] = parse_expr(st["ps"])
+            st["elems"] = push(st["elems"], st["ps"]["result"])
+            st["ps"] = ps_skip(st["ps"])
+            while ps_kind(st["ps"]) == "COMMA" {
+                st["ps"] = ps_adv(st["ps"])
+                st["ps"] = ps_skip(st["ps"])
+                st["ps"] = parse_expr(st["ps"])
+                st["elems"] = push(st["elems"], st["ps"]["result"])
+                st["ps"] = ps_skip(st["ps"])
+            }
+        }
+        st["ps"] = ps_skip(st["ps"])
+        st["ps"] = ps_eat(st["ps"], "RBRACKET")
+        let e = {}
+        e["kind"]  = "Array"
+        e["elems"] = st["elems"]
+        return ps_ret(st["ps"], e)
+    }
+
+    if k == "LBRACE" {
+        let st = {}
+        st["ps"] = ps_adv(ps)
+        st["ps"] = ps_skip(st["ps"])
+        st["pairs"] = []
+        if ps_kind(st["ps"]) != "RBRACE" {
+            st["ps"] = parse_expr(st["ps"])
+            let kk = st["ps"]["result"]
+            st["ps"] = ps_eat(st["ps"], "COLON")
+            st["ps"] = parse_expr(st["ps"])
+            let vv = st["ps"]["result"]
+            let pair = {}
+            pair["k"] = kk
+            pair["v"] = vv
+            st["pairs"] = push(st["pairs"], pair)
+            st["ps"] = ps_skip(st["ps"])
+            while ps_kind(st["ps"]) == "COMMA" {
+                st["ps"] = ps_adv(st["ps"])
+                st["ps"] = ps_skip(st["ps"])
+                st["ps"] = parse_expr(st["ps"])
+                let kk2 = st["ps"]["result"]
+                st["ps"] = ps_eat(st["ps"], "COLON")
+                st["ps"] = parse_expr(st["ps"])
+                let vv2 = st["ps"]["result"]
+                let pair2 = {}
+                pair2["k"] = kk2
+                pair2["v"] = vv2
+                st["pairs"] = push(st["pairs"], pair2)
+                st["ps"] = ps_skip(st["ps"])
+            }
+        }
+        st["ps"] = ps_skip(st["ps"])
+        st["ps"] = ps_eat(st["ps"], "RBRACE")
+        let e = {}
+        e["kind"]  = "Dict"
+        e["pairs"] = st["pairs"]
+        return ps_ret(st["ps"], e)
+    }
+
+    let v = ps_val(ps)
+    let p2 = ps_adv(ps)
+    let e = {}
+    e["kind"] = "Variable"
+    e["name"] = v
+    return ps_ret(p2, e)
+}
+
+# ── Compiler ──────────────────────────────────────────────────────────────────
+
+fn arr_contains(arr, val) {
+    let st = {}
+    st["i"] = 0
+    while st["i"] < length(arr) {
+        if arr[st["i"]] == val { return true }
+        st["i"] = st["i"] + 1
+    }
+    return false
+}
+
+fn compile(stmts) {
+    let ctx = {}
+    ctx["chunk"]      = make_chunk("<main>", 0)
+    ctx["functions"]  = {}
+    ctx["globals"]    = []
+    ctx["in_fn"]      = false
+    ctx["loop_stack"] = []
+
+    # Pass 1: collect global names
+    let st = {}
+    st["i"] = 0
+    while st["i"] < length(stmts) {
+        if stmts[st["i"]]["kind"] == "Let" {
+            let gname = stmts[st["i"]]["data"]["name"]
+            if not arr_contains(ctx["globals"], gname) {
+                ctx["globals"] = push(ctx["globals"], gname)
+            }
+        }
+        st["i"] = st["i"] + 1
+    }
+
+    # Pass 2: compile functions
+    st["i"] = 0
+    while st["i"] < length(stmts) {
+        if stmts[st["i"]]["kind"] == "Function" {
+            let ctx = compile_function(ctx, stmts[st["i"]]["data"])
+        }
+        st["i"] = st["i"] + 1
+    }
+
+    # Pass 3: compile main body
+    st["i"] = 0
+    while st["i"] < length(stmts) {
+        if stmts[st["i"]]["kind"] != "Function" {
+            let ctx = compile_stmt(ctx, stmts[st["i"]])
+        }
+        st["i"] = st["i"] + 1
+    }
+
+    let ch = ctx["chunk"]
+    let ch = chunk_emit(ch, OP_HALT, 0)
+    ctx["chunk"] = ch
+    return ctx
+}
+
+fn compile_function(ctx, data) {
+    let saved_chunk = ctx["chunk"]
+    let saved_in_fn = ctx["in_fn"]
+    ctx["chunk"] = make_chunk(data["name"], length(data["params"]))
+    ctx["in_fn"] = true
+
+    let st = {}
+    st["pi"] = length(data["params"]) - 1
+    while st["pi"] >= 0 {
+        let pname = data["params"][st["pi"]]
+        let ch = ctx["chunk"]
+        let ch = chunk_name_const(ch, pname)
+        let pidx = ch["_idx"]
+        let ch = chunk_emit2(ch, OP_STORE, pidx, 0)
+        ctx["chunk"] = ch
+        st["pi"] = st["pi"] - 1
+    }
+
+    st["bi"] = 0
+    while st["bi"] < length(data["body"]) {
+        let ctx = compile_stmt(ctx, data["body"][st["bi"]])
+        st["bi"] = st["bi"] + 1
+    }
+
+    let ch2 = ctx["chunk"]
+    let ch2 = chunk_emit(ch2, OP_RETURN_NONE, 0)
+    let fns = ctx["functions"]
+    fns[data["name"]] = ch2
+    ctx["functions"] = fns
+    ctx["chunk"] = saved_chunk
+    ctx["in_fn"] = saved_in_fn
+    return ctx
+}
+
+fn compile_stmt(ctx, stmt) {
+    let k = stmt["kind"]
+    let d = stmt["data"]
+
+    if k == "Let" {
+        let ctx = compile_expr(ctx, d["value"], d["line"])
+        let ch = ctx["chunk"]
+        let ch = chunk_name_const(ch, d["name"])
+        let idx = ch["_idx"]
+        let ch = chunk_emit2(ch, OP_STORE, idx, d["line"])
+        ctx["chunk"] = ch
+        if not ctx["in_fn"] {
+            if not arr_contains(ctx["globals"], d["name"]) {
+                ctx["globals"] = push(ctx["globals"], d["name"])
+            }
+        }
+        return ctx
+    }
+
+    if k == "Print" {
+        let ctx = compile_expr(ctx, d["value"], d["line"])
+        let ch = ctx["chunk"]
+        let ch = chunk_emit(ch, OP_PRINT, d["line"])
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    if k == "Return" {
+        if d["value"] == "NONE_SENTINEL" {
+            let ch = ctx["chunk"]
+            let ch = chunk_emit(ch, OP_RETURN_NONE, d["line"])
+            ctx["chunk"] = ch
+        } else {
+            let ctx = compile_expr(ctx, d["value"], d["line"])
+            let ch = ctx["chunk"]
+            let ch = chunk_emit(ch, OP_RETURN, d["line"])
+            ctx["chunk"] = ch
+        }
+        return ctx
+    }
+
+    if k == "Break" {
+        let ch = ctx["chunk"]
+        let ch = chunk_emit_jump(ch, OP_JUMP, d["line"])
+        let jmp_pos = ch["_jmp"]
+        ctx["chunk"] = ch
+        let ls = ctx["loop_stack"]
+        let top = ls[length(ls) - 1]
+        top["break_jumps"] = push(top["break_jumps"], jmp_pos)
+        ls[length(ls) - 1] = top
+        ctx["loop_stack"] = ls
+        return ctx
+    }
+
+    if k == "Continue" {
+        let ch = ctx["chunk"]
+        let ch = chunk_emit_jump(ch, OP_JUMP, d["line"])
+        let jmp_pos = ch["_jmp"]
+        ctx["chunk"] = ch
+        let ls = ctx["loop_stack"]
+        let top = ls[length(ls) - 1]
+        top["continue_jumps"] = push(top["continue_jumps"], jmp_pos)
+        ls[length(ls) - 1] = top
+        ctx["loop_stack"] = ls
+        return ctx
+    }
+
+    if k == "If" {
+        let line = d["line"]
+        let ctx = compile_expr(ctx, d["cond"], line)
+        let ch = ctx["chunk"]
+        let ch = chunk_emit_jump(ch, OP_JUMP_IF_FALSE, line)
+        let jelse = ch["_jmp"]
+        ctx["chunk"] = ch
+
+        let st = {}
+        st["ti"] = 0
+        while st["ti"] < length(d["then"]) {
+            let ctx = compile_stmt(ctx, d["then"][st["ti"]])
+            st["ti"] = st["ti"] + 1
+        }
+
+        if length(d["else"]) > 0 {
+            let ch2 = ctx["chunk"]
+            let ch2 = chunk_emit_jump(ch2, OP_JUMP, line)
+            let jend = ch2["_jmp"]
+            let ch2 = chunk_patch(ch2, jelse, chunk_offset(ch2))
+            ctx["chunk"] = ch2
+            st["ei"] = 0
+            while st["ei"] < length(d["else"]) {
+                let ctx = compile_stmt(ctx, d["else"][st["ei"]])
+                st["ei"] = st["ei"] + 1
+            }
+            let ch3 = ctx["chunk"]
+            let ch3 = chunk_patch(ch3, jend, chunk_offset(ch3))
+            ctx["chunk"] = ch3
+        } else {
+            let ch2 = ctx["chunk"]
+            let ch2 = chunk_patch(ch2, jelse, chunk_offset(ch2))
+            ctx["chunk"] = ch2
+        }
+        return ctx
+    }
+
+    if k == "While" {
+        let line   = d["line"]
+        let lstart = chunk_offset(ctx["chunk"])
+
+        let lctx = {}
+        lctx["break_jumps"] = []
+        lctx["continue_jumps"] = []
+        ctx["loop_stack"] = push(ctx["loop_stack"], lctx)
+
+        let ctx = compile_expr(ctx, d["cond"], line)
+        let ch = ctx["chunk"]
+        let ch = chunk_emit_jump(ch, OP_JUMP_IF_FALSE, line)
+        let exit_jmp = ch["_jmp"]
+        ctx["chunk"] = ch
+
+        let st = {}
+        st["bi"] = 0
+        while st["bi"] < length(d["body"]) {
+            let ctx = compile_stmt(ctx, d["body"][st["bi"]])
+            st["bi"] = st["bi"] + 1
+        }
+
+        let ch2 = ctx["chunk"]
+        let ch2 = emit_jump_back(ch2, lstart, line)
+        let after = chunk_offset(ch2)
+        let ch2 = chunk_patch(ch2, exit_jmp, after)
+        ctx["chunk"] = ch2
+
+        let ls = ctx["loop_stack"]
+        let lctx2 = ls[length(ls) - 1]
+        let st2 = {}
+        st2["i"] = 0
+        while st2["i"] < length(lctx2["break_jumps"]) {
+            let ch3 = ctx["chunk"]
+            let ch3 = chunk_patch(ch3, lctx2["break_jumps"][st2["i"]], after)
+            ctx["chunk"] = ch3
+            st2["i"] = st2["i"] + 1
+        }
+        st2["i"] = 0
+        while st2["i"] < length(lctx2["continue_jumps"]) {
+            let ch3 = ctx["chunk"]
+            let ch3 = chunk_patch(ch3, lctx2["continue_jumps"][st2["i"]], lstart)
+            ctx["chunk"] = ch3
+            st2["i"] = st2["i"] + 1
+        }
+        let ls2 = ctx["loop_stack"]
+        ctx["loop_stack"] = slice(ls2, 0, length(ls2) - 1)
+        return ctx
+    }
+
+    if k == "For" {
+        let line    = d["line"]
+        let iname   = "__wsc_iter"
+        let idxname = "__wsc_idx"
+
+        let ctx = compile_expr(ctx, d["iter"], line)
+        let ch = ctx["chunk"]
+        let ch = chunk_name_const(ch, iname)
+        let iter_c = ch["_idx"]
+        let ch = chunk_emit2(ch, OP_STORE, iter_c, line)
+        let ch = chunk_add_const(ch, 0)
+        let zero_c = ch["_idx"]
+        let ch = chunk_emit2(ch, OP_PUSH_CONST, zero_c, line)
+        let ch = chunk_name_const(ch, idxname)
+        let idx_c = ch["_idx"]
+        let ch = chunk_emit2(ch, OP_STORE, idx_c, line)
+        ctx["chunk"] = ch
+
+        let lstart = chunk_offset(ctx["chunk"])
+
+        let lctx = {}
+        lctx["break_jumps"] = []
+        lctx["continue_jumps"] = []
+        ctx["loop_stack"] = push(ctx["loop_stack"], lctx)
+
+        let ch2 = ctx["chunk"]
+        let ch2 = chunk_emit2(ch2, OP_LOAD, idx_c, line)
+        let ch2 = chunk_emit2(ch2, OP_LOAD, iter_c, line)
+        let ch2 = chunk_name_const(ch2, "length")
+        let len_c = ch2["_idx"]
+        let ch2 = chunk_emit3(ch2, OP_CALL, len_c, 1, line)
+        let ch2 = chunk_emit(ch2, OP_LT, line)
+        let ch2 = chunk_emit_jump(ch2, OP_JUMP_IF_FALSE, line)
+        let exit_jmp = ch2["_jmp"]
+        let ch2 = chunk_emit2(ch2, OP_LOAD, iter_c, line)
+        let ch2 = chunk_emit2(ch2, OP_LOAD, idx_c, line)
+        let ch2 = chunk_emit(ch2, OP_GET_INDEX, line)
+        let ch2 = chunk_name_const(ch2, d["var"])
+        let var_c = ch2["_idx"]
+        let ch2 = chunk_emit2(ch2, OP_STORE, var_c, line)
+        ctx["chunk"] = ch2
+
+        let st = {}
+        st["bi"] = 0
+        while st["bi"] < length(d["body"]) {
+            let ctx = compile_stmt(ctx, d["body"][st["bi"]])
+            st["bi"] = st["bi"] + 1
+        }
+
+        let continue_target = chunk_offset(ctx["chunk"])
+
+        let ch3 = ctx["chunk"]
+        let ch3 = chunk_emit2(ch3, OP_LOAD, idx_c, line)
+        let ch3 = chunk_add_const(ch3, 1)
+        let one_c = ch3["_idx"]
+        let ch3 = chunk_emit2(ch3, OP_PUSH_CONST, one_c, line)
+        let ch3 = chunk_emit(ch3, OP_ADD, line)
+        let ch3 = chunk_emit2(ch3, OP_STORE, idx_c, line)
+        let ch3 = emit_jump_back(ch3, lstart, line)
+        let after = chunk_offset(ch3)
+        let ch3 = chunk_patch(ch3, exit_jmp, after)
+        ctx["chunk"] = ch3
+
+        let ls = ctx["loop_stack"]
+        let lctx2 = ls[length(ls) - 1]
+        let st2 = {}
+        st2["i"] = 0
+        while st2["i"] < length(lctx2["break_jumps"]) {
+            let ch4 = ctx["chunk"]
+            let ch4 = chunk_patch(ch4, lctx2["break_jumps"][st2["i"]], after)
+            ctx["chunk"] = ch4
+            st2["i"] = st2["i"] + 1
+        }
+        st2["i"] = 0
+        while st2["i"] < length(lctx2["continue_jumps"]) {
+            let ch4 = ctx["chunk"]
+            let ch4 = chunk_patch(ch4, lctx2["continue_jumps"][st2["i"]], continue_target)
+            ctx["chunk"] = ch4
+            st2["i"] = st2["i"] + 1
+        }
+        let ls2 = ctx["loop_stack"]
+        ctx["loop_stack"] = slice(ls2, 0, length(ls2) - 1)
+        return ctx
+    }
+
+    if k == "IndexAssign" {
+        let line = d["line"]
+        let ch = ctx["chunk"]
+        let ch = chunk_name_const(ch, d["name"])
+        let obj_c = ch["_idx"]
+        let ch = chunk_emit2(ch, OP_LOAD, obj_c, line)
+        ctx["chunk"] = ch
+        let ctx = compile_expr(ctx, d["index"], line)
+        let ctx = compile_expr(ctx, d["value"], line)
+        let ch2 = ctx["chunk"]
+        let ch2 = chunk_emit(ch2, OP_SET_INDEX, line)
+        let ch2 = chunk_emit2(ch2, OP_STORE, obj_c, line)
+        ctx["chunk"] = ch2
+        return ctx
+    }
+
+    if k == "Expr" {
+        let ctx = compile_expr(ctx, d["expr"], d["line"])
+        let ch = ctx["chunk"]
+        let ch = chunk_emit(ch, OP_POP, d["line"])
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    return ctx
+}
+
+fn compile_expr(ctx, expr, line) {
+    let k = expr["kind"]
+
+    if k == "Number" {
+        let ch = ctx["chunk"]
+        let ch = chunk_add_const(ch, expr["value"])
+        let idx = ch["_idx"]
+        let ch = chunk_emit2(ch, OP_PUSH_CONST, idx, line)
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    if k == "Str" {
+        let ch = ctx["chunk"]
+        let ch = chunk_add_const(ch, expr["value"])
+        let idx = ch["_idx"]
+        let ch = chunk_emit2(ch, OP_PUSH_CONST, idx, line)
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    if k == "Bool" {
+        let ch = ctx["chunk"]
+        if expr["value"] {
+            let ch = chunk_emit(ch, OP_PUSH_TRUE, line)
+        } else {
+            let ch = chunk_emit(ch, OP_PUSH_FALSE, line)
+        }
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    if k == "Variable" {
+        let name = expr["name"]
+        let ch = ctx["chunk"]
+        if ctx["in_fn"] and arr_contains(ctx["globals"], name) {
+            let ch = chunk_add_const(ch, name)
+            let idx = ch["_idx"]
+            let ch = chunk_emit2(ch, OP_LOAD_GLOBAL, idx, line)
+        } else {
+            let ch = chunk_add_const(ch, name)
+            let idx = ch["_idx"]
+            let ch = chunk_emit2(ch, OP_LOAD, idx, line)
+        }
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    if k == "Array" {
+        let st = {}
+        st["i"] = 0
+        while st["i"] < length(expr["elems"]) {
+            let ctx = compile_expr(ctx, expr["elems"][st["i"]], line)
+            st["i"] = st["i"] + 1
+        }
+        let ch = ctx["chunk"]
+        let ch = chunk_emit2(ch, OP_MAKE_ARRAY, length(expr["elems"]), line)
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    if k == "Dict" {
+        let st = {}
+        st["i"] = 0
+        while st["i"] < length(expr["pairs"]) {
+            let ctx = compile_expr(ctx, expr["pairs"][st["i"]]["k"], line)
+            let ctx = compile_expr(ctx, expr["pairs"][st["i"]]["v"], line)
+            st["i"] = st["i"] + 1
+        }
+        let ch = ctx["chunk"]
+        let ch = chunk_emit2(ch, OP_MAKE_DICT, length(expr["pairs"]), line)
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    if k == "Index" {
+        let ctx = compile_expr(ctx, expr["object"], line)
+        let ctx = compile_expr(ctx, expr["index"],  line)
+        let ch = ctx["chunk"]
+        let ch = chunk_emit(ch, OP_GET_INDEX, line)
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    if k == "Binary" {
+        let ctx = compile_expr(ctx, expr["left"],  line)
+        let ctx = compile_expr(ctx, expr["right"], line)
+        let op = expr["op"]
+        let ch = ctx["chunk"]
+        if op == "+"  { let ch = chunk_emit(ch, OP_ADD, line) }
+        if op == "-"  { let ch = chunk_emit(ch, OP_SUB, line) }
+        if op == "*"  { let ch = chunk_emit(ch, OP_MUL, line) }
+        if op == "/"  { let ch = chunk_emit(ch, OP_DIV, line) }
+        if op == "%"  { let ch = chunk_emit(ch, OP_MOD, line) }
+        if op == "<"  { let ch = chunk_emit(ch, OP_LT,  line) }
+        if op == "<=" { let ch = chunk_emit(ch, OP_LTE, line) }
+        if op == ">"  { let ch = chunk_emit(ch, OP_GT,  line) }
+        if op == ">=" { let ch = chunk_emit(ch, OP_GTE, line) }
+        if op == "==" { let ch = chunk_emit(ch, OP_EQ,  line) }
+        if op == "!=" { let ch = chunk_emit(ch, OP_NEQ, line) }
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    if k == "Logical" {
+        let ctx = compile_expr(ctx, expr["left"], line)
+        let ch = ctx["chunk"]
+        if expr["op"] == "and" {
+            let ch = chunk_emit_jump(ch, OP_PEEK_JUMP_F, line)
+            let j = ch["_jmp"]
+            let ch = chunk_emit(ch, OP_POP, line)
+            ctx["chunk"] = ch
+            let ctx = compile_expr(ctx, expr["right"], line)
+            let ch2 = ctx["chunk"]
+            let ch2 = chunk_patch(ch2, j, chunk_offset(ch2))
+            ctx["chunk"] = ch2
+        } else {
+            let ch = chunk_emit_jump(ch, OP_PEEK_JUMP_T, line)
+            let j = ch["_jmp"]
+            let ch = chunk_emit(ch, OP_POP, line)
+            ctx["chunk"] = ch
+            let ctx = compile_expr(ctx, expr["right"], line)
+            let ch2 = ctx["chunk"]
+            let ch2 = chunk_patch(ch2, j, chunk_offset(ch2))
+            ctx["chunk"] = ch2
+        }
+        return ctx
+    }
+
+    if k == "Unary" {
+        let ctx = compile_expr(ctx, expr["operand"], line)
+        let ch = ctx["chunk"]
+        if expr["op"] == "not" { let ch = chunk_emit(ch, OP_NOT, line) }
+        if expr["op"] == "neg" { let ch = chunk_emit(ch, OP_NEG, line) }
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    if k == "Call" {
+        let st = {}
+        st["i"] = 0
+        while st["i"] < length(expr["args"]) {
+            let ctx = compile_expr(ctx, expr["args"][st["i"]], line)
+            st["i"] = st["i"] + 1
+        }
+        let ch = ctx["chunk"]
+        let ch = chunk_name_const(ch, expr["name"])
+        let name_c = ch["_idx"]
+        let ch = chunk_emit3(ch, OP_CALL, name_c, length(expr["args"]), line)
+        ctx["chunk"] = ch
+        return ctx
+    }
+
+    return ctx
+}
+
+# ── Serialiser ────────────────────────────────────────────────────────────────
+
+fn byte_to_hex(n) {
+    let digits = ["0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"]
+    let lo = n % 16
+    let hi = (n - lo) / 16
+    return digits[hi] + digits[lo]
+}
+
+fn u16_to_hex(n) {
+    let b1 = n % 256
+    let b0 = (n - b1) / 256
+    return byte_to_hex(b0) + byte_to_hex(b1)
+}
+
+fn u32_to_hex(n) {
+    let b3 = n % 256
+    let r  = (n - b3) / 256
+    let b2 = r % 256
+    let r  = (r - b2) / 256
+    let b1 = r % 256
+    let b0 = (r - b1) / 256
+    return byte_to_hex(b0) + byte_to_hex(b1) + byte_to_hex(b2) + byte_to_hex(b3)
+}
+
+fn serialise_const(v) {
+    if v == true  { return "0101" }
+    if v == false { return "0100" }
+
+    let st = {}
+    st["is_num"] = false
+    let check = v + 0
+    if check == v { st["is_num"] = true }
+
+    if not st["is_num"] {
+        let slen = length(v)
+        let acc = {}
+        acc["out"] = "02" + u16_to_hex(slen)
+        st["si"] = 0
+        while st["si"] < slen {
+            acc["out"] = acc["out"] + byte_to_hex(ord(char_at(v, st["si"])))
+            st["si"] = st["si"] + 1
+        }
+        return acc["out"]
+    }
+
+    # Number — IEEE-754 big-endian f64
+    return "00" + num_to_hex(v)
+}
+
+fn serialise_chunk(c) {
+    let name   = c["name"]
+    let nl     = length(name)
+    let pc     = c["param_count"]
+    let consts = c["constants"]
+    let nc     = length(consts)
+    let acc    = {}
+    let st     = {}
+
+    # Name
+    acc["out"] = u16_to_hex(nl)
+    st["ni"] = 0
+    while st["ni"] < nl {
+        acc["out"] = acc["out"] + byte_to_hex(ord(char_at(name, st["ni"])))
+        st["ni"] = st["ni"] + 1
+    }
+
+    # Param count
+    acc["out"] = acc["out"] + byte_to_hex(pc)
+
+    # Constants
+    acc["out"] = acc["out"] + byte_to_hex(nc)
+    st["ci"] = 0
+    while st["ci"] < nc {
+        acc["out"] = acc["out"] + serialise_const(consts[st["ci"]])
+        st["ci"] = st["ci"] + 1
+    }
+
+    # Code
+    let code = c["code"]
+    let cl   = length(code)
+    acc["out"] = acc["out"] + u32_to_hex(cl)
+    st["bi"] = 0
+    while st["bi"] < cl {
+        acc["out"] = acc["out"] + byte_to_hex(code[st["bi"]])
+        st["bi"] = st["bi"] + 1
+    }
+
+    # Lines
+    let lines = c["lines"]
+    let ll    = length(lines)
+    acc["out"] = acc["out"] + u32_to_hex(ll)
+    st["li"] = 0
+    while st["li"] < ll {
+        acc["out"] = acc["out"] + u32_to_hex(lines[st["li"]])
+        st["li"] = st["li"] + 1
+    }
+    return acc["out"]
+}
+
+fn serialise(ctx) {
+    let acc     = {}
+    acc["out"]  = "57484243" + "03"
+    acc["all"]  = [ctx["chunk"]]
+    let fn_keys = keys(ctx["functions"])
+    let st = {}
+    st["ki"] = 0
+    while st["ki"] < length(fn_keys) {
+        acc["all"] = push(acc["all"], ctx["functions"][fn_keys[st["ki"]]])
+        st["ki"] = st["ki"] + 1
+    }
+    let fc     = length(acc["all"])
+    acc["out"] = acc["out"] + u16_to_hex(fc)
+    st["ci"] = 0
+    while st["ci"] < length(acc["all"]) {
+        acc["out"] = acc["out"] + serialise_chunk(acc["all"][st["ci"]])
+        st["ci"] = st["ci"] + 1
+    }
+    return acc["out"]
+}
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+fn main() {
+    let script_args = args()
+    if length(script_args) < 1 {
+        print "Usage: whispem compiler/wsc.wsp <source.wsp>"
+        return 0
+    }
+
+    let source_path = script_args[0]
+    let source = read_file(source_path)
+
+    let slen = length(source_path)
+    let out_path = substr(source_path, 0, slen - 4) + ".whbc"
+
+    print "=== wsc.wsp -- Whispem Self-hosted Compiler v3.0 ==="
+    print ""
+    print "Source: " + source_path
+    print ""
+
+    let tokens = lex(source)
+    print "Step 1 -- Lex:       " + num_to_str(length(tokens)) + " tokens"
+
+    let ast = parse(tokens)
+    print "Step 2 -- Parse:     " + num_to_str(length(ast)) + " top-level nodes"
+
+    let compiled = compile(ast)
+    print "Step 3 -- Compile:   " + num_to_str(length(compiled["chunk"]["code"])) + " bytes in <main>"
+    print "         Functions:  " + num_to_str(length(keys(compiled["functions"])))
+
+    let hex = serialise(compiled)
+    let byte_count = length(hex) / 2
+    print "Step 4 -- Serialise: " + num_to_str(byte_count) + " bytes"
+
+    write_hex(out_path, hex)
+    print ""
+    print "Wrote " + out_path + " (" + num_to_str(byte_count) + " bytes)"
+    return 0
+}
+
+main()

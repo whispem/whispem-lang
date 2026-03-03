@@ -9,6 +9,11 @@ pub struct Compiler {
     current:    Chunk,
     functions:  HashMap<String, Chunk>,
     loop_stack: Vec<LoopContext>,
+    /// Names of all top-level variables — used to emit LOAD_GLOBAL
+    /// inside function bodies instead of copying globals at call time.
+    global_names: Vec<String>,
+    /// True when compiling a function body (not <main>).
+    in_function: bool,
 }
 
 struct LoopContext {
@@ -19,22 +24,37 @@ struct LoopContext {
 impl Compiler {
     pub fn new() -> Self {
         Self {
-            current:    Chunk::new("<main>"),
-            functions:  HashMap::new(),
-            loop_stack: Vec::new(),
+            current:      Chunk::new("<main>"),
+            functions:    HashMap::new(),
+            loop_stack:   Vec::new(),
+            global_names: Vec::new(),
+            in_function:  false,
         }
     }
 
+    /// Compile `program` → `(main_chunk, fn_chunks)`.
     pub fn compile(
         mut self,
         program: Vec<Stmt>,
     ) -> WhispemResult<(Chunk, HashMap<String, Chunk>)> {
-        // First pass: functions, so forward calls work.
+        // Collect all top-level `let` names so function bodies can emit
+        // LOAD_GLOBAL for them.
+        for stmt in &program {
+            if let Stmt::Let { name, .. } = stmt {
+                if !self.global_names.contains(name) {
+                    self.global_names.push(name.clone());
+                }
+            }
+        }
+
+        // First pass: compile all functions so forward calls work.
         for stmt in &program {
             if let Stmt::Function { name, params, body, line } = stmt {
                 self.compile_function(name, params, body, *line)?;
             }
         }
+
+        // Second pass: compile the main body.
         for stmt in program {
             if !matches!(stmt, Stmt::Function { .. }) {
                 self.compile_stmt(stmt)?;
@@ -51,10 +71,12 @@ impl Compiler {
         body:   &[Stmt],
         line:   usize,
     ) -> WhispemResult<()> {
-        let parent = std::mem::replace(&mut self.current, Chunk::new(name));
+        let parent     = std::mem::replace(&mut self.current, Chunk::new(name));
+        let was_in_fn  = self.in_function;
+        self.in_function = true;
         self.current.param_count = params.len();
 
-        // Caller pushes args left-to-right, so we STORE in reverse.
+        // Caller pushes args left-to-right → STORE in reverse.
         for param in params.iter().rev() {
             let idx = self.name_const(param, line)?;
             self.current.emit_op_u8(OpCode::Store, idx, line);
@@ -65,6 +87,7 @@ impl Compiler {
         self.current.emit_op(OpCode::ReturnNone, line);
 
         let fn_chunk = std::mem::replace(&mut self.current, parent);
+        self.in_function = was_in_fn;
         self.functions.insert(name.to_string(), fn_chunk);
         Ok(())
     }
@@ -75,6 +98,10 @@ impl Compiler {
                 self.compile_expr(value, line)?;
                 let idx = self.name_const(&name, line)?;
                 self.current.emit_op_u8(OpCode::Store, idx, line);
+                // Track globals when compiling <main>.
+                if !self.in_function && !self.global_names.contains(&name) {
+                    self.global_names.push(name);
+                }
             }
 
             Stmt::Print { value, line } => {
@@ -185,7 +212,9 @@ impl Compiler {
                 for p in ctx.continue_jumps { self.current.patch_jump(p, continue_target); }
             }
 
-            Stmt::Function { .. } => {}
+            Stmt::Function { .. } => {
+                // Already compiled in the first pass.
+            }
 
             Stmt::Return { value, line } => {
                 if let Some(expr) = value {
@@ -220,7 +249,7 @@ impl Compiler {
 
             Stmt::IndexAssign { object, index, value, line } => {
                 let obj_c = self.name_const(&object, line)?;
-                self.current.emit_op_u8(OpCode::Load,  obj_c, line);
+                self.current.emit_op_u8(OpCode::Load, obj_c, line);
                 self.compile_expr(index, line)?;
                 self.compile_expr(value, line)?;
                 self.current.emit_op(OpCode::SetIndex, line);
@@ -249,8 +278,15 @@ impl Compiler {
             Expr::Bool(false) => self.current.emit_op(OpCode::PushFalse, ctx_line),
 
             Expr::Variable(name) => {
-                let idx = self.current.add_constant(Value::Str(name));
-                self.current.emit_op_u8(OpCode::Load, idx, ctx_line);
+                // Inside a function body, use LOAD_GLOBAL for known globals
+                // so the VM can fetch them without the globals-copy trick.
+                if self.in_function && self.global_names.contains(&name) {
+                    let idx = self.current.add_constant(Value::Str(name));
+                    self.current.emit_op_u8(OpCode::LoadGlobal, idx, ctx_line);
+                } else {
+                    let idx = self.current.add_constant(Value::Str(name));
+                    self.current.emit_op_u8(OpCode::Load, idx, ctx_line);
+                }
             }
 
             Expr::Array(elems) => {
@@ -296,9 +332,6 @@ impl Compiler {
             }
 
             Expr::Logical { left, op, right } => {
-                // PeekJump* tests the top without popping it.
-                // If we short-circuit, the left value stays as the result.
-                // If we don't, we pop it and evaluate the right side.
                 self.compile_expr(*left, ctx_line)?;
                 match op {
                     LogicalOp::And => {

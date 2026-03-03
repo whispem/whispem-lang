@@ -1,0 +1,9 @@
+Emilie
+26
+Marseille
+language designer
+true
+false
+[age, city, job, name]
+[26, Marseille, language designer, Emilie]
+4

@@ -1,14 +1,19 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::rc::Rc;
 
 /// All runtime values in the Whispem VM.
+///
+/// Arrays and Dicts are wrapped in `Rc` for copy-on-write semantics:
+/// cloning a Value just increments the reference count (O(1)).
+/// Deep copies happen only on mutation via `Rc::make_mut`.
 #[derive(Debug, Clone)]
 pub enum Value {
     Number(f64),
     Bool(bool),
     Str(String),
-    Array(Vec<Value>),
-    Dict(HashMap<String, Value>),
+    Array(Rc<Vec<Value>>),
+    Dict(Rc<HashMap<String, Value>>),
     None,
 }
 

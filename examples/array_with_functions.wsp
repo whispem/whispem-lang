@@ -1,15 +1,15 @@
 # Arrays with functions
 
 fn sum_array(arr) {
-    let total = 0
+    let acc = 0
     let i = 0
     
     while i < length(arr) {
-        let total = total + arr[i]
+        let acc = acc + arr[i]
         let i = i + 1
     }
     
-    return total
+    return acc
 }
 
 fn find_max(numbers) {
@@ -26,12 +26,12 @@ fn find_max(numbers) {
     return max
 }
 
-let values = [5, 2, 9, 1, 7, 3]
+let nums = [5, 2, 9, 1, 7, 3]
 
-let total = sum_array(values)
+let total = sum_array(nums)
 print "Sum:"
 print total
 
-let maximum = find_max(values)
+let maximum = find_max(nums)
 print "Max:"
 print maximum

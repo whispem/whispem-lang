@@ -1,0 +1,8 @@
+=== Word frequencies ===
+code: 1
+language: 1
+rust: 3
+whispem: 2
+
+Occurrences of 'rust':
+3

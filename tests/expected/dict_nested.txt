@@ -1,0 +1,10 @@
+localhost
+8080
+true
+Hello Em from Marseille!
+Hello Alice from Paris!
+
+Em's profile:
+age = 26
+city = Marseille
+name = Em

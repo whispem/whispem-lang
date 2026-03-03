@@ -2,30 +2,36 @@
 
 fn count_words(words) {
     let counts = {}
-    for word in words {
+    let i = 0
+    while i < length(words) {
+        let word = words[i]
         if has_key(counts, word) {
             let current = counts[word]
             counts[word] = current + 1
         } else {
             counts[word] = 1
         }
+        let i = i + 1
     }
     return counts
 }
 
 fn show_counts(counts) {
     let word_keys = keys(counts)
-    for word in word_keys {
+    let i = 0
+    while i < length(word_keys) {
+        let word = word_keys[i]
         print word + ": " + counts[word]
+        let i = i + 1
     }
 }
 
-let words = ["rust", "whispem", "rust", "language", "whispem", "rust", "code"]
+let word_list = ["rust", "whispem", "rust", "language", "whispem", "rust", "code"]
 
 print "=== Word frequencies ==="
-let counts = count_words(words)
-show_counts(counts)
+let freq = count_words(word_list)
+show_counts(freq)
 
 print ""
 print "Occurrences of 'rust':"
-print counts["rust"]
+print freq["rust"]

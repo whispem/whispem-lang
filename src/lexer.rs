@@ -45,7 +45,6 @@ impl Lexer {
     }
 
     fn next_spanned(&mut self) -> WhispemResult<Spanned> {
-        // Skip horizontal whitespace.
         while matches!(self.cur(), Some(' ') | Some('\t') | Some('\r')) {
             self.advance();
         }
@@ -91,8 +90,8 @@ impl Lexer {
                 self.advance();
                 if self.cur() == Some('=') { self.advance(); Token::GreaterEqual } else { Token::Greater }
             }
-            Some('"')                               => self.read_string(line, col)?,
-            Some(c) if c.is_ascii_digit()           => self.read_number(),
+            Some('"')                                => self.read_string(line, col)?,
+            Some(c) if c.is_ascii_digit()            => self.read_number(),
             Some(c) if c.is_alphabetic() || c == '_' => self.read_ident(),
             Some(c) => {
                 let ch = c;
@@ -167,6 +166,13 @@ impl Lexer {
             "keys"       => Token::Keys,
             "values"     => Token::Values,
             "has_key"    => Token::HasKey,
+            "char_at"    => Token::CharAt,
+            "substr"     => Token::Substr,
+            "ord"        => Token::Ord,
+            "num_to_str" => Token::NumToStr,
+            "str_to_num" => Token::StrToNum,
+            "args"       => Token::Args,
+            "write_hex"  => Token::WriteHex,
             _            => Token::Identifier(s),
         }
     }

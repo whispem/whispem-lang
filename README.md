@@ -2,34 +2,87 @@
 
 ![Logo Whispem](https://imgur.com/YDjrAKR.png)
 
-[![Version](https://img.shields.io/badge/version-2.5.0-cyan.svg)](https://github.com/whispem/whispem-lang/releases)
+[![Version](https://img.shields.io/badge/version-3.0.0-cyan.svg)](https://github.com/whispem/whispem-lang/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-72%20passing-brightgreen.svg)](https://github.com/whispem/whispem-lang/actions)
+[![Tests](https://img.shields.io/badge/tests-125%20passing-brightgreen.svg)](https://github.com/whispem/whispem-lang/actions)
 
 > *Whisper your intent. The machine listens.*
 
-Whispem is a small, readable programming language written in Rust.  
-It is designed to be learnable in an afternoon and understandable in its entirety — including its own implementation.
+Whispem is a small, self-hosted programming language. The compiler is written in Whispem, compiles itself, and runs on a standalone C VM — no external dependencies beyond a C compiler. Rust serves as the reference implementation.
 
-**Current version: 2.5.0** — error spans · arity checking · short-circuit fix · 72 tests · zero warnings
+**Current version: 3.0.0** — self-hosted compiler · verified bootstrap · `.whbc` bytecode · standalone C VM with REPL and disassembler · 125 tests (93 + 32 autonomous) · zero warnings
 
 ---
 
 ## Quick start
 
+The only dependency is a C compiler.
+
 ```bash
-# Run a file
-cargo run -- examples/hello.wsp
-
-# Interactive REPL
-cargo run
-
-# Inspect compiled bytecode
-cargo run -- --dump examples/fizzbuzz_proper.wsp
-
-# Run the test suite
-cargo test
+make                                         # build the VM from vm/wvm.c
+./wvm compiler/wsc.whbc examples/hello.wsp   # compile + run a source file
+./wvm examples/hello.whbc                    # run precompiled bytecode
+./wvm --dump examples/hello.whbc             # inspect bytecode
+./wvm                                        # interactive REPL
+./tests/run_tests.sh                         # run the full test suite (32 tests)
 ```
+
+### With the Rust reference implementation
+
+```bash
+cargo build --release
+cargo run -- examples/hello.wsp              # run source file
+cargo run -- --compile examples/hello.wsp    # compile to .whbc
+cargo run -- --dump examples/hello.wsp       # disassemble
+cargo run                                    # REPL
+cargo test                                   # 93 tests
+```
+
+---
+
+## What's new in v3.0.0
+
+### Self-hosted compiler
+
+`compiler/wsc.wsp` — 1618 lines of Whispem that implement the full compilation pipeline: lexer, recursive-descent parser, bytecode compiler, and binary serialiser. Source file goes in, `.whbc` bytecode comes out — byte-for-byte identical to the Rust compiler's output.
+
+```bash
+./wvm compiler/wsc.whbc examples/hello.wsp   # compile hello.wsp → hello.whbc
+./wvm examples/hello.whbc                    # → Hello, Whispem!
+```
+
+### Verified bootstrap
+
+The compiler compiles itself. The result compiles itself again. Both outputs are bit-identical:
+
+```bash
+./wvm compiler/wsc.whbc compiler/wsc.wsp    # gen1: compiler compiles itself
+shasum compiler/wsc.whbc
+# f090aa0f650a3b00e4286b332f82c0ba5c3b71d5
+
+./wvm compiler/wsc.whbc compiler/wsc.wsp    # gen2: again
+shasum compiler/wsc.whbc
+# f090aa0f650a3b00e4286b332f82c0ba5c3b71d5  ← stable fixed point
+```
+
+The same SHA-1 holds on the Rust VM — the two runtimes are interchangeable.
+
+### Standalone C VM
+
+`vm/wvm.c` — a single-file C runtime (~2000 lines) that executes `.whbc` bytecode. Same 34 opcodes and 20 builtins as the Rust VM, with refcounted copy-on-write arrays and dicts. Includes an interactive REPL and a `--dump` disassembler. Byte-for-byte identical output on all programs.
+
+### `.whbc` bytecode format
+
+Binary format (magic `WHBC` + version byte), length-prefixed, with line numbers preserved for error reporting. Compile once, run anywhere:
+
+```bash
+./wvm compiler/wsc.whbc examples/fizzbuzz_proper.wsp   # compile
+./wvm examples/fizzbuzz_proper.whbc                     # run — no recompilation
+```
+
+### `LOAD_GLOBAL` opcode
+
+Functions emit explicit `LOAD_GLOBAL` instructions for global variable reads. The bytecode is self-describing: the opcode tells you whether a read is local or global.
 
 ---
 
@@ -69,7 +122,7 @@ fn greet(person) {
 }
 print greet("world")
 
-# Forward calls work — functions compile before the main body
+# Forward calls work
 print triple(4)   # 12
 
 fn triple(n) {
@@ -91,173 +144,79 @@ let scores = [10, 20, 30]
 scores[1] = 99
 print scores   # [10, 99, 30]
 
-# Short-circuit logic (correct since v2.5.0)
-let r = false and expensive_call()   # call never runs; r = false
-let r = true  or  expensive_call()   # call never runs; r = true
-```
-
----
-
-## Language reference
-
-### Types
-
-| Type     | Examples                        |
-|----------|---------------------------------|
-| `number` | `42`, `3.14`, `-7`             |
-| `string` | `"hello"`, `""`                |
-| `bool`   | `true`, `false`                |
-| `array`  | `[1, "two", true]`             |
-| `dict`   | `{"key": "value", "n": 42}`    |
-| `none`   | returned by void functions      |
-
-### Operators
-
-```wsp
-# Arithmetic
-a + b   a - b   a * b   a / b   a % b
-
-# Comparison
-a == b   a != b   a < b   a <= b   a > b   a >= b
-
-# Logic (short-circuit)
-a and b   a or b   not a
-
-# String concatenation
-"Hello" + " " + "world"
-```
-
-### Control flow
-
-```wsp
-# if / else
-if condition {
-    ...
-} else {
-    ...
-}
-
-# while
-while condition {
-    ...
-}
-
-# for
-for item in collection {
-    ...
-}
-
-# break / continue
-for n in range(1, 100) {
-    if n > 10 { break }
-    if n % 2 == 0 { continue }
-    print n
-}
-```
-
-### Functions
-
-```wsp
-fn add(a, b) {
-    return a + b
-}
-
-print add(3, 4)   # 7
-
-# Recursive functions work
-fn factorial(n) {
-    if n <= 1 { return 1 }
-    return n * factorial(n - 1)
-}
-
-# Wrong arity produces a clear error
-add(1, 2, 3)   # Error: Function 'add' expected 2 arguments, got 3
-```
-
-### Built-in functions
-
-| Function              | Description                                     |
-|-----------------------|-------------------------------------------------|
-| `length(x)`           | Length of array, string, or dict               |
-| `push(arr, val)`      | Return new array with val appended             |
-| `pop(arr)`            | Return last element (error if empty)           |
-| `reverse(arr)`        | Return new reversed array                      |
-| `slice(arr, s, e)`    | Sub-array `[s, e)`                             |
-| `range(start, end)`   | Array of integers `[start, end)`               |
-| `input(prompt?)`      | Read a line from stdin                         |
-| `read_file(path)`     | Read file to string                            |
-| `write_file(path, s)` | Write string to file                           |
-| `keys(dict)`          | Sorted list of keys                            |
-| `values(dict)`        | Values in key-sorted order                     |
-| `has_key(dict, key)`  | Check if key exists                            |
-
-### Comments
-
-```wsp
-# This is a comment
-let x = 42   # inline comment
-```
-
-### Error messages
-
-All errors include a source location:
-
-```
-[line 3, col 0]  Error: Undefined variable: 'counter'
-[line 7, col 0]  Error: Array index 10 out of bounds (length: 5)
-[line 12, col 0] Error: Function 'add' expected 2 arguments, got 3
-[line 15, col 0] Error: Division by zero
+# Short-circuit logic
+let r = false and expensive_call()   # call never runs
+let r = true  or  expensive_call()   # call never runs
 ```
 
 ---
 
 ## Architecture
 
-Whispem uses a **bytecode virtual machine**:
-
 ```
-source code
-    ↓  Lexer      src/lexer.rs
-tokens
-    ↓  Parser     src/parser.rs
-AST
-    ↓  Compiler   src/compiler.rs
-bytecode chunks
-    ↓  VM         src/vm.rs
+source code (.wsp)
+    ↓  compiler/wsc.wsp (self-hosted)  or  src/compiler.rs (Rust)
+bytecode (.whbc)
+    ↓  vm/wvm.c (standalone)  or  src/vm.rs (Rust)
 output
 ```
 
-The VM is a stack machine with 33 opcodes. Every `fn` declaration compiles to its own `Chunk` (carrying its `param_count` for arity verification). The `--dump` flag disassembles all chunks:
+The VM is a stack machine with **34 opcodes**. The `--dump` flag disassembles all chunks:
 
 ```
 == <main> ==
-0000     1  PUSH_CONST       1    '7'
-0002     1  CALL             0    'double' (1 args)
-0005     1  PRINT
-0006     1  HALT
+0000     1  PUSH_CONST           1    '7'
+0003     1  CALL                 0    'double' (1 args)
+0006     1  PRINT
+0007     1  HALT
 
 == double ==
-0000     1  STORE            0    'n'
-0002     2  LOAD             0    'n'
-0004     2  PUSH_CONST       1    '2'
+0000     1  STORE                0    'n'
+0002     2  LOAD                 0    'n'
+0004     2  PUSH_CONST           1    '2'
 0006     2  MUL
 0007     2  RETURN
 0008     2  RETURN_NONE
 ```
 
-See [`docs/vm.md`](docs/vm.md) for the complete VM specification.
+See [`docs/vm.md`](docs/vm.md) for the complete VM specification including the `.whbc` binary format.
+
+---
+
+## CLI
+
+```bash
+# Standalone toolchain (no Rust needed)
+make                             # build wvm from vm/wvm.c
+./wvm                            # interactive REPL
+./wvm file.whbc                  # run precompiled bytecode
+./wvm file.whbc arg1 arg2        # run with script arguments
+./wvm compiler/wsc.whbc file.wsp # compile .wsp → .whbc, then run
+./wvm --dump file.whbc           # disassemble without running
+./tests/run_tests.sh             # autonomous test suite (32 tests)
+
+# Rust reference implementation
+whispem                          # interactive REPL
+whispem file.wsp                 # run source file
+whispem file.wsp arg1 arg2       # run with script arguments
+whispem --dump file.wsp          # disassemble without running
+whispem --compile file.wsp       # compile to file.whbc
+whispem --compile file.wsp out.whbc   # compile with explicit output path
+whispem file.whbc                # run precompiled bytecode
+```
 
 ---
 
 ## Testing
 
 ```bash
-cargo test
+./tests/run_tests.sh          # autonomous tests (no Rust needed, 32 tests)
+cargo test                    # Rust reference tests (93 tests)
 ```
 
-72 tests covering the entire language: arithmetic, strings, booleans, comparisons, logic, control flow, functions, recursion, forward calls, arrays, dictionaries, truthiness, error spans, and integration programs (FizzBuzz, word counter, Fibonacci).
+32 autonomous tests using only the C VM and the self-hosted compiler: compiles each `.wsp` example, runs the result, compares output to expected baselines, and verifies bootstrap stability.
 
-The test harness is fully in-process: the VM writes output to a `Vec<u8>` buffer instead of stdout — no subprocesses, no platform-specific code, no `unsafe`.
+93 Rust tests covering the entire language: arithmetic, strings, booleans, comparisons, logic, control flow, functions, recursion, forward calls, arrays, dictionaries, truthiness, error spans, integration programs (FizzBuzz, word counter, Fibonacci), and **13 bytecode round-trip tests** (v3.0.0).
 
 ---
 
@@ -265,30 +224,39 @@ The test harness is fully in-process: the VM writes output to a `Vec<u8>` buffer
 
 ```
 whispem/
+├── compiler/
+│   ├── wsc.wsp        self-hosted compiler (1618 lines of Whispem)
+│   └── wsc.whbc       bootstrapped bytecode (SHA-1 f090aa0...)
+├── vm/
+│   └── wvm.c          standalone C runtime (~2000 lines, no Rust needed)
 ├── src/
-│   ├── main.rs        entry point · CLI · 72 tests
+│   ├── main.rs        entry point · CLI · 93 Rust tests
 │   ├── repl.rs        interactive REPL
 │   ├── lexer.rs       tokeniser
 │   ├── token.rs       token types
 │   ├── parser.rs      recursive descent parser
 │   ├── ast.rs         AST node types
 │   ├── error.rs       WhispemError · ErrorKind · Span
-│   ├── value.rs       runtime value types
-│   ├── opcode.rs      VM instruction set (33 opcodes)
-│   ├── chunk.rs       bytecode chunk · param_count · disassembler
-│   ├── compiler.rs    AST → bytecode compiler
-│   └── vm.rs          VM loop · built-ins · injectable output
+│   ├── value.rs       runtime value types (Rc copy-on-write)
+│   ├── opcode.rs      VM instruction set (34 opcodes)
+│   ├── chunk.rs       Chunk · serialise · deserialise · disassembler
+│   ├── compiler.rs    AST → bytecode · LOAD_GLOBAL emission
+│   └── vm.rs          VM loop · LOAD_GLOBAL · injectable output
+├── tests/
+│   ├── run_tests.sh   autonomous test runner (C VM only)
+│   └── expected/      expected output for each example
+├── examples/
+│   ├── hello.wsp
+│   ├── fizzbuzz_proper.wsp
+│   └── ...            30+ example programs
 ├── docs/
-│   ├── vm.md          VM specification
+│   ├── vm.md          VM spec · .whbc format
 │   ├── syntax.md      language syntax reference
 │   ├── tutorial.md    full language tutorial
 │   ├── examples.md    annotated examples
 │   ├── vision.md      design philosophy and roadmap
-│   └── journey.md     Em's story from literature to language design
-├── examples/
-│   ├── hello.wsp
-│   ├── fizzbuzz_proper.wsp
-│   └── ...
+│   └── journey.md     the story from literature to self-hosting
+├── Makefile           builds wvm from vm/wvm.c
 ├── CHANGELOG.md
 └── README.md
 ```
@@ -301,8 +269,9 @@ whispem/
 |---------|------|
 | [x] 1.5.0 | Tree-walking interpreter, full language, REPL |
 | [x] 2.0.0 | Bytecode VM, compiler, `--dump`, `docs/vm.md` |
-| [x] 2.5.0 | Error spans, arity checking, short-circuit fix, 72 tests, zero warnings |
-| 3.0.0 | Bytecode serialization & self-hosting — compile once, run `.whbc` without recompiling; Whispem compiler written in Whispem |
+| [x] 2.5.0 | Error spans, arity, short-circuit fix, 72 tests, 0 warnings |
+| [x] 3.0.0 | `.whbc` serialisation, `LOAD_GLOBAL`, `--compile`, self-hosted compiler, verified bootstrap, Rc COW, standalone C VM, 125 tests |
+| 4.0.0 | `else if` syntax sugar, closures, column numbers in errors |
 
 ---
 
@@ -312,6 +281,8 @@ Whispem is intentionally small. The goal is a language whose entire implementati
 
 Every design decision asks: *would a future Whispem program be able to do this too?*
 
+In v3.0.0, the answer became yes — the compiler is written in Whispem, it compiles itself to `.whbc` bytecode, and the standalone C runtime executes it. No Rust needed. The language hosts itself.
+
 ---
 
-*Whispem v2.5.0 — Simple. Explicit. Bootstrappable.*
+*Whispem v3.0.0 — Self-hosted. Standalone. Bootstrappable.*

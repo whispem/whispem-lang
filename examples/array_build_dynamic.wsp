@@ -24,9 +24,9 @@ fn make_squares(n) {
     return result
 }
 
-let range = make_range(0, 5)
+let nums = make_range(0, 5)
 print "Range 0-5:"
-print range
+print nums
 
 let squares = make_squares(5)
 print "First 5 squares:"

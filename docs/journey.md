@@ -1,7 +1,7 @@
 # My Journey: From Literature to Programming Languages
 
 *Hi, I'm Emilie — everyone calls me Em'.*  
-*This is the story of how I went from studying literature and linguistics to building a programming language with a bytecode VM in Rust.*
+*This is the story of how I went from studying literature and linguistics to building a self-hosting programming language with a bytecode VM in Rust.*
 
 ---
 
@@ -67,49 +67,60 @@ Not a toy. Not a clone. Something with a clear philosophy:
 
 > *Code should whisper intent, not shout complexity.*
 
-**February 1, 2026** — Whispem 1.0.0. Variables, functions, loops, arrays, recursion, file I/O, error messages with line numbers.
+**February 1, 2026** — Whispem 1.0.0.
 
-**February 19, 2026** — Whispem 1.5.0. Dictionaries, modulo operator, interactive REPL, complete error overhaul.
+**February 19, 2026** — Whispem 1.5.0. Dictionaries, modulo, interactive REPL.
 
-**February 25, 2026** — Whispem 2.0.0. The tree-walking interpreter replaced by a bytecode compiler and a stack-based virtual machine. 31 opcodes, proper call frames, constants pool, disassembler. The pipeline became:
+**February 25, 2026** — Whispem 2.0.0. The tree-walking interpreter replaced by a bytecode compiler and a stack-based virtual machine.
 
-```
-Source → Lexer → Parser → AST → Compiler → Bytecode → VM
-```
+**March 1, 2026** — Whispem 2.5.0. Correctness verified by 72 automated tests. `Span`, arity checking, short-circuit fix.
 
-**March 1, 2026** — Whispem 2.5.0. The first version where correctness is *verified* rather than assumed:
+---
 
-- `Span { line, column }` on every error — no more bare tuples
-- Arity checking for user-defined functions — wrong argument count is caught at runtime
-- Fixed `and`/`or` short-circuit evaluation — a subtle but real compiler bug, fixed with two new opcodes (`PEEK_JUMP_IF_FALSE` and `PEEK_JUMP_IF_TRUE`)
-- 72 automated tests covering the entire language — `cargo test` passes clean
-- Zero warnings in the compiler output
-- The VM output is now injectable — tests capture `print` output in a `Vec<u8>` buffer without touching stdout
+## March 2026 — Self-hosting
+
+**March 1, 2026** — Whispem 3.0.0. The self-hosting release.
+
+Three things happened at once:
+
+**Bytecode serialisation.** `--compile hello.wsp` produces `hello.whbc`. The VM runs it directly. The format is versioned binary: magic bytes, constants pool, line table. A program compiles once and runs anywhere the WVM exists.
+
+**`LOAD_GLOBAL`.** A small new opcode — but the right one. Before v3.0.0, every function call copied the entire globals map into the new frame. Now functions contain explicit `LOAD_GLOBAL` instructions. The bytecode is self-describing: you can tell from the opcode alone whether a read is local or global. This is what the self-hosted compiler needs.
+
+**`compiler/wsc.wsp`.** The thing that makes v3.0.0 real: a Whispem compiler written in Whispem. It reads a `.wsp` source file, lexes it, parses it into an AST, compiles bytecode, and writes a `.whbc` file — byte-for-byte identical to the Rust compiler’s output. No Rust in the loop. The language describes its own compilation.
+
+**`vm/wvm.c`.** A standalone C runtime that executes `.whbc` bytecode. Single-file, ~2000 lines, refcounted copy-on-write, same 34 opcodes and 20 builtins. With `--dump`, REPL, and the bootstrapped `wsc.whbc`, the entire toolchain runs without Rust: `make && ./wvm compiler/wsc.whbc hello.wsp`.
+
+Looking at `wsc.wsp` is different from looking at any other piece of code I've written. It's Whispem reasoning about Whispem. That's the moment a language becomes real.
 
 ---
 
 ## What building Whispem taught me
 
 **v1.x — the interpreter:**
-- How lexers tokenize source code into tokens
-- How parsers build an AST from tokens
+- How lexers tokenize source code
+- How parsers build an AST
 - How a tree-walking interpreter executes that AST
-- How to design a language that stays small on purpose
-- How to make error messages useful instead of cryptic
+- How to make error messages useful
 
 **v2.0.0 — the VM:**
 - How bytecode compilers translate AST nodes into instructions
 - How stack machines execute bytecode using call frames
-- How constants pools, jump patching, and parameter binding actually work
-- Why separating compilation from execution matters
+- How constants pools, jump patching, and parameter binding work
 - What it means to inspect your own program with `--dump`
 
 **v2.5.0 — correctness:**
 - How to write an in-process test harness without platform-specific code
-- How short-circuit evaluation really works at the bytecode level — and how to get it wrong silently for months before tests catch it
-- How small struct additions (`param_count`, `Span`) propagate cleanly through a codebase when the architecture is right
+- How short-circuit evaluation works at the bytecode level — and how to get it wrong silently
 - That "zero warnings" is a discipline, not a milestone
 
+**v3.0.0 — self-hosting:**
+- How binary formats are structured (magic, versioning, length-prefixed fields)
+- How explicit opcodes make bytecode self-describing
+- What it means for a language to describe its own compilation
+- That the gap between "working interpreter" and "self-hosting" is mostly conceptual once you have a clean bytecode model
+- That writing a second VM in C is the real test of whether your bytecode spec is precise enough
+- That a self-hosted compiler can have subtle bugs (break/continue jump patching) invisible until you write an autonomous test suite
 ---
 
 ## On coming from a non-technical background
@@ -134,7 +145,9 @@ The skills that matter most in programming — careful observation, systematic t
 | February 1, 2026 | Whispem 1.0.0 |
 | February 19, 2026 | Whispem 1.5.0 |
 | February 25, 2026 | Whispem 2.0.0 — bytecode VM |
-| March 1, 2026 | Whispem 2.5.0 — error spans, arity, short-circuit fix, 72 tests |
+| March 1, 2026 | Whispem 2.5.0 — error spans, arity, short-circuit, 72 tests |
+| March 1, 2026 | Whispem 3.0.0 — `.whbc`, `LOAD_GLOBAL`, `--compile`, self-hosting |
+| March 2, 2026 | Standalone C VM, REPL, `--dump`, autonomous test suite — 125 tests, zero Rust dependency |
 
 ---
 

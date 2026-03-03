@@ -59,6 +59,9 @@ pub enum ErrorKind {
     TooManyConstants,
     StackUnderflow,
     InvalidOpcode(u8),
+    // v3.0.0 additions
+    InvalidBytecode(String),
+    SerializationError(String),
 }
 
 impl fmt::Display for WhispemError {
@@ -111,6 +114,10 @@ impl fmt::Display for WhispemError {
                 "Internal error: stack underflow (compiler bug)".to_string(),
             ErrorKind::InvalidOpcode(b) =>
                 format!("Internal error: unknown opcode {:#04x}", b),
+            ErrorKind::InvalidBytecode(msg) =>
+                format!("Invalid bytecode: {}", msg),
+            ErrorKind::SerializationError(msg) =>
+                format!("Serialization error: {}", msg),
         };
 
         if self.span.is_known() {

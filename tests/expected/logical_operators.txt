@@ -1,0 +1,5 @@
+Both conditions are true
+At least one condition is true
+Negation works!
+a is true AND b is false
+Perfect temperature!

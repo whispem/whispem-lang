@@ -1,11 +1,11 @@
 # Whispem VM — Specification
 
-**Version 2.5.0**
+**Version 3.0.0**
 
 > *"A virtual machine should be as simple as the language it runs."*
 
 This document is the complete specification of the Whispem Virtual Machine (WVM).  
-It is intentionally written to be readable by a human — and eventually, by a Whispem program.
+It is intentionally written to be readable by a human — and by a Whispem program.
 
 ---
 
@@ -16,14 +16,15 @@ It is intentionally written to be readable by a human — and eventually, by a W
 3. [Data Types](#data-types)
 4. [Instruction Set](#instruction-set)
 5. [Chunk Format](#chunk-format)
-6. [Call Frames](#call-frames)
-7. [Execution Model](#execution-model)
-8. [Variable Scoping](#variable-scoping)
-9. [Error Handling](#error-handling)
-10. [Compilation: AST → Bytecode](#compilation-ast--bytecode)
-11. [Example: Annotated Bytecode](#example-annotated-bytecode)
-12. [Built-in Functions](#built-in-functions)
-13. [Source Files](#source-files)
+6. [`.whbc` Binary Format](#whbc-binary-format)
+7. [Call Frames](#call-frames)
+8. [Execution Model](#execution-model)
+9. [Variable Scoping](#variable-scoping)
+10. [Error Handling](#error-handling)
+11. [Compilation: AST → Bytecode](#compilation-ast--bytecode)
+12. [Example: Annotated Bytecode](#example-annotated-bytecode)
+13. [Built-in Functions](#built-in-functions)
+14. [Source Files](#source-files)
 
 ---
 
@@ -34,70 +35,61 @@ The Whispem VM (WVM) follows the same principles as the language itself:
 - **Small** — the entire instruction set fits on one page
 - **Explicit** — every opcode does exactly one thing
 - **Readable** — bytecode can be disassembled into human-readable form
-- **Bootstrappable** — simple enough that a future Whispem compiler can target it
+- **Bootstrappable** — simple enough that a Whispem program can target it
 
-The WVM is a **stack-based virtual machine**.  
-All operations read from and write to an operand stack. There is no register file.
+The WVM is a **stack-based virtual machine**.
 
 ---
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    Whispem VM                       │
-│                                                     │
-│  ┌───────────────┐     ┌──────────────────────────┐ │
-│  │   Compiler    │────▶│  Chunk (bytecode +        │ │
-│  │  (AST→bytes)  │     │    constants pool)         │ │
-│  └───────────────┘     └────────────┬──────────────┘ │
-│                                     │               │
-│                                     ▼               │
-│                          ┌──────────────────────────┐│
-│                          │       VM Core            ││
-│                          │                          ││
-│                          │  ip         (per frame)  ││
-│                          │  stack      Vec<Value>   ││
-│                          │  frames     Vec<Frame>   ││
-│                          │  globals    HashMap      ││
-│                          │  functions  HashMap      ││
-│                          │  output     Box<Write>   ││
-│                          └──────────────────────────┘│
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                      Whispem v3.0.0                     │
+│                                                         │
+│  source.wsp ──► Compiler ──► Chunks ──► VM ──► output  │
+│                                │                        │
+│                                ▼                        │
+│                           serialise()                   │
+│                                │                        │
+│                                ▼                        │
+│                          source.whbc                    │
+│                                │                        │
+│                          deserialise()                  │
+│                                │                        │
+│                                ▼                        │
+│                             VM ──► output               │
+└─────────────────────────────────────────────────────────┘
 ```
 
 **Key components:**
 
-- **Compiler** — walks the AST and emits one `Chunk` per function + one for `<main>`
-- **Chunk** — flat array of bytes + constants pool + per-byte line numbers + `param_count`
-- **VM Core** — a loop that reads one opcode at a time and executes it
-- **Stack** — shared across all frames; all intermediate values live here
-- **Call frames** — one `CallFrame` per active function call, each with its own `ip` and `locals`
-- **Globals** — `HashMap<String, Value>` for top-level variables, copied into functions on call
-- **Output** — `Box<dyn Write + Send>`; defaults to stdout, substituted in tests
+- **Compiler** — AST → one `Chunk` per function + one for `<main>`
+- **Chunk** — flat byte array + constants pool + per-byte line numbers + `param_count`
+- **VM** — reads one opcode at a time, executes it
+- **Stack** — shared `Vec<Value>` across all frames
+- **Call frames** — one `CallFrame` per active call, each with its own `ip` and `locals`
+- **Globals** — `HashMap<String, Value>` for top-level variables
+- **Output** — `Box<dyn Write + Send>`; stdout by default, injectable for tests
 
 ---
 
 ## Data Types
 
-The VM works with the same types as the language:
-
-| Type     | Rust representation         | Notes                              |
-|----------|-----------------------------|------------------------------------|
-| `number` | `f64`                       | All numbers are floating point     |
-| `string` | `String`                    | UTF-8                              |
-| `bool`   | `bool`                      | `true` / `false`                   |
-| `array`  | `Vec<Value>`                | Ordered, mixed types               |
-| `dict`   | `HashMap<String, Value>`    | Keys are always strings            |
-| `none`   | —                           | Returned by void functions         |
-
-Defined in `src/value.rs`.
+| Type     | Rust representation         | Notes                          |
+|----------|-----------------------------|--------------------------------|
+| `number` | `f64`                       | All numbers are floating point |
+| `string` | `String`                    | UTF-8                          |
+| `bool`   | `bool`                      |                                |
+| `array`  | `Vec<Value>`                | Ordered, mixed types           |
+| `dict`   | `HashMap<String, Value>`    | Keys are always strings        |
+| `none`   | `Value::None`               | Returned by void functions     |
 
 ---
 
 ## Instruction Set
 
-Each instruction is one byte (the **opcode**), optionally followed by operand bytes.
+**Total: 34 opcodes.** One byte per opcode, optional operand bytes follow.
 
 ### Notation
 
@@ -110,47 +102,45 @@ OPCODE <u8> <u8>    — two separate one-byte operands
 
 ### Complete Opcode Table
 
-| Code   | Name                  | Operands    | Stack effect               | Description                                             |
-|--------|-----------------------|-------------|----------------------------|---------------------------------------------------------|
-| `0x00` | `PUSH_CONST`          | `<u8>`      | `( -- value )`             | Push constant at pool index                             |
-| `0x01` | `PUSH_TRUE`           | —           | `( -- true )`              | Push boolean `true`                                     |
-| `0x02` | `PUSH_FALSE`          | —           | `( -- false )`             | Push boolean `false`                                    |
-| `0x03` | `PUSH_NONE`           | —           | `( -- none )`              | Push `none`                                             |
-| `0x10` | `LOAD`                | `<u8>`      | `( -- value )`             | Push value of variable (name at const index)            |
-| `0x11` | `STORE`               | `<u8>`      | `( value -- )`             | Pop and store into variable (name at const index)       |
-| `0x20` | `ADD`                 | —           | `( a b -- a+b )`           | Add numbers or concatenate strings                      |
-| `0x21` | `SUB`                 | —           | `( a b -- a-b )`           | Subtract                                                |
-| `0x22` | `MUL`                 | —           | `( a b -- a*b )`           | Multiply                                                |
-| `0x23` | `DIV`                 | —           | `( a b -- a/b )`           | Divide (error on zero)                                  |
-| `0x24` | `MOD`                 | —           | `( a b -- a%b )`           | Modulo                                                  |
-| `0x25` | `NEG`                 | —           | `( a -- -a )`              | Negate number                                           |
-| `0x30` | `EQ`                  | —           | `( a b -- bool )`          | Equal                                                   |
-| `0x31` | `NEQ`                 | —           | `( a b -- bool )`          | Not equal                                               |
-| `0x32` | `LT`                  | —           | `( a b -- bool )`          | Less than                                               |
-| `0x33` | `LTE`                 | —           | `( a b -- bool )`          | Less than or equal                                      |
-| `0x34` | `GT`                  | —           | `( a b -- bool )`          | Greater than                                            |
-| `0x35` | `GTE`                 | —           | `( a b -- bool )`          | Greater than or equal                                   |
-| `0x36` | `NOT`                 | —           | `( a -- bool )`            | Logical not                                             |
-| `0x40` | `JUMP`                | `<u16>`     | `( -- )`                   | Unconditional jump to absolute byte offset              |
-| `0x41` | `JUMP_IF_FALSE`       | `<u16>`     | `( cond -- )`              | **Pop** condition; jump if falsy                        |
-| `0x42` | `JUMP_IF_TRUE`        | `<u16>`     | `( cond -- )`              | **Pop** condition; jump if truthy                       |
-| `0x43` | `PEEK_JUMP_IF_FALSE`  | `<u16>`     | `( cond -- cond )`         | **Peek** (no pop); jump if falsy — used by `and`        |
-| `0x44` | `PEEK_JUMP_IF_TRUE`   | `<u16>`     | `( cond -- cond )`         | **Peek** (no pop); jump if truthy — used by `or`        |
-| `0x50` | `CALL`                | `<u8> <u8>` | `( args.. -- retval )`     | Call function: const idx of name + argc                 |
-| `0x51` | `RETURN`              | —           | `( value -- )`             | Return value from current function                      |
-| `0x52` | `RETURN_NONE`         | —           | `( -- )`                   | Return `none` (implicit at function end)                |
-| `0x60` | `MAKE_ARRAY`          | `<u8>`      | `( n items -- array )`     | Pop n items; build array in source order                |
-| `0x61` | `MAKE_DICT`           | `<u8>`      | `( n pairs -- dict )`      | Pop n key-value pairs; build dict                       |
-| `0x62` | `GET_INDEX`           | —           | `( obj idx -- value )`     | Index into array or dict                                |
-| `0x63` | `SET_INDEX`           | —           | `( obj idx val -- obj' )`  | Mutate array/dict; push mutated copy                    |
-| `0x70` | `PRINT`               | —           | `( value -- )`             | Write top of stack to the VM output sink                |
-| `0x71` | `POP`                 | —           | `( value -- )`             | Discard top of stack                                    |
-| `0xFF` | `HALT`                | —           | `( -- )`                   | Stop execution; pop the current frame                   |
+| Code   | Name                  | Operands    | Stack effect               | Description                                              |
+|--------|-----------------------|-------------|----------------------------|----------------------------------------------------------|
+| `0x00` | `PUSH_CONST`          | `<u8>`      | `( -- value )`             | Push constant at pool index                              |
+| `0x01` | `PUSH_TRUE`           | —           | `( -- true )`              |                                                          |
+| `0x02` | `PUSH_FALSE`          | —           | `( -- false )`             |                                                          |
+| `0x03` | `PUSH_NONE`           | —           | `( -- none )`              |                                                          |
+| `0x10` | `LOAD`                | `<u8>`      | `( -- value )`             | Push value from current frame's locals                   |
+| `0x11` | `STORE`               | `<u8>`      | `( value -- )`             | Pop and store into current scope (local or global)       |
+| `0x12` | `LOAD_GLOBAL`         | `<u8>`      | `( -- value )`             | **v3.0.0** — push value from `vm.globals` directly       |
+| `0x20` | `ADD`                 | —           | `( a b -- a+b )`           | Add numbers or concatenate strings                       |
+| `0x21` | `SUB`                 | —           | `( a b -- a-b )`           |                                                          |
+| `0x22` | `MUL`                 | —           | `( a b -- a*b )`           |                                                          |
+| `0x23` | `DIV`                 | —           | `( a b -- a/b )`           | Error on zero divisor                                    |
+| `0x24` | `MOD`                 | —           | `( a b -- a%b )`           |                                                          |
+| `0x25` | `NEG`                 | —           | `( a -- -a )`              |                                                          |
+| `0x30` | `EQ`                  | —           | `( a b -- bool )`          |                                                          |
+| `0x31` | `NEQ`                 | —           | `( a b -- bool )`          |                                                          |
+| `0x32` | `LT`                  | —           | `( a b -- bool )`          |                                                          |
+| `0x33` | `LTE`                 | —           | `( a b -- bool )`          |                                                          |
+| `0x34` | `GT`                  | —           | `( a b -- bool )`          |                                                          |
+| `0x35` | `GTE`                 | —           | `( a b -- bool )`          |                                                          |
+| `0x36` | `NOT`                 | —           | `( a -- bool )`            |                                                          |
+| `0x40` | `JUMP`                | `<u16>`     | `( -- )`                   | Unconditional jump to absolute byte offset               |
+| `0x41` | `JUMP_IF_FALSE`       | `<u16>`     | `( cond -- )`              | **Pop** condition; jump if falsy                         |
+| `0x42` | `JUMP_IF_TRUE`        | `<u16>`     | `( cond -- )`              | **Pop** condition; jump if truthy                        |
+| `0x43` | `PEEK_JUMP_IF_FALSE`  | `<u16>`     | `( cond -- cond )`         | **Peek** (no pop); jump if falsy — used by `and`         |
+| `0x44` | `PEEK_JUMP_IF_TRUE`   | `<u16>`     | `( cond -- cond )`         | **Peek** (no pop); jump if truthy — used by `or`         |
+| `0x50` | `CALL`                | `<u8> <u8>` | `( args.. -- retval )`     | const idx of name + argc                                 |
+| `0x51` | `RETURN`              | —           | `( value -- )`             |                                                          |
+| `0x52` | `RETURN_NONE`         | —           | `( -- )`                   |                                                          |
+| `0x60` | `MAKE_ARRAY`          | `<u8>`      | `( n items -- array )`     |                                                          |
+| `0x61` | `MAKE_DICT`           | `<u8>`      | `( n pairs -- dict )`      |                                                          |
+| `0x62` | `GET_INDEX`           | —           | `( obj idx -- value )`     |                                                          |
+| `0x63` | `SET_INDEX`           | —           | `( obj idx val -- obj' )`  | Mutate array/dict; push mutated copy                     |
+| `0x70` | `PRINT`               | —           | `( value -- )`             | Write to the VM output sink                              |
+| `0x71` | `POP`                 | —           | `( value -- )`             |                                                          |
+| `0xFF` | `HALT`                | —           | `( -- )`                   | Stop; pop current frame                                  |
 
-**Total: 33 opcodes.**
-
-> **v2.5.0 additions:** `PEEK_JUMP_IF_FALSE` (0x43) and `PEEK_JUMP_IF_TRUE` (0x44).  
-> These replace the v2.0.0 pattern of `JUMP_IF_FALSE`/`JUMP_IF_TRUE` for short-circuit `and`/`or`, which incorrectly popped the left-hand value off the stack even when it was the result of the expression.
+> **v3.0.0:** `LOAD_GLOBAL` (0x12) replaces the v2.0.0 approach of copying `globals` into each new call frame at `CALL` time. Function bodies now contain explicit `LOAD_GLOBAL` instructions for global names. This makes the bytecode self-describing: any reader (including `wsc.wsp`) can tell from the opcode alone whether a read is local or global.
 
 ---
 
@@ -159,32 +149,46 @@ OPCODE <u8> <u8>    — two separate one-byte operands
 ```rust
 pub struct Chunk {
     pub code:        Vec<u8>,      // raw bytecode
-    pub constants:   Vec<Value>,   // constants pool (max 256 entries)
-    pub lines:       Vec<usize>,   // one line number per byte in code
-    pub name:        String,       // "<main>" or the function name
-    pub param_count: usize,        // number of parameters (0 for <main>)
+    pub constants:   Vec<Value>,   // pool (max 256 entries)
+    pub lines:       Vec<usize>,   // one entry per bytecode byte
+    pub name:        String,       // "<main>" or function name
+    pub param_count: usize,        // 0 for <main>
 }
 ```
 
-> **v2.5.0 addition:** `param_count` — the compiler sets this when emitting a function chunk. The VM uses it to verify arity at call time, producing a clear error instead of a silent stack mismatch.
+The constants pool stores all literal values: numbers, strings, and variable/function names (as `Value::Str`). It is indexed by `u8` — max **256 constants per chunk**. Strings are deduplicated.
 
-### Constants Pool
+---
 
-The pool stores all values that appear literally in source code: numbers, strings, and variable/function names (as `Value::Str`).
+## `.whbc` Binary Format
 
 ```
-constants[0] = "counter"    ← variable name
-constants[1] = 0.0          ← number literal
-constants[2] = "Hello"      ← string literal
-constants[3] = "greet"      ← function name
+Magic:        4 bytes   "WHBC"  (0x57 0x48 0x42 0x43)
+Version:      1 byte    0x03 for v3.0.0
+
+fn_count:     u16 big-endian   (number of chunks, ≥ 1)
+
+For each chunk  (index 0 = <main>):
+  name_len:     u16 big-endian
+  name:         UTF-8 bytes (name_len bytes)
+  param_count:  u8
+  const_count:  u8              (0–255)
+  For each constant:
+    tag:        u8
+      0 = Number  → 8 bytes IEEE-754 big-endian f64
+      1 = Bool    → 1 byte (0 = false, 1 = true)
+      2 = Str     → u16 length + UTF-8 bytes
+      3 = None    → 0 bytes
+  code_len:     u32 big-endian
+  code:         code_len bytes
+  lines_len:    u32 big-endian  (== code_len)
+  lines:        lines_len × u32 big-endian  (one per bytecode byte)
 ```
 
-- `PUSH_CONST 2` pushes `"Hello"` onto the stack
-- `LOAD 0` looks up the variable named `"counter"`
-- `CALL 3 1` calls the function named `"greet"` with 1 argument
-
-The pool is indexed by `u8` → max **256 constants per chunk**.  
-String constants are **deduplicated**: the same string reuses the same slot.
+**Notes:**
+- `Array` and `Dict` values never appear in the constants pool.
+- Line numbers are preserved in the serialised format so error messages remain accurate after deserialization.
+- A future version may add a checksum field after the function table.
 
 ---
 
@@ -194,37 +198,28 @@ String constants are **deduplicated**: the same string reuses the same slot.
 struct CallFrame {
     chunk:  Chunk,
     ip:     usize,
-    locals: HashMap<String, Value>,
+    locals: HashMap<String, Value>,   // parameters + inner lets
 }
 ```
 
-The VM keeps a `Vec<CallFrame>`; the top frame is always executing.
-
 **On `CALL name_idx argc`:**
-1. Pop `argc` arguments from the stack (last arg on top)
-2. If `name` is a built-in → call directly, push result, done
-3. Clone the function's `Chunk` from the `functions` map
-4. **Check arity:** `argc != chunk.param_count` → `ArgumentCount` error
-5. Create a new `CallFrame`; copy globals into its locals (read access)
-6. Push arguments back in forward order for the preamble to consume
-7. Push the new frame — execution continues inside the function
+1. Pop `argc` arguments from the stack (last arg on top); reverse them.
+2. If `name` matches a built-in → call directly, push result, done.
+3. Look up `name` in `vm.functions`.
+4. Check arity: `argc != chunk.param_count` → `ArgumentCount` error.
+5. Create a new `CallFrame` with **empty** locals.
+6. Push arguments back for the preamble to consume.
+7. Push the new frame.
 
-**Function preamble:**  
-The compiler emits `STORE` instructions in **reverse parameter order**. Arguments must be on the stack such that the last param is on top:
+Unlike v2.0.0, no globals are copied into the new frame. Global reads use `LOAD_GLOBAL` which reads `vm.globals` directly.
 
+**Function preamble (compiler-generated):**
 ```
-fn f(a, b, c):  preamble = STORE c, STORE b, STORE a
-caller pushes:  a, b, c  → c on top
-pops in order:  c ✓, b ✓, a ✓
+fn f(a, b, c):  STORE c, STORE b, STORE a   (reverse order)
 ```
 
-**On `RETURN` / `RETURN_NONE`:**
-1. Pop the current `CallFrame`
-2. Push the return value for the caller
-
-**On `HALT`:**
-1. Pop the current frame (the `<main>` frame)
-2. Return `Ok(())`
+**On `RETURN` / `RETURN_NONE`:**  pop frame, push return value.  
+**On `HALT`:** pop frame, return `Ok(())`.
 
 ---
 
@@ -232,89 +227,61 @@ pops in order:  c ✓, b ✓, a ✓
 
 ```
 loop:
-    byte = frame.chunk.code[frame.ip]
-    frame.ip += 1
-    match opcode(byte):
-        PUSH_CONST  idx  → stack.push(frame.chunk.constants[idx].clone())
-        PUSH_TRUE        → stack.push(Value::Bool(true))
-        PUSH_FALSE       → stack.push(Value::Bool(false))
-        PUSH_NONE        → stack.push(Value::None)
-        LOAD        idx  → stack.push(frame.locals[const_str(idx)])
-        STORE       idx  → frame.locals[const_str(idx)] = stack.pop()
-        ADD              → b=pop(); a=pop(); push(a+b)
-        ...              (arithmetic, comparison, logic — all pop 1 or 2, push 1)
-        JUMP        target     → frame.ip = target
-        JUMP_IF_FALSE  target  → cond=pop(); if !cond.truthy() { frame.ip=target }
-        JUMP_IF_TRUE   target  → cond=pop(); if  cond.truthy() { frame.ip=target }
-        PEEK_JUMP_IF_FALSE  t  → cond=stack.last(); if !cond.truthy() { frame.ip=t }
-        PEEK_JUMP_IF_TRUE   t  → cond=stack.last(); if  cond.truthy() { frame.ip=t }
-        CALL  name_idx argc    → (see Call Frames above)
-        RETURN                 → frames.pop(); stack.push(retval)
-        RETURN_NONE            → frames.pop(); stack.push(None)
-        PRINT                  → val=pop(); writeln!(vm.output, "{}", val.format())
-        POP                    → stack.pop()
-        HALT                   → frames.pop(); break
+  byte = frame.chunk.code[frame.ip]; frame.ip += 1
+  match opcode(byte):
+    ...
+    LOAD        idx  → push( frame.locals[const_str(idx)] )
+    LOAD_GLOBAL idx  → push( vm.globals[const_str(idx)] )
+    STORE       idx  →
+      if in function:  frame.locals[const_str(idx)] = pop()
+      else:            vm.globals[const_str(idx)]   = pop()
+    ...
 ```
 
-**Truthiness:** a value is falsy if it is `false`, `0`, `""`, `[]`, `{}`, or `none`. Everything else is truthy.
+**Truthiness:** `false`, `0`, `""`, `[]`, `{}`, `none` are falsy. Everything else is truthy.
 
 ---
 
 ## Variable Scoping
 
-Whispem has two scopes: **global** and **local**.
+| Scope  | Storage                        | Lifetime          |
+|--------|--------------------------------|-------------------|
+| Global | `vm.globals: HashMap`          | Entire program    |
+| Local  | `frame.locals: HashMap`        | One function call |
 
-| Scope | Storage | Lifetime |
-|-------|---------|----------|
-| Global | `vm.globals: HashMap<String, Value>` | Entire program |
-| Local | `frame.locals: HashMap<String, Value>` | One function call |
+In v3.0.0, `LOAD` reads **only** `frame.locals`; `LOAD_GLOBAL` reads **only** `vm.globals`. The compiler ensures the right opcode is emitted for each variable reference.
 
-**Rule:** `let x = expr` at the top level → `globals`. Inside a function → `frame.locals`.
-
-Functions have **read access to globals**: on `CALL`, the globals map is cloned into the new frame's locals. This means a function can read global variables but cannot mutate them — there is no bare assignment statement, only `let` (which reassigns a local) and `x[i] = v` (index assignment).
+Functions **read** globals via `LOAD_GLOBAL`.  
+Functions **cannot mutate** globals — `STORE` inside a function writes to `frame.locals`.
 
 ---
 
 ## Error Handling
 
-All errors are represented as `WhispemError { kind: ErrorKind, span: Span }`.
-
-### Span
+All errors are `WhispemError { kind: ErrorKind, span: Span }`.
 
 ```rust
-pub struct Span {
-    pub line:   usize,   // 1-based source line
-    pub column: usize,   // 1-based column (0 = unknown)
-}
+pub struct Span { pub line: usize, pub column: usize }
 ```
 
-Constructors:
-- `Span::new(line, col)` — known location
-- `Span::unknown()` — sentinel for compiler-internal errors without source position
-
-### Error display
-
-```
-[line 3, col 0] Error: Undefined variable: 'counter'
-[line 7, col 0] Error: Array index 10 out of bounds (length: 5)
-[line 12, col 0] Error: Function 'add' expected 2 arguments, got 3
-[line 15, col 0] Error: Division by zero
-```
-
-Column tracking is recorded by the lexer but currently reported as `0` in most error sites. Column precision is planned for v3.0.0.
-
-### Error kinds
+### v3.0.0 new error kinds
 
 | Kind | When |
 |------|------|
-| `UndefinedVariable` | `LOAD` of an unknown name |
-| `UndefinedFunction` | `CALL` of an unknown name |
-| `ArgumentCount` | `CALL` with wrong number of args (user functions only) |
+| `InvalidBytecode(String)` | Bad magic, wrong version, truncated `.whbc` |
+| `SerializationError(String)` | Name too long, unsupported constant type |
+
+### Existing error kinds (unchanged)
+
+| Kind | When |
+|------|------|
+| `UndefinedVariable` | `LOAD` / `LOAD_GLOBAL` of unknown name |
+| `UndefinedFunction` | `CALL` of unknown name |
+| `ArgumentCount` | Wrong arity |
 | `TypeError` | Operation on wrong type |
 | `IndexOutOfBounds` | Array index out of range |
-| `DivisionByZero` | `DIV` or `MOD` with zero divisor |
-| `StackUnderflow` | `POP` on an empty stack (compiler bug) |
-| `TooManyConstants` | More than 256 constants in one chunk |
+| `DivisionByZero` | `DIV` or `MOD` with zero |
+| `StackUnderflow` | Compiler bug |
 
 ---
 
@@ -322,254 +289,116 @@ Column tracking is recorded by the lexer but currently reported as `0` in most e
 
 ### Two-pass compilation
 
-Functions are compiled in a **first pass** before the main body. This enables forward calls: you can call a function defined later in the file.
+1. **First pass** — collect all top-level `let` names into `global_names`. Compile all `fn` declarations into separate chunks.
+2. **Second pass** — compile the main body.
+
+Forward calls and `LOAD_GLOBAL` emission both depend on this.
+
+### `LOAD` vs `LOAD_GLOBAL`
+
+Inside a function body, `Expr::Variable("x")` compiles to:
+- `LOAD_GLOBAL x` if `x` is in `global_names`
+- `LOAD x` otherwise (local variable or function parameter)
 
 ### Jump patching
 
-All control-flow jumps are emitted in two steps:
-1. Emit the jump opcode with placeholder `0xFFFF`
-2. After compiling the body, **patch** the placeholder with the real offset
+Jumps are emitted with a `0xFFFF` placeholder, then patched once the target offset is known.
 
-`break` and `continue` collect their patch sites on a `LoopContext` stack and are all patched when the enclosing loop finishes compiling.
+### `for` loop desugaring (unchanged from v2.0.0)
 
-### Compilation rules
-
-**`let x = expr`**
 ```
-<compile expr>
-STORE  <idx("x")>
-```
-
-**`print expr`**
-```
-<compile expr>
-PRINT
-```
-
-**`expr` (bare statement)**
-```
-<compile expr>
-POP              ← always emitted; keeps the stack clean
-```
-
-**`if cond { then } else { else }`**
-```
-<compile cond>
-JUMP_IF_FALSE  [else_start]
-<compile then>
-JUMP           [after_else]
-else_start:
-<compile else>             ← omitted if no else branch
-after_else:
-```
-
-**`while cond { body }`**
-```
+STORE __iter_N
+PUSH_CONST 0; STORE __idx_N
 loop_start:
-<compile cond>
-JUMP_IF_FALSE  [after_loop]
-<compile body>
-JUMP           [loop_start]
-after_loop:
-```
-
-**`for x in iterable { body }`** — desugars to a counter while-loop:
-```
-<compile iterable>
-STORE  __iter_N
-PUSH_CONST  0
-STORE  __idx_N
-loop_start:
-  LOAD __idx_N  /  LOAD __iter_N  /  CALL length 1  /  LT
-  JUMP_IF_FALSE [after_loop]
-  LOAD __iter_N  /  LOAD __idx_N  /  GET_INDEX
-  STORE x
-  <compile body>
+  LOAD __idx_N; LOAD __iter_N; CALL length 1; LT
+  JUMP_IF_FALSE [after]
+  LOAD __iter_N; LOAD __idx_N; GET_INDEX; STORE x
+  <body>
 continue_target:
-  LOAD __idx_N  /  PUSH_CONST 1  /  ADD  /  STORE __idx_N
+  LOAD __idx_N; PUSH_CONST 1; ADD; STORE __idx_N
   JUMP [loop_start]
-after_loop:
+after:
 ```
-
-`break` patches to `after_loop`; `continue` patches to `continue_target`.
-
-**`fn name(params) { body }`** — compiled to a separate chunk, `param_count` set:
-```
-STORE  <last param>          ← preamble: bind params in reverse
-...
-STORE  <first param>
-<compile body>
-RETURN_NONE                  ← implicit fallback
-```
-
-**`obj[idx] = value`**
-```
-LOAD       <idx("obj")>
-<compile idx>
-<compile value>
-SET_INDEX               ← pops val/idx/obj, pushes mutated obj
-STORE      <idx("obj")> ← write back
-```
-
-**`a and b`** (short-circuit, corrected in v2.5.0)
-```
-<compile a>
-PEEK_JUMP_IF_FALSE [done]  ← a stays on stack if falsy (result = a)
-POP                        ← discard a if truthy
-<compile b>                ← result = b
-done:
-```
-
-**`a or b`** (short-circuit, corrected in v2.5.0)
-```
-<compile a>
-PEEK_JUMP_IF_TRUE [done]   ← a stays on stack if truthy (result = a)
-POP                        ← discard a if falsy
-<compile b>                ← result = b
-done:
-```
-
-> **Why peek?** The v2.0.0 `JUMP_IF_FALSE`/`JUMP_IF_TRUE` unconditionally popped the top-of-stack. For `and`/`or`, the short-circuited value *is* the result — popping it caused a stack underflow in the caller. `PEEK_JUMP_*` leaves the value in place when jumping, so the result is always on the stack after the expression, regardless of which branch was taken.
 
 ---
 
 ## Example: Annotated Bytecode
 
-### Simple program
+### Global read from function (v3.0.0)
 
 ```wsp
-let x = 10
-let y = x + 5
-print y
-```
+let greeting = "Hello"
 
-Constants pool: `["x", 10.0, "y", 5.0]`
-
-```
-0000  1    PUSH_CONST    1    '10'
-0002  1    STORE         0    'x'
-0004  2    LOAD          0    'x'
-0006  2    PUSH_CONST    3    '5'
-0008  2    ADD
-0009  2    STORE         2    'y'
-0011  3    LOAD          2    'y'
-0013  3    PRINT
-0014  3    HALT
-```
-
----
-
-### Function call
-
-```wsp
-fn double(n) {
-    return n * 2
+fn say(name) {
+    print greeting + ", " + name
 }
-print double(7)
+
+say("Em")
 ```
 
-**Chunk `<main>`** — constants: `["double", 7.0]`
+**Chunk `<main>`**
 ```
-0000  4    PUSH_CONST    1    '7'
-0002  4    CALL          0    'double' (1 args)
-0005  4    PRINT
-0006  4    HALT
-```
-
-**Chunk `double`** — constants: `["n", 2.0]` — `param_count: 1`
-```
-0000  1    STORE         0    'n'       ← preamble
-0002  2    LOAD          0    'n'
-0004  2    PUSH_CONST    1    '2'
-0006  2    MUL
-0007  2    RETURN
-0008  2    RETURN_NONE                  ← implicit fallback
+0000  1  PUSH_CONST    0    'Hello'
+0002  1  STORE         0    'greeting'
+0004  7  PUSH_CONST    1    'Em'
+0006  7  CALL          2    'say' (1 args)
+0009  7  HALT
 ```
 
----
-
-### Short-circuit `and`
-
-```wsp
-let r = false and (1 == 1)
-print r
+**Chunk `say`** — `param_count: 1`
+```
+0000  3  STORE         0    'name'       ← preamble
+0002  4  LOAD_GLOBAL   1    'greeting'   ← reads vm.globals, not frame.locals
+0004  4  PUSH_CONST    2    ', '
+0006  4  ADD
+0007  4  LOAD          0    'name'       ← reads frame.locals
+0009  4  ADD
+0010  4  PRINT
+0011  4  RETURN_NONE
 ```
 
-```
-0000  1    PUSH_FALSE                   ← compile `false`
-0001  1    PEEK_JUMP_IF_FALSE  0008     ← false → jump, `false` stays on stack
-0004  1    POP                          ← (not reached) discard left
-0005  1    PUSH_CONST  ?    '1'
-0007  1    PUSH_CONST  ?    '1'
-...       EQ
-0008  1    STORE  'r'                   ← result = false
-0010  2    LOAD   'r'
-0012  2    PRINT
-0013  2    HALT
-```
-
----
-
-### Index assignment
-
-```wsp
-let arr = [1, 2, 3]
-arr[1] = 99
-print arr
-```
-
-**Chunk `<main>`** (relevant fragment)
-```
-...  MAKE_ARRAY 3
-...  STORE 'arr'
-     LOAD  'arr'     ← load current array
-     PUSH_CONST '1'  ← index
-     PUSH_CONST '99' ← new value
-     SET_INDEX        ← mutates; pushes result
-     STORE 'arr'     ← write back
-     LOAD  'arr'
-     PRINT
-     HALT
-```
+> Before v3.0.0, `say` would have started with `LOAD greeting` and `greeting` would have been copied from globals into `frame.locals` at call time. Now the frame starts empty and `LOAD_GLOBAL` reads globals directly.
 
 ---
 
 ## Built-in Functions
 
-Built-ins are resolved at `CALL` time before checking user-defined functions. They bypass the arity-check path (each built-in validates its own arguments).
+Built-ins are resolved at `CALL` time before checking user-defined functions.
 
-| Name         | Signature                        | Description                          |
-|--------------|----------------------------------|--------------------------------------|
-| `length`     | `(array\|string\|dict) → number` | Number of elements                   |
-| `push`       | `(array, value) → array`         | New array with value appended        |
-| `pop`        | `(array) → value`                | Last element (error if empty)        |
-| `reverse`    | `(array) → array`                | New reversed array                   |
-| `slice`      | `(array, start, end) → array`    | Sub-array `[start, end)`             |
-| `range`      | `(start, end) → array`           | Integer range `[start, end)`         |
-| `input`      | `(prompt?) → string`             | Read line from stdin                 |
-| `read_file`  | `(path) → string`                | Read file contents                   |
-| `write_file` | `(path, content) → none`         | Write string to file                 |
-| `keys`       | `(dict) → array`                 | Sorted list of keys                  |
-| `values`     | `(dict) → array`                 | Values in key-sorted order           |
-| `has_key`    | `(dict, key) → bool`             | Check if key exists                  |
+| Name         | Signature                        | Description                    |
+|--------------|----------------------------------|--------------------------------|
+| `length`     | `(array\|string\|dict) → number` |                                |
+| `push`       | `(array, value) → array`         | Returns new array              |
+| `pop`        | `(array) → value`                | Returns last element           |
+| `reverse`    | `(array) → array`                |                                |
+| `slice`      | `(array, start, end) → array`    | `[start, end)`                 |
+| `range`      | `(start, end) → array`           | Integer range                  |
+| `input`      | `(prompt?) → string`             |                                |
+| `read_file`  | `(path) → string`                |                                |
+| `write_file` | `(path, content) → none`         |                                |
+| `keys`       | `(dict) → array`                 | Sorted                         |
+| `values`     | `(dict) → array`                 | Sorted by key                  |
+| `has_key`    | `(dict, key) → bool`             |                                |
 
 ---
 
 ## Source Files
 
-| File              | Role                                        |
-|-------------------|---------------------------------------------|
-| `src/value.rs`    | `Value` enum — all runtime types            |
-| `src/opcode.rs`   | `OpCode` enum and byte values               |
-| `src/chunk.rs`    | `Chunk` struct and disassembler             |
-| `src/compiler.rs` | AST → bytecode compiler                     |
-| `src/vm.rs`       | VM execution loop and built-in functions    |
-| `src/error.rs`    | `WhispemError`, `ErrorKind`, `Span`         |
+| File              | Role                                     |
+|-------------------|------------------------------------------|
+| `compiler/wsc.wsp`| Self-hosted compiler (1618 lines of Whispem) |
+| `vm/wvm.c`        | Standalone C VM — `--dump`, REPL, ~2000 lines |
+| `src/value.rs`    | `Value` enum                             |
+| `src/opcode.rs`   | `OpCode` enum — 34 opcodes               |
+| `src/chunk.rs`    | `Chunk` + `serialise` + `deserialise`    |
+| `src/compiler.rs` | AST → bytecode, `LOAD_GLOBAL` emission   |
+| `src/vm.rs`       | Rust VM loop, `LOAD_GLOBAL` execution    |
+| `src/error.rs`    | `WhispemError`, `ErrorKind`, `Span`      |
+| `src/main.rs`     | CLI: `--compile`, `.whbc` run, 93 Rust tests |
 
-Unchanged from v1.5.0: `src/lexer.rs`, `src/parser.rs`, `src/ast.rs`, `src/token.rs`.  
-Updated for v2.5.0: `src/main.rs`, `src/repl.rs`, `src/compiler.rs`, `src/vm.rs`, `src/chunk.rs`, `src/opcode.rs`, `src/error.rs`.
+Unchanged: `src/lexer.rs`, `src/parser.rs`, `src/ast.rs`, `src/token.rs`, `src/repl.rs`.
 
 ---
 
-**Whispem VM — v2.5.0**  
-*Simple. Explicit. Bootstrappable.*
+**Whispem VM — v3.0.0**  
+*Self-hosted. Standalone. Bootstrappable.*

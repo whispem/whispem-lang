@@ -5,7 +5,7 @@ use crate::vm::Vm;
 use std::io::{self, Write};
 
 pub fn run_repl() {
-    println!("Whispem v2.5.0 — REPL");
+    println!("Whispem v3.0.0 — REPL");
     println!("Type 'exit' or press Ctrl-D to quit.\n");
 
     let mut vm = Vm::new();
@@ -29,7 +29,6 @@ pub fn run_repl() {
             continue;
         }
 
-        // Simple multi-line support: keep reading until the block closes.
         let mut source = line.clone();
         if trimmed.ends_with('{') {
             loop {
@@ -56,15 +55,12 @@ pub fn run_repl() {
 }
 
 fn run_source(source: &str, vm: &mut Vm) -> Result<(), String> {
-    let mut lexer = Lexer::new(source);
-    let tokens = lexer.tokenize().map_err(|e| e.to_string())?;
-
+    let mut lexer  = Lexer::new(source);
+    let tokens     = lexer.tokenize().map_err(|e| e.to_string())?;
     let mut parser = Parser::new(tokens);
-    let program = parser.parse_program().map_err(|e| e.to_string())?;
-
-    let compiler = Compiler::new();
+    let program    = parser.parse_program().map_err(|e| e.to_string())?;
+    let compiler   = Compiler::new();
     let (main_chunk, fn_chunks) = compiler.compile(program).map_err(|e| e.to_string())?;
-
     for (name, chunk) in fn_chunks {
         vm.functions.insert(name, chunk);
     }

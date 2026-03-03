@@ -1,6 +1,6 @@
 # Whispem Tutorial
 
-**Version 2.5.0**
+**Version 3.0.0**
 
 Welcome to Whispem. This tutorial covers the entire language from first program to complete applications. By the end you'll know everything Whispem has — because everything it has fits in a single document.
 
@@ -27,41 +27,50 @@ Welcome to Whispem. This tutorial covers the entire language from first program 
 
 ### Install
 
+The only dependency is a C compiler.
+
 ```bash
 git clone https://github.com/whispem/whispem-lang.git
 cd whispem-lang
-cargo build --release
+make                                         # build the VM from vm/wvm.c
 ```
 
 ### Run a file
 
 ```bash
-cargo run examples/hello.wsp
+./wvm compiler/wsc.whbc examples/hello.wsp   # compile + run
 ```
 
 ### Inspect compiled bytecode
 
 ```bash
-cargo run -- --dump examples/hello.wsp
+./wvm --dump examples/hello.whbc
 ```
 
 ```
 == <main> ==
-0000     1  PUSH_CONST         0    'Hello, Whispem!'
-0002     1  STORE              1    'message'
-0004     2  LOAD               1    'message'
+0000     1  PUSH_CONST           0    'Hello, Whispem!'
+0002     1  STORE                1    'message'
+0004     2  LOAD                 1    'message'
 0006     2  PRINT
 0007     2  HALT
+```
+
+### Compile to bytecode (v3.0.0)
+
+```bash
+./wvm compiler/wsc.whbc examples/hello.wsp   # → examples/hello.whbc
+./wvm examples/hello.whbc                    # run precompiled — no recompilation
 ```
 
 ### Interactive REPL
 
 ```bash
-cargo run
+./wvm
 ```
 
 ```
-Whispem v2.5.0 — REPL
+Whispem v3.0.0 — REPL
 Type 'exit' or press Ctrl-D to quit.
 
 >>> let x = 42
@@ -76,15 +85,22 @@ Type 'exit' or press Ctrl-D to quit.
 Bye!
 ```
 
-Function definitions persist across REPL lines.
-
 ### Run the test suite
 
 ```bash
-cargo test
+./tests/run_tests.sh             # autonomous tests (32 tests, no Rust needed)
 ```
 
-72 tests covering all language features — arithmetic, strings, control flow, functions, arrays, dictionaries, error spans, and integration programs.
+### With the Rust reference implementation
+
+```bash
+cargo build --release
+cargo run -- examples/hello.wsp              # run source file
+cargo run -- --compile examples/hello.wsp    # compile to .whbc
+cargo run -- --dump examples/hello.wsp       # disassemble
+cargo run                                    # REPL
+cargo test                                   # 93 tests
+```
 
 ---
 
@@ -92,7 +108,7 @@ cargo test
 
 ```wsp
 let name    = "Whispem"
-let version = 2.5
+let version = 3.0
 let ready   = true
 ```
 
@@ -130,13 +146,6 @@ print 10 / 3    # 3.333...
 print 10 % 3    # 1  ← modulo
 ```
 
-Precedence follows standard math rules. Use parentheses when in doubt:
-
-```wsp
-print 10 + 5 * 2     # 20
-print (10 + 5) * 2   # 30
-```
-
 ### Comparisons
 
 ```wsp
@@ -154,11 +163,11 @@ print true or false    # true
 print not true         # false
 ```
 
-`and` and `or` short-circuit — they stop evaluating as soon as the result is known, and the short-circuited value is the result of the whole expression:
+`and` and `or` short-circuit — the short-circuited value is the result of the whole expression:
 
 ```wsp
-let r = false and expensive_call()   # false — call never runs, result is false
-let r = true  or  expensive_call()   # true  — call never runs, result is true
+let r = false and expensive_call()   # false — call never runs
+let r = true  or  expensive_call()   # true  — call never runs
 ```
 
 ---
@@ -199,7 +208,7 @@ if temperature > 20 {
 }
 ```
 
-The `else` branch is optional. For multiple branches, nest `if` inside `else`:
+For multiple branches, nest `if` inside `else`:
 
 ```wsp
 let score = 85
@@ -243,8 +252,6 @@ for n in range(0, 5) {
 # prints 0 1 2 3 4
 ```
 
-`for` loops compile to a counter-based while loop internally — `range()` and array length are checked at each iteration.
-
 ### Break and continue
 
 ```wsp
@@ -281,8 +288,6 @@ print factorial(10)   # 3628800
 
 ### Arity is checked
 
-Calling a function with the wrong number of arguments produces a clear error:
-
 ```wsp
 fn add(a, b) { return a + b }
 add(1, 2, 3)   # Error: Function 'add' expected 2 arguments, got 3
@@ -290,7 +295,7 @@ add(1, 2, 3)   # Error: Function 'add' expected 2 arguments, got 3
 
 ### Scope
 
-Variables declared at the top level are globals. Variables inside a function are local to that function. Functions have read access to globals — but cannot mutate them.
+Variables declared at the top level are globals. Variables inside a function are local. Functions can read globals — but cannot mutate them.
 
 ```wsp
 let greeting = "Hello"
@@ -302,9 +307,17 @@ fn say(name) {
 say("Em")   # Hello, Em
 ```
 
-### Forward calls
+In the bytecode, reading `greeting` inside `say` compiles to `LOAD_GLOBAL greeting` (v3.0.0). This is explicit in the disassembly:
 
-Functions can be called before they are defined in the file — the compiler handles them in a first pass.
+```
+== say ==
+0000  STORE         'name'
+0002  LOAD_GLOBAL   'greeting'   ← reads vm.globals directly
+0004  LOAD          'name'       ← reads frame.locals
+...
+```
+
+### Forward calls
 
 ```wsp
 print triple(4)   # 12 — works even though triple is defined below
@@ -503,48 +516,46 @@ fn sum(numbers) {
     return total
 }
 
-fn average(numbers) {
-    if length(numbers) == 0 { return 0 }
-    return sum(numbers) / length(numbers)
-}
-
 let data = [3, 17, 2, 41, 8, 25, 6, 33]
 let high = filter(data, 10)
 
 print "Values above 10:"
 print high
 
-print "Average:"
-print average(high)
+print "Sum:"
+print sum(high)
 ```
 
 ---
 
 ## Under the Hood
 
-Since v2.0.0, Whispem compiles source code to bytecode before executing it. The pipeline is:
+Since v2.0.0, Whispem compiles source code to bytecode before executing it:
 
 ```
 Source → Lexer → Parser → AST → Compiler → Bytecode → VM
 ```
 
+Since v3.0.0, the bytecode can be serialised to a `.whbc` file and run later without recompiling:
+
+```
+Source → ... → Compiler → serialise() → .whbc file
+                                              ↓
+                                        deserialise()
+                                              ↓
+                                             VM
+```
+
 You can inspect the compiled bytecode of any program with `--dump`:
 
 ```bash
+./wvm --dump examples/fizzbuzz_proper.whbc
 whispem --dump examples/fizzbuzz_proper.wsp
 ```
 
-The VM is a stack machine with 33 opcodes and a separate call stack with one frame per active function call. See [`docs/vm.md`](vm.md) for the complete specification.
-
-### What changed in v2.5.0
-
-- Two new opcodes — `PEEK_JUMP_IF_FALSE` and `PEEK_JUMP_IF_TRUE` — fix short-circuit evaluation for `and`/`or`
-- `Chunk` now carries `param_count`; arity is checked at every user-function call
-- `Span { line, column }` replaces bare tuples in all error types
-- The VM writes output through a `Box<dyn Write>` sink — tests inject a buffer instead of stdout
-- 72 automated tests run with `cargo test`; zero warnings
+The VM is a stack machine with **34 opcodes** (one new in v3.0.0: `LOAD_GLOBAL`). Two implementations exist: `vm/wvm.c` (C, standalone) and `src/vm.rs` (Rust, reference). Both produce identical output. See [`docs/vm.md`](vm.md) for the complete specification and the `.whbc` binary format.
 
 ---
 
-**Whispem v2.5.0**  
+**Whispem v3.0.0**  
 *You've seen the whole language. Everything Whispem has is in this document.*

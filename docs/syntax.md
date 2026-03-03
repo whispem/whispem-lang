@@ -1,6 +1,6 @@
 # Whispem Syntax Reference
 
-**Version 2.5.0**
+**Version 3.0.0**
 
 Complete reference for the Whispem programming language syntax.
 
@@ -281,7 +281,7 @@ A function with no explicit `return` returns `none`. A bare `return` also return
 
 ### Arity checking
 
-Calling a function with the wrong number of arguments produces an error at runtime:
+Calling a function with the wrong number of arguments produces a clear runtime error:
 
 ```
 [line 5, col 0] Error: Function 'add' expected 2 arguments, got 3
@@ -289,9 +289,9 @@ Calling a function with the wrong number of arguments produces an error at runti
 
 ### Scope
 
-- Variables declared at the top level go into globals
-- Variables declared inside a function go into that function's locals
-- Functions have read access to globals (copied in at call time)
+- Variables declared at the top level are globals
+- Variables declared inside a function are locals
+- Functions can read globals (via `LOAD_GLOBAL` in the bytecode)
 - Functions cannot mutate globals — there is no bare assignment statement
 
 ### Forward calls
@@ -350,6 +350,9 @@ Built-ins are resolved at call time by the VM before checking user-defined funct
 | `input` | `(prompt?) → string` | Read line from stdin |
 | `read_file` | `(path) → string` | Read file contents |
 | `write_file` | `(path, content) → none` | Write string to file |
+| `args` | `() → array` | Script arguments (after `.wsp` filename) |
+| `write_hex` | `(path, hex) → none` | Decode hex string to bytes, write to file |
+| `num_to_hex` | `(n) → string` | IEEE-754 f64 as 16-char hex string |
 
 ---
 
@@ -390,8 +393,9 @@ and  or  not  true  false
 Built-in function names are also reserved:
 ```
 length  push  pop  reverse  slice  range
-input  read_file  write_file
+input  read_file  write_file  args  write_hex
 keys  values  has_key
+char_at  substr  ord  num_to_str  str_to_num  num_to_hex
 ```
 
 ---
@@ -402,13 +406,13 @@ Errors include source location as `[line N, col M]`:
 
 ```
 [line 3, col 0]  Error: Undefined variable: 'counter'
-[line 7, col 0]  Error: Array index 10 out of bounds (length: 5)
+[line 7, col 0]  Error: Array index 10 out of bounds (array length: 5)
 [line 12, col 0] Error: Function 'add' expected 2 arguments, got 3
 [line 15, col 0] Error: Division by zero
 [line 20, col 0] Error: Type error: expected number, found string
 ```
 
-Line numbers are always accurate. Column precision is planned for v3.0.0.
+Line numbers are always accurate. Column precision is planned for v4.0.0.
 
 ---
 
@@ -417,20 +421,37 @@ Line numbers are always accurate. Column precision is planned for v3.0.0.
 Inspect compiled bytecode without running it:
 
 ```bash
-whispem --dump examples/hello.wsp
+./wvm --dump examples/hello.whbc        # standalone
+whispem --dump examples/hello.wsp       # Rust reference — same output
 ```
 
 ```
 == <main> ==
-0000     1  PUSH_CONST         0    'Hello, Whispem!'
-0002     1  STORE              1    'message'
-0004     2  LOAD               1    'message'
+0000     1  PUSH_CONST           0    'Hello, Whispem!'
+0002     1  STORE                1    'message'
+0004     2  LOAD                 1    'message'
 0006     2  PRINT
 0007     2  HALT
 ```
 
-See [`docs/vm.md`](vm.md) for the complete VM specification and instruction set.
+## The `--compile` flag
+
+Compile to `.whbc` bytecode (v3.0.0):
+
+```bash
+./wvm compiler/wsc.whbc examples/hello.wsp   # → examples/hello.whbc
+./wvm examples/hello.whbc                    # run precompiled — no recompilation
+```
+
+With the Rust reference implementation:
+
+```bash
+whispem --compile examples/hello.wsp
+whispem examples/hello.whbc
+```
+
+See [`docs/vm.md`](vm.md) for the complete VM specification and `.whbc` binary format.
 
 ---
 
-**Whispem v2.5.0 — Complete Syntax Reference**
+**Whispem v3.0.0 — Complete Syntax Reference**

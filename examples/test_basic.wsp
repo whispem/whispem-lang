@@ -1,4 +1,4 @@
-# Types et print
+# Types and print
 let x = 42
 let s = "hello"
 let b = true
@@ -6,7 +6,7 @@ print x
 print s
 print b
 
-# Arithmétique
+# Arithmetic
 print 2 + 3
 print 10 / 4
 print 10 % 3
@@ -33,13 +33,13 @@ for n in range(0, 5) {
     print n
 }
 
-# Fonction
+# Function
 fn double(n) {
     return n * 2
 }
 print double(7)
 
-# Récursion
+# Recursion
 fn factorial(n) {
     if n <= 1 { return 1 }
     return n * factorial(n - 1)

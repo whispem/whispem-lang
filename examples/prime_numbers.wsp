@@ -9,13 +9,12 @@ fn is_prime(n) {
     }
     
     # Check divisibility from 2 to n-1
-    for i in range(2, n) {
-        # Manual modulo check
-        let quotient = n / i
-        let product = i * quotient
-        if product == n {
+    let i = 2
+    while i < n {
+        if n % i == 0 {
             return false
         }
+        let i = i + 1
     }
     
     return true
@@ -23,11 +22,13 @@ fn is_prime(n) {
 
 fn find_primes(max) {
     let primes = []
+    let num = 2
     
-    for num in range(2, max) {
+    while num < max {
         if is_prime(num) {
             let primes = push(primes, num)
         }
+        let num = num + 1
     }
     
     return primes
@@ -35,9 +36,9 @@ fn find_primes(max) {
 
 # Find first primes
 print "Prime numbers up to 30:"
-let primes = find_primes(30)
-print primes
+let result = find_primes(30)
+print result
 
 print ""
 print "Count of primes:"
-print length(primes)
+print length(result)

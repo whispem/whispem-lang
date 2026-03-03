@@ -1,0 +1,10 @@
+Original data:
+[-5, 3, -2, 8, 0, 12, -1, 7]
+Positive numbers:
+[3, 8, 12, 7]
+Sum of positive:
+30
+Average of positive:
+30
+Maximum:
+12

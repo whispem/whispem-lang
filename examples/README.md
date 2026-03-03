@@ -1,152 +1,114 @@
 # Whispem Examples
 
-**Version 2.5.0**
+**Version 3.0.0**
 
-A collection of example programs covering all Whispem language features.
+A collection of Whispem programs demonstrating every language feature.
+
+---
+
+## Running examples
 
 ```bash
-# Run an example
-cargo run examples/<file>.wsp
+# Standalone (no Rust needed)
+make                                         # build wvm (once)
+./wvm compiler/wsc.whbc examples/hello.wsp   # compile + run
+./wvm examples/hello.whbc                    # run precompiled
+./wvm --dump examples/hello.whbc             # inspect bytecode
 
-# Inspect compiled bytecode
-cargo run -- --dump examples/<file>.wsp
+# Rust reference implementation
+cargo run examples/hello.wsp
+cargo run -- --compile examples/hello.wsp
+cargo run -- --dump examples/hello.wsp
 ```
 
 ---
 
-## Basics
+## File index
 
-| File | Description |
-|------|-------------|
-| `hello.wsp` | Hello World — first Whispem program |
-| `variables.wsp` | Variable declaration with `let` |
-| `arithmetic.wsp` | Arithmetic operators and precedence |
-| `strings.wsp` | String literals, escapes, and concatenation |
-| `boolean.wsp` | Boolean values `true` and `false` |
-| `comments.wsp` | Comment syntax with `#` |
-| `modulo.wsp` | Modulo operator `%` and practical uses |
+### Basics
 
----
+| File | What it shows |
+|------|---------------|
+| `hello.wsp` | Hello world, `let`, `print` |
+| `variables.wsp` | Variable declarations and types |
+| `arithmetic.wsp` | `+`, `-`, `*`, `/`, `%` |
+| `modulo.wsp` | Modulo operator with a loop |
+| `strings.wsp` | String literals, escape sequences, concatenation |
 
-## Control Flow
+### Control flow
 
-| File | Description |
-|------|-------------|
-| `comparison.wsp` | Comparison operators |
-| `condition.wsp` | `if / else` |
-| `logical_operators.wsp` | `and`, `or`, `not` |
-| `short_circuit.wsp` | Short-circuit evaluation of `and` / `or` |
+| File | What it shows |
+|------|---------------|
+| `condition.wsp` | `if` / `else` |
+| `while_loop.wsp` | `while` loop |
+| `for_loop.wsp` | `for … in`, `range()` |
+| `break_continue.wsp` | `break`, `continue` |
+| `short_circuit.wsp` | `and`/`or` short-circuit evaluation |
 
----
+### Functions
 
-## Loops
-
-| File | Description |
-|------|-------------|
-| `while_loop.wsp` | Basic `while` loop |
-| `for_loop.wsp` | `for` loop with arrays and `range()` |
-| `countdown.wsp` | Countdown with `while` |
-| `break_continue.wsp` | Loop control with `break` and `continue` |
-
----
-
-## Functions
-
-| File | Description |
-|------|-------------|
-| `function_basic.wsp` | Function declaration and calling |
-| `function_return.wsp` | Return values |
+| File | What it shows |
+|------|---------------|
+| `function_basic.wsp` | Defining and calling functions |
 | `function_recursive.wsp` | Recursion — factorial |
-| `function_no_params.wsp` | Functions without parameters |
+| `prime_numbers.wsp` | Recursion + loops |
+| `fizzbuzz_proper.wsp` | FizzBuzz using modulo and `range` |
+
+### Arrays
+
+| File | What it shows |
+|------|---------------|
+| `array_basic.wsp` | Literals, indexing, index assignment |
+| `array_functions.wsp` | `push`, `pop`, `reverse`, `slice`, `range`, `length` |
+
+### Dictionaries
+
+| File | What it shows |
+|------|---------------|
+| `dict_basic.wsp` | Literals, access, update, `has_key`, `keys`, `length` |
+| `dict_phonebook.wsp` | Dictionary as a data structure |
+| `dict_word_count.wsp` | Building a frequency table |
+
+### I/O
+
+| File | What it shows |
+|------|---------------|
+| `user_input.wsp` | `input()` |
+| `file_io.wsp` | `read_file()`, `write_file()` |
+
+### Advanced
+
+| File | What it shows |
+|------|---------------|
+| `data_processing.wsp` | Filter, sum, higher-order patterns with arrays |
 
 ---
 
-## Arrays
+## Self-hosted compiler (v3.0.0)
 
-| File | Description |
-|------|-------------|
-| `array_basic.wsp` | Creation, indexing, assignment |
-| `array_iteration.wsp` | Iterating over arrays |
-| `array_functions.wsp` | `length()`, `push()` |
-| `array_advanced.wsp` | `pop()`, `reverse()`, `slice()`, `range()` |
-| `array_with_functions.wsp` | Passing arrays to functions |
-| `array_mixed_types.wsp` | Mixed types and nested arrays |
-| `array_build_dynamic.wsp` | Building arrays dynamically |
+```bash
+# Standalone (no Rust needed)
+./wvm compiler/wsc.whbc examples/hello.wsp
 
----
+# Rust reference implementation
+cargo run -- compiler/wsc.wsp examples/hello.wsp
+```
 
-## Dictionaries
+`compiler/wsc.wsp` lives in the `compiler/` directory at the project root. It is a Whispem compiler written in Whispem — 1618 lines implementing the full compilation pipeline: lexer, recursive-descent parser, bytecode compiler, and binary serialiser. Produces `.whbc` files byte-for-byte identical to the Rust compiler’s output.
 
-| File | Description |
-|------|-------------|
-| `dict_basic.wsp` | Creation, access, assignment, `has_key`, `keys`, `values` |
-| `dict_nested.wsp` | Nested dicts and dict-aware functions |
-| `dict_phonebook.wsp` | Practical example — phonebook |
-| `dict_word_count.wsp` | Word frequency counter |
+## Autonomous test suite
+
+```bash
+./tests/run_tests.sh
+```
+
+32 tests using only `wvm` + `wsc.whbc` — compiles each example, runs it, and compares output to expected baselines. Includes bootstrap verification. No Rust needed.
 
 ---
 
-## I/O
+## More
 
-| File | Description |
-|------|-------------|
-| `user_input.wsp` | Reading user input with `input()` |
-| `file_io.wsp` | `read_file()` and `write_file()` |
-
----
-
-## Complete Programs
-
-| File | Description |
-|------|-------------|
-| `fizzbuzz.wsp` | FizzBuzz with `while` (v1.0 style) |
-| `fizzbuzz_proper.wsp` | FizzBuzz with modulo — the right way |
-| `prime_numbers.wsp` | Prime number generator |
-| `data_processing.wsp` | Filtering and aggregation |
-| `task_manager.wsp` | Simple task manager |
-| `interactive_game.wsp` | Number guessing game |
-
----
-
-## Learning Path
-
-Recommended order for beginners:
-
-1. `hello.wsp`
-2. `variables.wsp`
-3. `arithmetic.wsp`
-4. `modulo.wsp`
-5. `strings.wsp`
-6. `boolean.wsp`
-7. `comparison.wsp`
-8. `condition.wsp`
-9. `logical_operators.wsp`
-10. `short_circuit.wsp`
-11. `while_loop.wsp`
-12. `for_loop.wsp`
-13. `break_continue.wsp`
-14. `function_basic.wsp`
-15. `function_return.wsp`
-16. `function_recursive.wsp`
-17. `array_basic.wsp`
-18. `array_functions.wsp`
-19. `dict_basic.wsp`
-20. `dict_word_count.wsp`
-21. `fizzbuzz_proper.wsp`
-
----
-
-## Notes
-
-- All examples are self-contained and runnable
-- Functions can be called before they are defined — forward calls work since v2.0.0
-- Calling a function with the wrong number of arguments produces a clear runtime error
-- Arrays use 0-based indexing
-- `push()` returns a new array — the original is unchanged
-- Dictionary keys are always strings internally
-- `and`/`or` short-circuit correctly: the short-circuited value is the result of the expression
-- Use `--dump` to inspect the bytecode of any example
-
----
-
-**Whispem v2.5.0**
+- Full syntax reference → [`docs/syntax.md`](../docs/syntax.md)
+- Step-by-step tutorial → [`docs/tutorial.md`](../docs/tutorial.md)
+- All examples with code inline → [`docs/examples.md`](../docs/examples.md)
+- VM specification and `.whbc` format → [`docs/vm.md`](../docs/vm.md)

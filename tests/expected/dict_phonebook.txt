@@ -1,0 +1,9 @@
+=== Contacts ===
+Alice: 06 12 34 56 78
+Bob: 07 98 76 54 32
+Em: 06 00 00 00 00
+
+Looking up Alice:
+06 12 34 56 78
+Looking up Charlie:
+Contact not found

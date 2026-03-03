@@ -18,8 +18,8 @@ impl Parser {
         &self.tokens[self.position.min(self.tokens.len() - 1)]
     }
 
-    fn line(&self) -> usize   { self.cur().line }
-    fn span(&self) -> Span    { Span::new(self.cur().line, self.cur().column) }
+    fn line(&self) -> usize { self.cur().line }
+    fn span(&self) -> Span  { Span::new(self.cur().line, self.cur().column) }
 
     fn advance(&mut self) {
         if self.position + 1 < self.tokens.len() {
@@ -99,11 +99,12 @@ impl Parser {
                 self.advance();
                 Ok(Stmt::Continue { line: l })
             }
-            // Built-in I/O used as bare statement.
-            Token::WriteFile | Token::ReadFile => {
+            Token::WriteFile | Token::ReadFile | Token::WriteHex | Token::Args => {
                 let line = self.line();
                 let name = match &self.cur().token {
                     Token::WriteFile => "write_file",
+                    Token::WriteHex  => "write_hex",
+                    Token::Args      => "args",
                     _                => "read_file",
                 }
                 .to_string();
@@ -233,7 +234,6 @@ impl Parser {
         let line = self.line();
         let name = self.consume_ident()?;
 
-        // Index assignment: `name[idx] = value`
         if self.cur().token == Token::LeftBracket {
             self.advance();
             let idx = self.parse_expr()?;
@@ -248,7 +248,6 @@ impl Parser {
             });
         }
 
-        // Function call as statement: `name(...)`
         if self.cur().token == Token::LParen {
             let args = self.parse_call_args()?;
             return Ok(Stmt::Expression {
@@ -283,7 +282,7 @@ impl Parser {
         Ok(args)
     }
 
-    // ── Expressions (Pratt / recursive descent) ───────────────────────────
+    // ── Expressions (recursive descent) ──────────────────────────────────
 
     fn parse_expr(&mut self) -> WhispemResult<Expr> { self.parse_or() }
 
@@ -292,11 +291,7 @@ impl Parser {
         while self.cur().token == Token::Or {
             self.advance();
             let r = self.parse_and()?;
-            e = Expr::Logical {
-                left:  Box::new(e),
-                op:    LogicalOp::Or,
-                right: Box::new(r),
-            };
+            e = Expr::Logical { left: Box::new(e), op: LogicalOp::Or, right: Box::new(r) };
         }
         Ok(e)
     }
@@ -306,11 +301,7 @@ impl Parser {
         while self.cur().token == Token::And {
             self.advance();
             let r = self.parse_cmp()?;
-            e = Expr::Logical {
-                left:  Box::new(e),
-                op:    LogicalOp::And,
-                right: Box::new(r),
-            };
+            e = Expr::Logical { left: Box::new(e), op: LogicalOp::And, right: Box::new(r) };
         }
         Ok(e)
     }
@@ -369,17 +360,11 @@ impl Parser {
         match self.cur().token {
             Token::Not | Token::Bang => {
                 self.advance();
-                Ok(Expr::Unary {
-                    op:      UnaryOp::Not,
-                    operand: Box::new(self.parse_unary()?),
-                })
+                Ok(Expr::Unary { op: UnaryOp::Not, operand: Box::new(self.parse_unary()?) })
             }
             Token::Minus => {
                 self.advance();
-                Ok(Expr::Unary {
-                    op:      UnaryOp::Neg,
-                    operand: Box::new(self.parse_unary()?),
-                })
+                Ok(Expr::Unary { op: UnaryOp::Neg, operand: Box::new(self.parse_unary()?) })
             }
             _ => self.parse_postfix(),
         }
@@ -412,36 +397,47 @@ impl Parser {
     fn parse_term(&mut self) -> WhispemResult<Expr> {
         let s = self.cur().clone();
         match &s.token {
-            Token::Number(n)  => { let v = *n; self.advance(); Ok(Expr::Number(v)) }
-            Token::Str(st)    => { let v = st.clone(); self.advance(); Ok(Expr::Str(v)) }
-            Token::True       => { self.advance(); Ok(Expr::Bool(true)) }
-            Token::False      => { self.advance(); Ok(Expr::Bool(false)) }
-            // Built-in names used in expression position.
-            Token::Length     => { self.advance(); Ok(Expr::Variable("length".to_string())) }
-            Token::Push       => { self.advance(); Ok(Expr::Variable("push".to_string())) }
-            Token::Pop        => { self.advance(); Ok(Expr::Variable("pop".to_string())) }
-            Token::Reverse    => { self.advance(); Ok(Expr::Variable("reverse".to_string())) }
-            Token::Slice      => { self.advance(); Ok(Expr::Variable("slice".to_string())) }
-            Token::Range      => { self.advance(); Ok(Expr::Variable("range".to_string())) }
-            Token::Input      => { self.advance(); Ok(Expr::Variable("input".to_string())) }
-            Token::ReadFile   => { self.advance(); Ok(Expr::Variable("read_file".to_string())) }
-            Token::WriteFile  => { self.advance(); Ok(Expr::Variable("write_file".to_string())) }
-            Token::Keys       => { self.advance(); Ok(Expr::Variable("keys".to_string())) }
-            Token::Values     => { self.advance(); Ok(Expr::Variable("values".to_string())) }
-            Token::HasKey     => { self.advance(); Ok(Expr::Variable("has_key".to_string())) }
+            Token::Number(n)   => { let v = *n; self.advance(); Ok(Expr::Number(v)) }
+            Token::Str(st)     => { let v = st.clone(); self.advance(); Ok(Expr::Str(v)) }
+            Token::True        => { self.advance(); Ok(Expr::Bool(true)) }
+            Token::False       => { self.advance(); Ok(Expr::Bool(false)) }
+            Token::Length      => { self.advance(); Ok(Expr::Variable("length".to_string())) }
+            Token::Push        => { self.advance(); Ok(Expr::Variable("push".to_string())) }
+            Token::Pop         => { self.advance(); Ok(Expr::Variable("pop".to_string())) }
+            Token::Reverse     => { self.advance(); Ok(Expr::Variable("reverse".to_string())) }
+            Token::Slice       => { self.advance(); Ok(Expr::Variable("slice".to_string())) }
+            Token::Range       => { self.advance(); Ok(Expr::Variable("range".to_string())) }
+            Token::Input       => { self.advance(); Ok(Expr::Variable("input".to_string())) }
+            Token::ReadFile    => { self.advance(); Ok(Expr::Variable("read_file".to_string())) }
+            Token::WriteFile   => { self.advance(); Ok(Expr::Variable("write_file".to_string())) }
+            Token::Keys        => { self.advance(); Ok(Expr::Variable("keys".to_string())) }
+            Token::Values      => { self.advance(); Ok(Expr::Variable("values".to_string())) }
+            Token::HasKey      => { self.advance(); Ok(Expr::Variable("has_key".to_string())) }
+            Token::CharAt      => { self.advance(); Ok(Expr::Variable("char_at".to_string())) }
+            Token::Substr      => { self.advance(); Ok(Expr::Variable("substr".to_string())) }
+            Token::Ord         => { self.advance(); Ok(Expr::Variable("ord".to_string())) }
+            Token::NumToStr    => { self.advance(); Ok(Expr::Variable("num_to_str".to_string())) }
+            Token::StrToNum    => { self.advance(); Ok(Expr::Variable("str_to_num".to_string())) }
+            Token::Args        => { self.advance(); Ok(Expr::Variable("args".to_string())) }
+            Token::WriteHex    => { self.advance(); Ok(Expr::Variable("write_hex".to_string())) }
             Token::LeftBracket => {
                 self.advance();
+                self.skip_nl();
                 let mut elems = Vec::new();
                 if self.cur().token != Token::RightBracket {
                     loop {
+                        self.skip_nl();
                         elems.push(self.parse_expr()?);
+                        self.skip_nl();
                         if self.cur().token == Token::Comma {
                             self.advance();
+                            self.skip_nl();
                         } else {
                             break;
                         }
                     }
                 }
+                self.skip_nl();
                 self.consume(Token::RightBracket)?;
                 Ok(Expr::Array(elems))
             }
