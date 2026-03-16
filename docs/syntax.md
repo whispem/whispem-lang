@@ -1,6 +1,6 @@
 # Whispem Syntax Reference
 
-**Version 3.0.0**
+**Version 4.0.0**
 
 Complete reference for the Whispem programming language syntax.
 
@@ -92,8 +92,6 @@ scores[1] = 99
 print scores   # [10, 99, 30]
 ```
 
-Under the hood, `scores[1] = 99` compiles to `LOAD`, `GET_INDEX`, `SET_INDEX`, `STORE` — the array is mutated and written back.
-
 ---
 
 ## Dictionaries
@@ -113,6 +111,9 @@ Keys must be strings. Values can be any type.
 print person["name"]   # Em
 print person["age"]    # 26
 ```
+
+Accessing a key that does not exist raises a clear runtime error:
+`key "foo" not found in dict`
 
 ### Assignment
 
@@ -179,14 +180,7 @@ a or b    # true if at least one truthy
 not a     # negates
 ```
 
-**Short-circuit evaluation:**
-- `and` stops evaluating if the left side is falsy — the left value becomes the result
-- `or` stops evaluating if the left side is truthy — the left value becomes the result
-
-```wsp
-let r = false and expensive_call()   # expensive_call() never runs
-let r = true  or  expensive_call()   # expensive_call() never runs
-```
+`and` and `or` short-circuit: the left value becomes the result when the right side would not change the outcome.
 
 **Truthiness:** a value is falsy if it is `false`, `0`, `""`, `[]`, `{}`, or `none`. Everything else is truthy.
 
@@ -197,23 +191,33 @@ let r = true  or  expensive_call()   # expensive_call() never runs
 ```wsp
 if condition {
     ...
+} else if other_condition {
+    ...
 } else {
     ...
 }
 ```
 
-The `else` branch is optional. There is no `else if` — nest another `if` inside `else`:
+Both `else if` and `else` are optional. `else if` chains are supported natively — no need to nest `if` inside `else`:
 
 ```wsp
 if score >= 90 {
     print "A"
+} else if score >= 80 {
+    print "B"
+} else if score >= 70 {
+    print "C"
 } else {
-    if score >= 80 {
-        print "B"
-    } else {
-        print "C"
-    }
+    print "F"
 }
+```
+
+`else if` can appear on the same line as `}` or on the next line — both are valid:
+
+```wsp
+if x == 1 { print "one" }
+else if x == 2 { print "two" }
+else { print "other" }
 ```
 
 ---
@@ -281,22 +285,19 @@ A function with no explicit `return` returns `none`. A bare `return` also return
 
 ### Arity checking
 
-Calling a function with the wrong number of arguments produces a clear runtime error:
-
-```
-[line 5, col 0] Error: Function 'add' expected 2 arguments, got 3
-```
+Calling a function with the wrong number of arguments raises a runtime error:
+`Function 'add' expected 2 arguments, got 3`
 
 ### Scope
 
-- Variables declared at the top level are globals
-- Variables declared inside a function are locals
-- Functions can read globals (via `LOAD_GLOBAL` in the bytecode)
-- Functions cannot mutate globals — there is no bare assignment statement
+- Variables declared at the top level are globals.
+- Variables declared inside a function are locals.
+- Functions can read globals (via `LOAD_GLOBAL` in the bytecode).
+- Functions cannot mutate globals — `STORE` inside a function writes to the frame's locals.
 
 ### Forward calls
 
-Functions are compiled in a first pass before the main program. You can call a function defined later in the file.
+Functions are compiled before the main body. You can call a function defined later in the file.
 
 ---
 
@@ -343,6 +344,17 @@ Built-ins are resolved at call time by the VM before checking user-defined funct
 | `values` | `(dict) → array` | Values in key-sorted order |
 | `has_key` | `(dict, key) → bool` | Check if key exists |
 
+### Strings
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `length` | `(string) → number` | Character count (UTF-8 aware) |
+| `char_at` | `(string, index) → string` | Single character at index |
+| `substr` | `(string, start, len) → string` | Substring |
+| `ord` | `(string) → number` | Unicode codepoint of first character |
+| `num_to_str` | `(number) → string` | Number to string |
+| `str_to_num` | `(string) → number` | String to number |
+
 ### I/O
 
 | Function | Signature | Description |
@@ -353,6 +365,14 @@ Built-ins are resolved at call time by the VM before checking user-defined funct
 | `args` | `() → array` | Script arguments (after `.wsp` filename) |
 | `write_hex` | `(path, hex) → none` | Decode hex string to bytes, write to file |
 | `num_to_hex` | `(n) → string` | IEEE-754 f64 as 16-char hex string |
+
+### Introspection and control (v4.0.0)
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `type_of` | `(value) → string` | Runtime type: `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, `"none"` |
+| `assert` | `(condition, message?) → none` | Raises `AssertionFailed` if condition is falsy |
+| `exit` | `(code?) → none` | Terminates the program with the given exit code (default `0`) |
 
 ---
 
@@ -387,7 +407,7 @@ From highest to lowest:
 
 ```
 let  print  if  else  while  for  in  fn  return  break  continue
-and  or  not  true  false
+and  or  not  true  false  assert  type_of  exit
 ```
 
 Built-in function names are also reserved:
@@ -406,52 +426,14 @@ Errors include source location as `[line N, col M]`:
 
 ```
 [line 3, col 0]  Error: Undefined variable: 'counter'
-[line 7, col 0]  Error: Array index 10 out of bounds (array length: 5)
-[line 12, col 0] Error: Function 'add' expected 2 arguments, got 3
-[line 15, col 0] Error: Division by zero
-[line 20, col 0] Error: Type error: expected number, found string
+[line 5, col 0]  Error: key "foo" not found in dict
+[line 7, col 0]  Error: Array index 10 out of bounds (length: 5)
+[line 9, col 0]  Error: Function 'add' expected 2 arguments, got 3
+[line 12, col 0] Error: Division by zero
+[line 15, col 0] Error: Type error: expected number, found string
+[line 18, col 0] Error: Assertion failed: array must not be empty
 ```
-
-Line numbers are always accurate. Column precision is planned for v4.0.0.
 
 ---
 
-## The `--dump` flag
-
-Inspect compiled bytecode without running it:
-
-```bash
-./wvm --dump examples/hello.whbc        # standalone
-whispem --dump examples/hello.wsp       # Rust reference — same output
-```
-
-```
-== <main> ==
-0000     1  PUSH_CONST           0    'Hello, Whispem!'
-0002     1  STORE                1    'message'
-0004     2  LOAD                 1    'message'
-0006     2  PRINT
-0007     2  HALT
-```
-
-## The `--compile` flag
-
-Compile to `.whbc` bytecode (v3.0.0):
-
-```bash
-./wvm compiler/wsc.whbc examples/hello.wsp   # → examples/hello.whbc
-./wvm examples/hello.whbc                    # run precompiled — no recompilation
-```
-
-With the Rust reference implementation:
-
-```bash
-whispem --compile examples/hello.wsp
-whispem examples/hello.whbc
-```
-
-See [`docs/vm.md`](vm.md) for the complete VM specification and `.whbc` binary format.
-
----
-
-**Whispem v3.0.0 — Complete Syntax Reference**
+**Whispem v4.0.0 — Complete Syntax Reference**

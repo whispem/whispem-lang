@@ -1,6 +1,6 @@
 # Whispem — Vision
 
-**Version 3.0.0 — March 2026**
+**Version 4.0.0 — March 2026**
 
 ---
 
@@ -48,71 +48,67 @@ The tree-walk interpreter was replaced by a compiler and a stack-based VM. The A
 
 This was the first real architectural decision: separate concerns. The compiler's job is to understand structure. The VM's job is to execute instructions. They do not mix.
 
-### v2.5.0 — Short-circuit logic
+### v2.5.0 — Short-circuit logic and correctness
 
-A small release, but a meaningful one. `and` and `or` were updated to short-circuit correctly, using `JUMP_IF_FALSE` and `JUMP_IF_TRUE` with `POP` on the non-taken branch.
+`and` and `or` were updated to short-circuit correctly using `JUMP_IF_FALSE` / `JUMP_IF_TRUE` with `POP` on the non-taken branch. 72 automated tests established the correctness contract.
 
-The change required understanding jump semantics at the bytecode level. It was worth doing slowly.
+### v3.0.0 — Self-hosting
 
-### v3.0.0 — Bytecode serialization and self-hosting
+Three things arrived together.
 
-Two things arrived together:
+**The `.whbc` format.** Compiled bytecode can be written to a binary file and loaded back without recompilation. The format is versioned, magic-checked, and self-describing. Line numbers survive the round-trip.
 
-**The `.whbc` format.** Compiled bytecode can now be written to a binary file and loaded back without recompilation. The format is versioned, magic-checked, and self-describing. Line numbers survive the round-trip. Constants are deduplicated. The format is documented in `docs/vm.md`.
+**`LOAD_GLOBAL`.** Functions now contain explicit `LOAD_GLOBAL` instructions for global names. The bytecode is self-describing: any reader can tell from the opcode alone whether a read is local or global.
 
-**The `LOAD_GLOBAL` opcode.** Previously, global variables were copied into each function's call frame at `CALL` time. Now the compiler tracks which names are globals and emits `LOAD_GLOBAL` for them. Functions read `vm.globals` directly. The bytecode is now explicit about scope.
+**`compiler/wsc.wsp`.** A Whispem compiler written in Whispem. It reads a `.wsp` source file, lexes, parses, compiles, and writes a `.whbc` bytecode file. The bootstrap is verified: gen1 and gen2 produce bit-identical bytecode (SHA-1 fixed point).
 
-**`compiler/wsc.wsp`.** A Whispem compiler, written in Whispem. It reads a `.wsp` source file, lexes, parses, compiles, and writes a `.whbc` bytecode file — byte-for-byte identical to the Rust compiler’s output. The language can now describe its own compilation and produce executable output.
+**`vm/wvm.c`.** A standalone C runtime that executes `.whbc` bytecode without Rust. The bootstrap fixed point holds on both VMs.
+
+### v4.0.0 — Polish
+
+Four additions, each small and earned.
+
+**`else if`.** The most visible daily friction in writing Whispem was the nesting required for multiple branches. `else if` eliminates it without touching the VM, the compiler, or the AST — it is purely a lexer and parser transformation. The bytecode emitted is identical to the nested form.
+
+**`assert`.** Writing correct programs means catching wrong assumptions early. `assert(condition, message)` gives that without adding a new statement form — it is a builtin that raises a runtime error on failure. No new opcodes, no new AST nodes.
+
+**`type_of`.** Defensive code in Whispem was previously blind to types. `type_of(v)` returns a string; `if type_of(x) != "number"` is now a real pattern. Simple, transparent, no reflection machinery.
+
+**`exit`.** Scripts sometimes need to terminate with a specific exit code. `exit(code)` propagates through the call stack as a special error kind, caught by the CLI and passed to the OS. The REPL handles it by terminating cleanly.
 
 ---
 
 ## What comes next
 
-### v3.0.0 — Bootstrap (done)
+### v5.0.0
 
-The self-hosted compiler reads `.wsp` files, writes `.whbc` files, and compiles itself. The bootstrap is verified: gen1 and gen2 produce bit-identical bytecode (SHA-1 fixed point). Rc-based copy-on-write on arrays and dicts made it feasible despite pass-by-value semantics.
+**Closures** are the largest remaining architectural change. They require a third variable kind (`upvalue`) alongside locals and globals, two new opcodes (`LOAD_UPVALUE`, `STORE_UPVALUE`), a `Value::Function` type that carries a captured environment, and an analysis pass in the compiler. The self-hosted compiler would also need updating.
 
-**`vm/wvm.c`.** A standalone C runtime that executes `.whbc` bytecode without Rust. Single-file, ~2000 lines, refcounted copy-on-write, same 34 opcodes and 20 builtins. Includes a `--dump` disassembler (byte-identical output to the Rust one) and an interactive REPL. The bootstrap fixed point holds identically on both the Rust VM and the C VM.
+The potential is real — closures enable callbacks, iterators, and higher-order patterns that currently require working around. The cost is a significant increase in VM and compiler complexity.
 
-**`tests/run_tests.sh`.** An autonomous test suite that uses only `wvm` and `wsc.whbc` — no Rust needed. 32 tests covering every example program plus bootstrap verification. With this, Whispem's correctness can be checked without ever installing `cargo`. With `wsc.whbc` + `wvm`, Whispem runs without any Rust dependency.
-
-### v4.0.0 — Polish
-
-Some features that might arrive, in order of likelihood:
-
-- **`else if`** — syntax sugar for nested `if`/`else`, since the current nesting is verbose
-- **Closures** — functions that close over their lexical environment; requires a significant VM change
-- **Multiple return values** — currently simulated with arrays; proper support would be cleaner
-- **Column numbers in errors** — line numbers are precise; columns are not yet
-- **Type annotations** — optional, for documentation only; no runtime enforcement
-
-Some features that will probably never arrive:
-
-- **Classes or objects** — dictionaries are enough; adding inheritance would obscure more than it reveals
-- **A standard library** — the built-in functions are the library; adding more would make the language harder to teach
-- **Concurrency** — interesting, but outside the scope of a language about clarity
+**String interpolation** (`"Hello, {name}!"`) is mostly a lexer and parser change. The value is real — string concatenation chains are verbose. The implementation is straightforward compared to closures.
 
 ---
 
-## The self-hosting milestone, in perspective
+## Features that will not arrive
 
-Self-hosting is often treated as a milestone of completeness — the moment when a language is "real." That is not why it matters here.
-
-What matters is that writing `compiler/wsc.wsp` required using every feature Whispem has: arrays to represent instruction streams, dicts to represent chunks, loops to iterate over tokens, functions to separate concerns, recursion to handle nested expressions. If any of those had been missing or broken, the compiler would not have worked.
-
-Self-hosting is a test. It passed.
+- **Classes or objects** — dictionaries are enough; adding inheritance would obscure more than it reveals.
+- **Modules or imports** — changes the entire architecture; outside the scope.
+- **Try/catch** — interesting, but a significant VM change with unclear payoff for a language this size.
+- **Type annotations** — optional annotations would add noise without runtime benefit.
+- **A standard library** — the built-in functions are the library.
 
 ---
 
 ## Principles that will not change
 
-- The language fits in one file (this one, eventually)
-- `--dump` always tells the truth
-- Error messages include line numbers
-- The test suite is the contract
-- Simplicity is earned, not assumed
+- The language fits in one file.
+- `--dump` always tells the truth.
+- Error messages include line numbers.
+- The test suite is the contract.
+- Simplicity is earned, not assumed.
 
 ---
 
-**Whispem v3.0.0**  
+**Whispem v4.0.0**
 *Self-hosted. Standalone. Bootstrappable.*

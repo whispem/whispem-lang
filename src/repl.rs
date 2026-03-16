@@ -2,10 +2,11 @@ use crate::compiler::Compiler;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::vm::Vm;
+use crate::error::ErrorKind;
 use std::io::{self, Write};
 
 pub fn run_repl() {
-    println!("Whispem v3.0.0 — REPL");
+    println!("Whispem v4.0.0 — REPL");
     println!("Type 'exit' or press Ctrl-D to quit.\n");
 
     let mut vm = Vm::new();
@@ -40,29 +41,33 @@ pub fn run_repl() {
                     Ok(_)          => {}
                 }
                 source.push_str(&cont);
-                if cont.trim() == "}" {
-                    break;
-                }
+                if cont.trim() == "}" { break; }
             }
         }
 
         if let Err(e) = run_source(&source, &mut vm) {
-            eprintln!("{}", e);
+            match e.kind {
+                ErrorKind::Exit(code) => {
+                    println!("Bye!");
+                    std::process::exit(code as i32);
+                }
+                _ => eprintln!("{}", e),
+            }
         }
     }
 
     println!("Bye!");
 }
 
-fn run_source(source: &str, vm: &mut Vm) -> Result<(), String> {
+fn run_source(source: &str, vm: &mut Vm) -> Result<(), crate::error::WhispemError> {
     let mut lexer  = Lexer::new(source);
-    let tokens     = lexer.tokenize().map_err(|e| e.to_string())?;
+    let tokens     = lexer.tokenize()?;
     let mut parser = Parser::new(tokens);
-    let program    = parser.parse_program().map_err(|e| e.to_string())?;
+    let program    = parser.parse_program()?;
     let compiler   = Compiler::new();
-    let (main_chunk, fn_chunks) = compiler.compile(program).map_err(|e| e.to_string())?;
+    let (main_chunk, fn_chunks) = compiler.compile(program)?;
     for (name, chunk) in fn_chunks {
         vm.functions.insert(name, chunk);
     }
-    vm.run(main_chunk).map_err(|e| e.to_string())
+    vm.run(main_chunk)
 }

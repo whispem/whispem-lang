@@ -59,9 +59,10 @@ pub enum ErrorKind {
     TooManyConstants,
     StackUnderflow,
     InvalidOpcode(u8),
-    // v3.0.0 additions
     InvalidBytecode(String),
     SerializationError(String),
+    AssertionFailed(String),
+    Exit(i64),
 }
 
 impl fmt::Display for WhispemError {
@@ -82,7 +83,7 @@ impl fmt::Display for WhispemError {
             ErrorKind::TypeError { expected, found } =>
                 format!("Type error: expected {}, found {}", expected, found),
             ErrorKind::IndexOutOfBounds { index, length } =>
-                format!("Array index {} out of bounds (array length: {})", index, length),
+                format!("Array index {} out of bounds (length: {})", index, length),
             ErrorKind::InvalidIndex =>
                 "Array index must be a number".to_string(),
             ErrorKind::DivisionByZero =>
@@ -97,27 +98,31 @@ impl fmt::Display for WhispemError {
             ErrorKind::EmptyArray =>
                 "Cannot pop from an empty array".to_string(),
             ErrorKind::SliceOutOfBounds { end, length } =>
-                format!("slice() end index {} out of bounds (array length: {})", end, length),
+                format!("slice() end index {} out of bounds (length: {})", end, length),
             ErrorKind::InvalidSlice { start, end } =>
-                format!("slice() start index {} cannot be greater than end index {}", start, end),
+                format!("slice() start {} cannot be greater than end {}", start, end),
             ErrorKind::FileRead { path, reason } =>
-                format!("Failed to read file '{}': {}", path, reason),
+                format!("Failed to read '{}': {}", path, reason),
             ErrorKind::FileWrite { path, reason } =>
-                format!("Failed to write file '{}': {}", path, reason),
+                format!("Failed to write '{}': {}", path, reason),
             ErrorKind::BreakOutsideLoop =>
                 "'break' used outside of a loop".to_string(),
             ErrorKind::ContinueOutsideLoop =>
                 "'continue' used outside of a loop".to_string(),
             ErrorKind::TooManyConstants =>
-                "Too many constants in one function (max 256). Split it into smaller functions.".to_string(),
+                "Too many constants in one function (max 256).".to_string(),
             ErrorKind::StackUnderflow =>
-                "Internal error: stack underflow (compiler bug)".to_string(),
+                "Internal error: stack underflow".to_string(),
             ErrorKind::InvalidOpcode(b) =>
                 format!("Internal error: unknown opcode {:#04x}", b),
             ErrorKind::InvalidBytecode(msg) =>
                 format!("Invalid bytecode: {}", msg),
             ErrorKind::SerializationError(msg) =>
                 format!("Serialization error: {}", msg),
+            ErrorKind::AssertionFailed(msg) =>
+                format!("Assertion failed: {}", msg),
+            ErrorKind::Exit(code) =>
+                format!("exit({})", code),
         };
 
         if self.span.is_known() {

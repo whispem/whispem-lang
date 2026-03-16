@@ -1,6 +1,6 @@
 # Whispem Examples
 
-**Version 3.0.0**
+**Version 4.0.0**
 
 A collection of Whispem programs demonstrating every language feature.
 
@@ -16,7 +16,7 @@ make                                         # build wvm (once)
 ./wvm --dump examples/hello.whbc             # inspect bytecode
 
 # Rust reference implementation
-cargo run examples/hello.wsp
+cargo run -- examples/hello.wsp
 cargo run -- --compile examples/hello.wsp
 cargo run -- --dump examples/hello.wsp
 ```
@@ -39,7 +39,7 @@ cargo run -- --dump examples/hello.wsp
 
 | File | What it shows |
 |------|---------------|
-| `condition.wsp` | `if` / `else` |
+| `condition.wsp` | `if` / `else if` / `else` |
 | `while_loop.wsp` | `while` loop |
 | `for_loop.wsp` | `for … in`, `range()` |
 | `break_continue.wsp` | `break`, `continue` |
@@ -52,7 +52,7 @@ cargo run -- --dump examples/hello.wsp
 | `function_basic.wsp` | Defining and calling functions |
 | `function_recursive.wsp` | Recursion — factorial |
 | `prime_numbers.wsp` | Recursion + loops |
-| `fizzbuzz_proper.wsp` | FizzBuzz using modulo and `range` |
+| `fizzbuzz_proper.wsp` | FizzBuzz using `else if`, modulo, and `range` |
 
 ### Arrays
 
@@ -84,17 +84,57 @@ cargo run -- --dump examples/hello.wsp
 
 ---
 
-## Self-hosted compiler (v3.0.0)
+## v4.0.0 features
 
-```bash
-# Standalone (no Rust needed)
-./wvm compiler/wsc.whbc examples/hello.wsp
+### `else if`
 
-# Rust reference implementation
-cargo run -- compiler/wsc.wsp examples/hello.wsp
+`else if` is now native syntax — no more nesting `if` inside `else`:
+
+```wsp
+if score >= 90 { print "A" }
+else if score >= 80 { print "B" }
+else if score >= 70 { print "C" }
+else { print "F" }
 ```
 
-`compiler/wsc.wsp` lives in the `compiler/` directory at the project root. It is a Whispem compiler written in Whispem — 1618 lines implementing the full compilation pipeline: lexer, recursive-descent parser, bytecode compiler, and binary serialiser. Produces `.whbc` files byte-for-byte identical to the Rust compiler’s output.
+`examples/fizzbuzz_proper.wsp` has been updated to use `else if`.
+
+### `assert(condition, message?)`
+
+```wsp
+assert(length(items) > 0, "items must not be empty")
+assert(type_of(x) == "number")
+```
+
+### `type_of(value)`
+
+Returns `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, or `"none"`:
+
+```wsp
+fn safe_double(x) {
+    if type_of(x) != "number" { return "error" }
+    return x * 2
+}
+```
+
+### `exit(code?)`
+
+```wsp
+if length(args()) == 0 {
+    print "Usage: script.wsp <n>"
+    exit(1)
+}
+```
+
+---
+
+## Self-hosted compiler (v3.0.0+)
+
+```bash
+./wvm compiler/wsc.whbc examples/hello.wsp
+```
+
+`compiler/wsc.wsp` is a Whispem compiler written in Whispem — 1724 lines implementing the full compilation pipeline: lexer, recursive-descent parser, bytecode compiler, and binary serialiser. Updated in v4.0.0 to support `else if`, `assert`, `type_of`, and `exit`.
 
 ## Autonomous test suite
 
@@ -102,7 +142,7 @@ cargo run -- compiler/wsc.wsp examples/hello.wsp
 ./tests/run_tests.sh
 ```
 
-32 tests using only `wvm` + `wsc.whbc` — compiles each example, runs it, and compares output to expected baselines. Includes bootstrap verification. No Rust needed.
+Compiles each example via `wsc.whbc`, runs it, and compares output to expected baselines. No Rust needed.
 
 ---
 

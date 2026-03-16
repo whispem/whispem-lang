@@ -1,6 +1,6 @@
 # My Journey: From Literature to Programming Languages
 
-*Hi, I'm Emilie — everyone calls me Em'.*  
+*Hi, I'm Emilie — everyone calls me Em'.*
 *This is the story of how I went from studying literature and linguistics to building a self-hosting programming language with a bytecode VM in Rust.*
 
 ---
@@ -77,21 +77,17 @@ Not a toy. Not a clone. Something with a clear philosophy:
 
 ---
 
-## March 2026 — Self-hosting
+## March 2026 — Self-hosting and polish
 
-**March 1, 2026** — Whispem 3.0.0. The self-hosting release.
+**March 2, 2026** — Whispem 3.0.0. The self-hosting release.
 
-Three things happened at once:
+Three things happened at once: bytecode serialisation (`.whbc` format), `LOAD_GLOBAL` opcode, and `compiler/wsc.wsp` — a Whispem compiler written in Whispem. The bootstrap is verified: the compiler compiles itself, producing bit-identical output. `vm/wvm.c` completes the chain: a standalone C runtime that runs `.whbc` without Rust.
 
-**Bytecode serialisation.** `--compile hello.wsp` produces `hello.whbc`. The VM runs it directly. The format is versioned binary: magic bytes, constants pool, line table. A program compiles once and runs anywhere the WVM exists.
+**March 16, 2026** — Whispem 4.0.0. The polish release.
 
-**`LOAD_GLOBAL`.** A small new opcode — but the right one. Before v3.0.0, every function call copied the entire globals map into the new frame. Now functions contain explicit `LOAD_GLOBAL` instructions. The bytecode is self-describing: you can tell from the opcode alone whether a read is local or global. This is what the self-hosted compiler needs.
+Four additions chosen for their daily impact: `else if` (no more nesting `if` inside `else`), `assert` (correctness checks), `type_of` (defensive code), `exit` (script control). Zero VM changes — purely lexer, parser, and builtins. 147 tests. Zero warnings.
 
-**`compiler/wsc.wsp`.** The thing that makes v3.0.0 real: a Whispem compiler written in Whispem. It reads a `.wsp` source file, lexes it, parses it into an AST, compiles bytecode, and writes a `.whbc` file — byte-for-byte identical to the Rust compiler’s output. No Rust in the loop. The language describes its own compilation.
-
-**`vm/wvm.c`.** A standalone C runtime that executes `.whbc` bytecode. Single-file, ~2000 lines, refcounted copy-on-write, same 34 opcodes and 20 builtins. With `--dump`, REPL, and the bootstrapped `wsc.whbc`, the entire toolchain runs without Rust: `make && ./wvm compiler/wsc.whbc hello.wsp`.
-
-Looking at `wsc.wsp` is different from looking at any other piece of code I've written. It's Whispem reasoning about Whispem. That's the moment a language becomes real.
+Writing `else if` in Whispem for the first time after having worked around it since v1.0.0 was a small but satisfying moment. Some features are worth waiting until the language is ready for them.
 
 ---
 
@@ -107,20 +103,23 @@ Looking at `wsc.wsp` is different from looking at any other piece of code I've w
 - How bytecode compilers translate AST nodes into instructions
 - How stack machines execute bytecode using call frames
 - How constants pools, jump patching, and parameter binding work
-- What it means to inspect your own program with `--dump`
 
 **v2.5.0 — correctness:**
 - How to write an in-process test harness without platform-specific code
-- How short-circuit evaluation works at the bytecode level — and how to get it wrong silently
-- That "zero warnings" is a discipline, not a milestone
+- How short-circuit evaluation works at the bytecode level
 
 **v3.0.0 — self-hosting:**
-- How binary formats are structured (magic, versioning, length-prefixed fields)
-- How explicit opcodes make bytecode self-describing
+- How binary formats are structured
 - What it means for a language to describe its own compilation
-- That the gap between "working interpreter" and "self-hosting" is mostly conceptual once you have a clean bytecode model
-- That writing a second VM in C is the real test of whether your bytecode spec is precise enough
-- That a self-hosted compiler can have subtle bugs (break/continue jump patching) invisible until you write an autonomous test suite
+- That the gap between "working interpreter" and "self-hosting" is mostly conceptual
+- That a self-hosted compiler can have subtle bugs invisible until you write an autonomous test suite
+
+**v4.0.0 — polish:**
+- That syntax sugar done right is invisible — `else if` emits identical bytecode to the nested form
+- That `type_of` and `assert` cost almost nothing to implement but change how you write programs
+- That zero warnings is a discipline worth keeping even when adding small features
+- That sometimes the right time to add a feature is after you've used the workaround long enough to know exactly what you want
+
 ---
 
 ## On coming from a non-technical background
@@ -146,8 +145,9 @@ The skills that matter most in programming — careful observation, systematic t
 | February 19, 2026 | Whispem 1.5.0 |
 | February 25, 2026 | Whispem 2.0.0 — bytecode VM |
 | March 1, 2026 | Whispem 2.5.0 — error spans, arity, short-circuit, 72 tests |
-| March 1, 2026 | Whispem 3.0.0 — `.whbc`, `LOAD_GLOBAL`, `--compile`, self-hosting |
+| March 2, 2026 | Whispem 3.0.0 — `.whbc`, `LOAD_GLOBAL`, `--compile`, self-hosting |
 | March 2, 2026 | Standalone C VM, REPL, `--dump`, autonomous test suite — 125 tests, zero Rust dependency |
+| March 16, 2026 | Whispem 4.0.0 — `else if`, `assert`, `type_of`, `exit`, 147 tests |
 
 ---
 

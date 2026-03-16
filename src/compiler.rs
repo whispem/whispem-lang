@@ -6,14 +6,11 @@ use crate::value::Value;
 use std::collections::HashMap;
 
 pub struct Compiler {
-    current:    Chunk,
-    functions:  HashMap<String, Chunk>,
-    loop_stack: Vec<LoopContext>,
-    /// Names of all top-level variables — used to emit LOAD_GLOBAL
-    /// inside function bodies instead of copying globals at call time.
+    current:      Chunk,
+    functions:    HashMap<String, Chunk>,
+    loop_stack:   Vec<LoopContext>,
     global_names: Vec<String>,
-    /// True when compiling a function body (not <main>).
-    in_function: bool,
+    in_function:  bool,
 }
 
 struct LoopContext {
@@ -32,13 +29,10 @@ impl Compiler {
         }
     }
 
-    /// Compile `program` → `(main_chunk, fn_chunks)`.
     pub fn compile(
         mut self,
         program: Vec<Stmt>,
     ) -> WhispemResult<(Chunk, HashMap<String, Chunk>)> {
-        // Collect all top-level `let` names so function bodies can emit
-        // LOAD_GLOBAL for them.
         for stmt in &program {
             if let Stmt::Let { name, .. } = stmt {
                 if !self.global_names.contains(name) {
@@ -47,14 +41,12 @@ impl Compiler {
             }
         }
 
-        // First pass: compile all functions so forward calls work.
         for stmt in &program {
             if let Stmt::Function { name, params, body, line } = stmt {
                 self.compile_function(name, params, body, *line)?;
             }
         }
 
-        // Second pass: compile the main body.
         for stmt in program {
             if !matches!(stmt, Stmt::Function { .. }) {
                 self.compile_stmt(stmt)?;
@@ -71,12 +63,11 @@ impl Compiler {
         body:   &[Stmt],
         line:   usize,
     ) -> WhispemResult<()> {
-        let parent     = std::mem::replace(&mut self.current, Chunk::new(name));
-        let was_in_fn  = self.in_function;
-        self.in_function = true;
+        let parent    = std::mem::replace(&mut self.current, Chunk::new(name));
+        let was_in_fn = self.in_function;
+        self.in_function         = true;
         self.current.param_count = params.len();
 
-        // Caller pushes args left-to-right → STORE in reverse.
         for param in params.iter().rev() {
             let idx = self.name_const(param, line)?;
             self.current.emit_op_u8(OpCode::Store, idx, line);
@@ -98,7 +89,6 @@ impl Compiler {
                 self.compile_expr(value, line)?;
                 let idx = self.name_const(&name, line)?;
                 self.current.emit_op_u8(OpCode::Store, idx, line);
-                // Track globals when compiling <main>.
                 if !self.in_function && !self.global_names.contains(&name) {
                     self.global_names.push(name);
                 }
@@ -212,9 +202,7 @@ impl Compiler {
                 for p in ctx.continue_jumps { self.current.patch_jump(p, continue_target); }
             }
 
-            Stmt::Function { .. } => {
-                // Already compiled in the first pass.
-            }
+            Stmt::Function { .. } => {}
 
             Stmt::Return { value, line } => {
                 if let Some(expr) = value {
@@ -278,8 +266,6 @@ impl Compiler {
             Expr::Bool(false) => self.current.emit_op(OpCode::PushFalse, ctx_line),
 
             Expr::Variable(name) => {
-                // Inside a function body, use LOAD_GLOBAL for known globals
-                // so the VM can fetch them without the globals-copy trick.
                 if self.in_function && self.global_names.contains(&name) {
                     let idx = self.current.add_constant(Value::Str(name));
                     self.current.emit_op_u8(OpCode::LoadGlobal, idx, ctx_line);
@@ -291,9 +277,7 @@ impl Compiler {
 
             Expr::Array(elems) => {
                 let n = elems.len() as u8;
-                for e in elems {
-                    self.compile_expr(e, ctx_line)?;
-                }
+                for e in elems { self.compile_expr(e, ctx_line)?; }
                 self.current.emit_op_u8(OpCode::MakeArray, n, ctx_line);
             }
 
@@ -361,9 +345,7 @@ impl Compiler {
 
             Expr::Call { name, arguments, line } => {
                 let argc = arguments.len() as u8;
-                for arg in arguments {
-                    self.compile_expr(arg, line)?;
-                }
+                for arg in arguments { self.compile_expr(arg, line)?; }
                 let name_c = self.name_const(&name, line)?;
                 self.current.emit_byte(OpCode::Call as u8, line);
                 self.current.emit_byte(name_c, line);

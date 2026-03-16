@@ -1,25 +1,15 @@
-/// Every opcode in the Whispem Virtual Machine (WVM).
-///
-/// v3.0.0 adds `LOAD_GLOBAL` (0x12) so the compiler can express
-/// "read a global variable" explicitly instead of relying on the
-/// globals-copied-into-locals trick at call time.  This is required
-/// by the serialised `.whbc` format, where the self-hosted compiler
-/// must emit the same bytecode as the Rust compiler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum OpCode {
-    // ── Constants ────────────────────────────────────────────────── 0x0x
     PushConst   = 0x00,
     PushTrue    = 0x01,
     PushFalse   = 0x02,
     PushNone    = 0x03,
 
-    // ── Variables ────────────────────────────────────────────────── 0x1x
     Load        = 0x10,
     Store       = 0x11,
-    LoadGlobal  = 0x12, // v3.0.0 — explicit global read
+    LoadGlobal  = 0x12,
 
-    // ── Arithmetic ───────────────────────────────────────────────── 0x2x
     Add         = 0x20,
     Sub         = 0x21,
     Mul         = 0x22,
@@ -27,7 +17,6 @@ pub enum OpCode {
     Mod         = 0x24,
     Neg         = 0x25,
 
-    // ── Comparison ───────────────────────────────────────────────── 0x3x
     Eq          = 0x30,
     Neq         = 0x31,
     Lt          = 0x32,
@@ -36,29 +25,24 @@ pub enum OpCode {
     Gte         = 0x35,
     Not         = 0x36,
 
-    // ── Control flow ─────────────────────────────────────────────── 0x4x
     Jump              = 0x40,
     JumpIfFalse       = 0x41,
     JumpIfTrue        = 0x42,
     PeekJumpIfFalse   = 0x43,
     PeekJumpIfTrue    = 0x44,
 
-    // ── Functions ────────────────────────────────────────────────── 0x5x
     Call        = 0x50,
     Return      = 0x51,
     ReturnNone  = 0x52,
 
-    // ── Collections ──────────────────────────────────────────────── 0x6x
     MakeArray   = 0x60,
     MakeDict    = 0x61,
     GetIndex    = 0x62,
     SetIndex    = 0x63,
 
-    // ── I/O & stack ──────────────────────────────────────────────── 0x7x
     Print       = 0x70,
     Pop         = 0x71,
 
-    // ── Halt ─────────────────────────────────────────────────────── 0xFF
     Halt        = 0xFF,
 }
 
@@ -144,7 +128,6 @@ impl OpCode {
         }
     }
 
-    /// Number of *extra* bytes consumed after the opcode byte.
     pub fn operand_size(self) -> usize {
         match self {
             Self::PushConst

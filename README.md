@@ -2,15 +2,15 @@
 
 ![Logo Whispem](https://imgur.com/YDjrAKR.png)
 
-[![Version](https://img.shields.io/badge/version-3.0.0-cyan.svg)](https://github.com/whispem/whispem-lang/releases)
+[![Version](https://img.shields.io/badge/version-4.0.0-cyan.svg)](https://github.com/whispem/whispem-lang/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-125%20passing-brightgreen.svg)](https://github.com/whispem/whispem-lang/actions)
+![Tests](https://img.shields.io/badge/tests-147%20passing-brightgreen.svg)](https://github.com/whispem/whispem-lang/actions)
 
 > *Whisper your intent. The machine listens.*
 
 Whispem is a small, self-hosted programming language. The compiler is written in Whispem, compiles itself, and runs on a standalone C VM — no external dependencies beyond a C compiler. Rust serves as the reference implementation.
 
-**Current version: 3.0.0** — self-hosted compiler · verified bootstrap · `.whbc` bytecode · standalone C VM with REPL and disassembler · 125 tests (93 + 32 autonomous) · zero warnings
+**Current version: 4.0.0** — `else if` · `assert` · `type_of` · `exit` · self-hosted compiler · verified bootstrap · `.whbc` bytecode · standalone C VM · 147 tests (110 Rust + 37 autonomous) · zero warnings
 
 ---
 
@@ -24,7 +24,7 @@ make                                         # build the VM from vm/wvm.c
 ./wvm examples/hello.whbc                    # run precompiled bytecode
 ./wvm --dump examples/hello.whbc             # inspect bytecode
 ./wvm                                        # interactive REPL
-./tests/run_tests.sh                         # run the full test suite (32 tests)
+./tests/run_tests.sh                         # run the autonomous test suite
 ```
 
 ### With the Rust reference implementation
@@ -35,54 +35,60 @@ cargo run -- examples/hello.wsp              # run source file
 cargo run -- --compile examples/hello.wsp    # compile to .whbc
 cargo run -- --dump examples/hello.wsp       # disassemble
 cargo run                                    # REPL
-cargo test                                   # 93 tests
+cargo test                                   # 110 Rust tests
 ```
 
 ---
 
-## What's new in v3.0.0
+## What's new in v4.0.0
 
-### Self-hosted compiler
+### `else if`
 
-`compiler/wsc.wsp` — 1618 lines of Whispem that implement the full compilation pipeline: lexer, recursive-descent parser, bytecode compiler, and binary serialiser. Source file goes in, `.whbc` bytecode comes out — byte-for-byte identical to the Rust compiler's output.
+`else if` is now proper syntax — no more nesting `if` inside `else`:
 
-```bash
-./wvm compiler/wsc.whbc examples/hello.wsp   # compile hello.wsp → hello.whbc
-./wvm examples/hello.whbc                    # → Hello, Whispem!
+```wsp
+if score >= 90 { print "A" }
+else if score >= 80 { print "B" }
+else if score >= 70 { print "C" }
+else { print "F" }
 ```
 
-### Verified bootstrap
+Pure syntax sugar: the lexer collapses `else if` into a single token, the parser builds the same nested `If` AST nodes as before. Zero VM or bytecode impact.
 
-The compiler compiles itself. The result compiles itself again. Both outputs are bit-identical:
+### `assert(condition, message?)`
 
-```bash
-./wvm compiler/wsc.whbc compiler/wsc.wsp    # gen1: compiler compiles itself
-shasum compiler/wsc.whbc
-# f090aa0f650a3b00e4286b332f82c0ba5c3b71d5
-
-./wvm compiler/wsc.whbc compiler/wsc.wsp    # gen2: again
-shasum compiler/wsc.whbc
-# f090aa0f650a3b00e4286b332f82c0ba5c3b71d5  ← stable fixed point
+```wsp
+assert(length(items) > 0, "list must not be empty")
+assert(type_of(x) == "number")
 ```
 
-The same SHA-1 holds on the Rust VM — the two runtimes are interchangeable.
+Raises `Assertion failed: <message>` if the condition is falsy. Message is optional.
 
-### Standalone C VM
+### `type_of(value)`
 
-`vm/wvm.c` — a single-file C runtime (~2000 lines) that executes `.whbc` bytecode. Same 34 opcodes and 20 builtins as the Rust VM, with refcounted copy-on-write arrays and dicts. Includes an interactive REPL and a `--dump` disassembler. Byte-for-byte identical output on all programs.
+Returns the runtime type as a string: `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, or `"none"`.
 
-### `.whbc` bytecode format
-
-Binary format (magic `WHBC` + version byte), length-prefixed, with line numbers preserved for error reporting. Compile once, run anywhere:
-
-```bash
-./wvm compiler/wsc.whbc examples/fizzbuzz_proper.wsp   # compile
-./wvm examples/fizzbuzz_proper.whbc                     # run — no recompilation
+```wsp
+fn safe_double(x) {
+    if type_of(x) != "number" { return "error: expected number" }
+    return x * 2
+}
 ```
 
-### `LOAD_GLOBAL` opcode
+### `exit(code?)`
 
-Functions emit explicit `LOAD_GLOBAL` instructions for global variable reads. The bytecode is self-describing: the opcode tells you whether a read is local or global.
+```wsp
+if length(args()) == 0 {
+    print "Usage: script.wsp <file>"
+    exit(1)
+}
+```
+
+Terminates with the given exit code (default `0`). Propagates cleanly through the call stack; the CLI passes the code to the OS rather than printing an error.
+
+### Clearer dict error messages
+
+Accessing a missing key now reads `key "foo" not found in dict` instead of the cryptic `undefined variable 'dict key "foo"'`.
 
 ---
 
@@ -96,11 +102,13 @@ let age  = 26
 # Print
 print "Hello, " + name
 
-# Conditionals
+# Conditionals — now with else if
 if age >= 18 {
     print "adult"
+} else if age >= 13 {
+    print "teen"
 } else {
-    print "minor"
+    print "child"
 }
 
 # While loop
@@ -116,7 +124,7 @@ for fruit in fruits {
     print fruit
 }
 
-# Functions — with arity checking
+# Functions
 fn greet(person) {
     return "Hello, " + person + "!"
 }
@@ -144,9 +152,14 @@ let scores = [10, 20, 30]
 scores[1] = 99
 print scores   # [10, 99, 30]
 
-# Short-circuit logic
-let r = false and expensive_call()   # call never runs
-let r = true  or  expensive_call()   # call never runs
+# assert and type_of
+assert(length(nums) > 0, "nums must not be empty")
+print type_of(nums)   # array
+
+# exit
+if length(args()) == 0 {
+    exit(1)
+}
 ```
 
 ---
@@ -179,7 +192,7 @@ The VM is a stack machine with **34 opcodes**. The `--dump` flag disassembles al
 0008     2  RETURN_NONE
 ```
 
-See [`docs/vm.md`](docs/vm.md) for the complete VM specification including the `.whbc` binary format.
+See [`docs/vm.md`](docs/vm.md) for the complete VM specification and the `.whbc` binary format.
 
 ---
 
@@ -193,7 +206,7 @@ make                             # build wvm from vm/wvm.c
 ./wvm file.whbc arg1 arg2        # run with script arguments
 ./wvm compiler/wsc.whbc file.wsp # compile .wsp → .whbc, then run
 ./wvm --dump file.whbc           # disassemble without running
-./tests/run_tests.sh             # autonomous test suite (32 tests)
+./tests/run_tests.sh             # autonomous test suite
 
 # Rust reference implementation
 whispem                          # interactive REPL
@@ -201,7 +214,7 @@ whispem file.wsp                 # run source file
 whispem file.wsp arg1 arg2       # run with script arguments
 whispem --dump file.wsp          # disassemble without running
 whispem --compile file.wsp       # compile to file.whbc
-whispem --compile file.wsp out.whbc   # compile with explicit output path
+whispem --compile file.wsp out.whbc
 whispem file.whbc                # run precompiled bytecode
 ```
 
@@ -210,13 +223,11 @@ whispem file.whbc                # run precompiled bytecode
 ## Testing
 
 ```bash
-./tests/run_tests.sh          # autonomous tests (no Rust needed, 32 tests)
-cargo test                    # Rust reference tests (93 tests)
+./tests/run_tests.sh   # autonomous tests (no Rust needed)
+cargo test             # 110 Rust tests
 ```
 
-32 autonomous tests using only the C VM and the self-hosted compiler: compiles each `.wsp` example, runs the result, compares output to expected baselines, and verifies bootstrap stability.
-
-93 Rust tests covering the entire language: arithmetic, strings, booleans, comparisons, logic, control flow, functions, recursion, forward calls, arrays, dictionaries, truthiness, error spans, integration programs (FizzBuzz, word counter, Fibonacci), and **13 bytecode round-trip tests** (v3.0.0).
+110 Rust tests cover the entire language: arithmetic, strings, booleans, comparisons, logic, control flow, functions, recursion, forward calls, arrays, dictionaries, truthiness, error spans, integration programs, bytecode round-trip tests, and all v4.0.0 features. 38 autonomous tests run via the C VM only, covering all example programs and bootstrap verification.
 
 ---
 
@@ -225,29 +236,27 @@ cargo test                    # Rust reference tests (93 tests)
 ```
 whispem/
 ├── compiler/
-│   ├── wsc.wsp        self-hosted compiler (1618 lines of Whispem)
-│   └── wsc.whbc       bootstrapped bytecode (SHA-1 f090aa0...)
+│   ├── wsc.wsp        self-hosted compiler (1724 lines of Whispem)
+│   └── wsc.whbc       bootstrapped bytecode
 ├── vm/
 │   └── wvm.c          standalone C runtime (~2000 lines, no Rust needed)
 ├── src/
-│   ├── main.rs        entry point · CLI · 93 Rust tests
+│   ├── main.rs        entry point · CLI · 110 Rust tests
 │   ├── repl.rs        interactive REPL
-│   ├── lexer.rs       tokeniser
+│   ├── lexer.rs       tokeniser — collapses else if
 │   ├── token.rs       token types
-│   ├── parser.rs      recursive descent parser
+│   ├── parser.rs      recursive descent parser — else if, assert, type_of, exit
 │   ├── ast.rs         AST node types
 │   ├── error.rs       WhispemError · ErrorKind · Span
 │   ├── value.rs       runtime value types (Rc copy-on-write)
 │   ├── opcode.rs      VM instruction set (34 opcodes)
 │   ├── chunk.rs       Chunk · serialise · deserialise · disassembler
-│   ├── compiler.rs    AST → bytecode · LOAD_GLOBAL emission
-│   └── vm.rs          VM loop · LOAD_GLOBAL · injectable output
+│   ├── compiler.rs    AST → bytecode
+│   └── vm.rs          VM loop · builtins · assert · type_of · exit
 ├── tests/
 │   ├── run_tests.sh   autonomous test runner (C VM only)
 │   └── expected/      expected output for each example
 ├── examples/
-│   ├── hello.wsp
-│   ├── fizzbuzz_proper.wsp
 │   └── ...            30+ example programs
 ├── docs/
 │   ├── vm.md          VM spec · .whbc format
@@ -271,7 +280,8 @@ whispem/
 | [x] 2.0.0 | Bytecode VM, compiler, `--dump`, `docs/vm.md` |
 | [x] 2.5.0 | Error spans, arity, short-circuit fix, 72 tests, 0 warnings |
 | [x] 3.0.0 | `.whbc` serialisation, `LOAD_GLOBAL`, `--compile`, self-hosted compiler, verified bootstrap, Rc COW, standalone C VM, 125 tests |
-| 4.0.0 | `else if` syntax sugar, closures, column numbers in errors |
+| [x] 4.0.0 | `else if`, `assert`, `type_of`, `exit`, dict error messages, 147 tests (110 Rust + 37 autonomous) |
+| 5.0.0 | Closures, string interpolation |
 
 ---
 
@@ -281,8 +291,8 @@ Whispem is intentionally small. The goal is a language whose entire implementati
 
 Every design decision asks: *would a future Whispem program be able to do this too?*
 
-In v3.0.0, the answer became yes — the compiler is written in Whispem, it compiles itself to `.whbc` bytecode, and the standalone C runtime executes it. No Rust needed. The language hosts itself.
+In v3.0.0, the answer became yes — the compiler is written in Whispem, it compiles itself, and the standalone C runtime executes it. In v4.0.0, the language became a little cleaner to write: `else if` instead of nested braces, `assert` for correctness checks, `type_of` for defensive code, `exit` for scripts.
 
 ---
 
-*Whispem v3.0.0 — Self-hosted. Standalone. Bootstrappable.*
+*Whispem v4.0.0 — Self-hosted. Standalone. Bootstrappable.*

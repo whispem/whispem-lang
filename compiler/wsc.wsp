@@ -1,4 +1,4 @@
-# wsc.wsp — Whispem Self-hosted Compiler v3.0
+# wsc.wsp — Whispem Self-hosted Compiler v4.0
 # Reads a .wsp source file, compiles it, writes a .whbc bytecode file.
 # Usage: whispem compiler/wsc.wsp <source.wsp>
 
@@ -76,6 +76,9 @@ fn keyword_kind(word) {
     if word == "not"      { return "NOT" }
     if word == "true"     { return "TRUE" }
     if word == "false"    { return "FALSE" }
+    if word == "assert"   { return "ASSERT" }
+    if word == "type_of"  { return "TYPE_OF" }
+    if word == "exit"     { return "EXIT" }
     return "IDENT"
 }
 
@@ -238,7 +241,32 @@ fn lex(src) {
     }
 
     ls["tokens"] = push(ls["tokens"], make_tok("EOF", "", ls["line"]))
-    return ls["tokens"]
+
+    # Collapse ELSE NEWLINE* IF → ELSE_IF
+    let raw  = ls["tokens"]
+    let out  = []
+    let ri   = 0
+    let rlen = length(raw)
+    while ri < rlen {
+        if raw[ri]["kind"] == "ELSE" {
+            let j = ri + 1
+            while j < rlen and raw[j]["kind"] == "NEWLINE" {
+                let j = j + 1
+            }
+            if j < rlen and raw[j]["kind"] == "IF" {
+                let ei = make_tok("ELSE_IF", "else if", raw[ri]["line"])
+                let out = push(out, ei)
+                let ri  = j + 1
+            } else {
+                let out = push(out, raw[ri])
+                let ri  = ri + 1
+            }
+        } else {
+            let out = push(out, raw[ri])
+            let ri  = ri + 1
+        }
+    }
+    return out
 }
 
 # ── Chunk ─────────────────────────────────────────────────────────────────────
@@ -478,20 +506,12 @@ fn parse_stmt(ps) {
         st["ps"] = parse_block(st["ps"])
         let then_b = st["ps"]["result"]
         st["ps"] = ps_eat(st["ps"], "RBRACE")
-        st["else_b"] = []
-        st["ps"] = ps_skip(st["ps"])
-        if ps_kind(st["ps"]) == "ELSE" {
-            st["ps"] = ps_adv(st["ps"])
-            st["ps"] = ps_eat(st["ps"], "LBRACE")
-            st["ps"] = ps_skip(st["ps"])
-            st["ps"] = parse_block(st["ps"])
-            st["else_b"] = st["ps"]["result"]
-            st["ps"] = ps_eat(st["ps"], "RBRACE")
-        }
+        st["ps"] = parse_else_branch(st["ps"], ln)
+        let else_b = st["ps"]["result"]
         let d = {}
         d["cond"] = cond
         d["then"] = then_b
-        d["else"] = st["else_b"]
+        d["else"] = else_b
         d["line"] = ln
         return ps_ret(st["ps"], node("If", d))
     }
@@ -559,6 +579,53 @@ fn parse_stmt(ps) {
         d["body"]   = body
         d["line"]   = ln
         return ps_ret(st["ps"], node("Function", d))
+    }
+
+    # assert(cond) or assert(cond, msg) — treated as a call expression statement
+    if k == "ASSERT" {
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = ps_eat(st["ps"], "LPAREN")
+        st["args"] = []
+        if ps_kind(st["ps"]) != "RPAREN" {
+            st["ps"] = parse_expr(st["ps"])
+            st["args"] = push(st["args"], st["ps"]["result"])
+            while ps_kind(st["ps"]) == "COMMA" {
+                st["ps"] = ps_adv(st["ps"])
+                st["ps"] = parse_expr(st["ps"])
+                st["args"] = push(st["args"], st["ps"]["result"])
+            }
+        }
+        st["ps"] = ps_eat(st["ps"], "RPAREN")
+        let ce = {}
+        ce["kind"] = "Call"
+        ce["name"] = "assert"
+        ce["args"] = st["args"]
+        let d = {}
+        d["expr"] = ce
+        d["line"] = ln
+        return ps_ret(st["ps"], node("Expr", d))
+    }
+
+    # exit() or exit(code)
+    if k == "EXIT" {
+        st["ps"] = ps_adv(st["ps"])
+        st["args"] = []
+        if ps_kind(st["ps"]) == "LPAREN" {
+            st["ps"] = ps_eat(st["ps"], "LPAREN")
+            if ps_kind(st["ps"]) != "RPAREN" {
+                st["ps"] = parse_expr(st["ps"])
+                st["args"] = push(st["args"], st["ps"]["result"])
+            }
+            st["ps"] = ps_eat(st["ps"], "RPAREN")
+        }
+        let ce = {}
+        ce["kind"] = "Call"
+        ce["name"] = "exit"
+        ce["args"] = st["args"]
+        let d = {}
+        d["expr"] = ce
+        d["line"] = ln
+        return ps_ret(st["ps"], node("Expr", d))
     }
 
     if k == "IDENT" {
@@ -639,6 +706,45 @@ fn parse_stmt(ps) {
     d["expr"] = e
     d["line"] = ln
     return ps_ret(st["ps"], node("Expr", d))
+}
+
+# Parse else / else if branch after an if block.
+# Returns ps with result = list of stmts (possibly empty).
+fn parse_else_branch(ps, ln) {
+    let st = {}
+    st["ps"] = ps_skip(ps)
+
+    if ps_kind(st["ps"]) == "ELSE_IF" {
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = parse_expr(st["ps"])
+        let cond = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "LBRACE")
+        st["ps"] = ps_skip(st["ps"])
+        st["ps"] = parse_block(st["ps"])
+        let then_b = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "RBRACE")
+        st["ps"] = parse_else_branch(st["ps"], ln)
+        let else_b = st["ps"]["result"]
+        let d = {}
+        d["cond"] = cond
+        d["then"] = then_b
+        d["else"] = else_b
+        d["line"] = ln
+        let inner = node("If", d)
+        return ps_ret(st["ps"], [inner])
+    }
+
+    if ps_kind(st["ps"]) == "ELSE" {
+        st["ps"] = ps_adv(st["ps"])
+        st["ps"] = ps_eat(st["ps"], "LBRACE")
+        st["ps"] = ps_skip(st["ps"])
+        st["ps"] = parse_block(st["ps"])
+        let body = st["ps"]["result"]
+        st["ps"] = ps_eat(st["ps"], "RBRACE")
+        return ps_ret(st["ps"], body)
+    }
+
+    return ps_ret(st["ps"], [])
 }
 
 fn parse_expr(ps)  { return parse_or(ps) }
@@ -933,6 +1039,16 @@ fn parse_primary(ps) {
         return ps_ret(st["ps"], e)
     }
 
+    # type_of and assert as expression primaries (e.g. in let x = type_of(v))
+    if k == "TYPE_OF" or k == "ASSERT" or k == "EXIT" {
+        let name = ps_val(ps)
+        let p2 = ps_adv(ps)
+        let e = {}
+        e["kind"] = "Variable"
+        e["name"] = name
+        return ps_ret(p2, e)
+    }
+
     let v = ps_val(ps)
     let p2 = ps_adv(ps)
     let e = {}
@@ -961,7 +1077,6 @@ fn compile(stmts) {
     ctx["in_fn"]      = false
     ctx["loop_stack"] = []
 
-    # Pass 1: collect global names
     let st = {}
     st["i"] = 0
     while st["i"] < length(stmts) {
@@ -974,7 +1089,6 @@ fn compile(stmts) {
         st["i"] = st["i"] + 1
     }
 
-    # Pass 2: compile functions
     st["i"] = 0
     while st["i"] < length(stmts) {
         if stmts[st["i"]]["kind"] == "Function" {
@@ -983,7 +1097,6 @@ fn compile(stmts) {
         st["i"] = st["i"] + 1
     }
 
-    # Pass 3: compile main body
     st["i"] = 0
     while st["i"] < length(stmts) {
         if stmts[st["i"]]["kind"] != "Function" {
@@ -1500,7 +1613,6 @@ fn serialise_const(v) {
         return acc["out"]
     }
 
-    # Number — IEEE-754 big-endian f64
     return "00" + num_to_hex(v)
 }
 
@@ -1513,7 +1625,6 @@ fn serialise_chunk(c) {
     let acc    = {}
     let st     = {}
 
-    # Name
     acc["out"] = u16_to_hex(nl)
     st["ni"] = 0
     while st["ni"] < nl {
@@ -1521,10 +1632,7 @@ fn serialise_chunk(c) {
         st["ni"] = st["ni"] + 1
     }
 
-    # Param count
     acc["out"] = acc["out"] + byte_to_hex(pc)
-
-    # Constants
     acc["out"] = acc["out"] + byte_to_hex(nc)
     st["ci"] = 0
     while st["ci"] < nc {
@@ -1532,7 +1640,6 @@ fn serialise_chunk(c) {
         st["ci"] = st["ci"] + 1
     }
 
-    # Code
     let code = c["code"]
     let cl   = length(code)
     acc["out"] = acc["out"] + u32_to_hex(cl)
@@ -1542,7 +1649,6 @@ fn serialise_chunk(c) {
         st["bi"] = st["bi"] + 1
     }
 
-    # Lines
     let lines = c["lines"]
     let ll    = length(lines)
     acc["out"] = acc["out"] + u32_to_hex(ll)
@@ -1590,7 +1696,7 @@ fn main() {
     let slen = length(source_path)
     let out_path = substr(source_path, 0, slen - 4) + ".whbc"
 
-    print "=== wsc.wsp -- Whispem Self-hosted Compiler v3.0 ==="
+    print "=== wsc.wsp -- Whispem Self-hosted Compiler v4.0 ==="
     print ""
     print "Source: " + source_path
     print ""

@@ -1,6 +1,6 @@
 # Whispem Tutorial
 
-**Version 3.0.0**
+**Version 4.0.0**
 
 Welcome to Whispem. This tutorial covers the entire language from first program to complete applications. By the end you'll know everything Whispem has — because everything it has fits in a single document.
 
@@ -18,8 +18,9 @@ Welcome to Whispem. This tutorial covers the entire language from first program 
 8. [Arrays](#arrays)
 9. [Dictionaries](#dictionaries)
 10. [User Input and File I/O](#user-input-and-file-io)
-11. [Complete Examples](#complete-examples)
-12. [Under the Hood](#under-the-hood)
+11. [Introspection and Control](#introspection-and-control)
+12. [Complete Examples](#complete-examples)
+13. [Under the Hood](#under-the-hood)
 
 ---
 
@@ -56,7 +57,7 @@ make                                         # build the VM from vm/wvm.c
 0007     2  HALT
 ```
 
-### Compile to bytecode (v3.0.0)
+### Compile to bytecode
 
 ```bash
 ./wvm compiler/wsc.whbc examples/hello.wsp   # → examples/hello.whbc
@@ -70,17 +71,12 @@ make                                         # build the VM from vm/wvm.c
 ```
 
 ```
-Whispem v3.0.0 — REPL
+Whispem v4.0.0 — REPL
 Type 'exit' or press Ctrl-D to quit.
 
 >>> let x = 42
 >>> print x
 42
->>> fn double(n) {
-...     return n * 2
-... }
->>> print double(x)
-84
 >>> exit
 Bye!
 ```
@@ -88,18 +84,18 @@ Bye!
 ### Run the test suite
 
 ```bash
-./tests/run_tests.sh             # autonomous tests (32 tests, no Rust needed)
+./tests/run_tests.sh             # autonomous tests (no Rust needed)
 ```
 
 ### With the Rust reference implementation
 
 ```bash
 cargo build --release
-cargo run -- examples/hello.wsp              # run source file
-cargo run -- --compile examples/hello.wsp    # compile to .whbc
-cargo run -- --dump examples/hello.wsp       # disassemble
-cargo run                                    # REPL
-cargo test                                   # 93 tests
+cargo run -- examples/hello.wsp
+cargo run -- --compile examples/hello.wsp
+cargo run -- --dump examples/hello.wsp
+cargo run
+cargo test
 ```
 
 ---
@@ -108,7 +104,7 @@ cargo test                                   # 93 tests
 
 ```wsp
 let name    = "Whispem"
-let version = 3.0
+let version = 4.0
 let ready   = true
 ```
 
@@ -129,8 +125,6 @@ let counter = 0
 let counter = counter + 1
 print counter   # 1
 ```
-
-There is no bare assignment — only `let x = expr` and `x[i] = expr`.
 
 ---
 
@@ -163,7 +157,7 @@ print true or false    # true
 print not true         # false
 ```
 
-`and` and `or` short-circuit — the short-circuited value is the result of the whole expression:
+`and` and `or` short-circuit:
 
 ```wsp
 let r = false and expensive_call()   # false — call never runs
@@ -198,6 +192,8 @@ print length("hello")   # 5
 
 ## Conditionals
 
+Basic `if / else`:
+
 ```wsp
 let temperature = 18
 
@@ -208,20 +204,28 @@ if temperature > 20 {
 }
 ```
 
-For multiple branches, nest `if` inside `else`:
+`else if` chains (v4.0.0):
 
 ```wsp
 let score = 85
 
 if score >= 90 {
     print "A"
+} else if score >= 80 {
+    print "B"
+} else if score >= 70 {
+    print "C"
 } else {
-    if score >= 80 {
-        print "B"
-    } else {
-        print "C"
-    }
+    print "F"
 }
+```
+
+`else if` can also appear on the same line or on the next — both work:
+
+```wsp
+if x == 1 { print "one" }
+else if x == 2 { print "two" }
+else { print "other" }
 ```
 
 ---
@@ -274,7 +278,7 @@ fn greet(name) {
 print greet("world")   # Hello, world!
 ```
 
-Functions support recursion:
+### Recursion
 
 ```wsp
 fn factorial(n) {
@@ -295,7 +299,7 @@ add(1, 2, 3)   # Error: Function 'add' expected 2 arguments, got 3
 
 ### Scope
 
-Variables declared at the top level are globals. Variables inside a function are local. Functions can read globals — but cannot mutate them.
+Variables at the top level are globals. Variables inside a function are local. Functions can read globals but cannot mutate them.
 
 ```wsp
 let greeting = "Hello"
@@ -305,16 +309,6 @@ fn say(name) {
 }
 
 say("Em")   # Hello, Em
-```
-
-In the bytecode, reading `greeting` inside `say` compiles to `LOAD_GLOBAL greeting` (v3.0.0). This is explicit in the disassembly:
-
-```
-== say ==
-0000  STORE         'name'
-0002  LOAD_GLOBAL   'greeting'   ← reads vm.globals directly
-0004  LOAD          'name'       ← reads frame.locals
-...
 ```
 
 ### Forward calls
@@ -374,10 +368,6 @@ print total   # 100
 
 ## Dictionaries
 
-Dictionaries store key-value pairs. Keys are always strings.
-
-### Creating and accessing
-
 ```wsp
 let person = {"name": "Em", "city": "Marseille", "age": 26}
 
@@ -404,29 +394,20 @@ print values(d)         # [1, 2, 3]  (sorted by key)
 print length(d)         # 3
 ```
 
-### Word counter
+Accessing a missing key raises a clear error:
 
 ```wsp
-fn count_words(words) {
-    let counts = {}
-    for word in words {
-        if has_key(counts, word) {
-            counts[word] = counts[word] + 1
-        } else {
-            counts[word] = 1
-        }
-    }
-    return counts
-}
+print d["z"]   # Error: key "z" not found in dict
+```
 
-let words  = ["rust", "whispem", "rust", "rust", "whispem"]
-let counts = count_words(words)
+Use `has_key` to guard access:
 
-for word in keys(counts) {
-    print word + ": " + counts[word]
+```wsp
+if has_key(d, "z") {
+    print d["z"]
+} else {
+    print "not found"
 }
-# rust: 3
-# whispem: 2
 ```
 
 ---
@@ -434,39 +415,89 @@ for word in keys(counts) {
 ## User Input and File I/O
 
 ```wsp
-# Read from stdin
 let name = input("What's your name? ")
 print "Hello, " + name + "!"
 
-# Write to file
 write_file("output.txt", "Hello from Whispem!")
-
-# Read from file
 let content = read_file("output.txt")
 print content
 ```
+
+Script arguments via `args()`:
+
+```wsp
+let script_args = args()
+if length(script_args) == 0 {
+    print "Usage: script.wsp <name>"
+    exit(1)
+}
+print "Hello, " + script_args[0]
+```
+
+---
+
+## Introspection and Control
+
+### `type_of(value)`
+
+Returns the runtime type as a string. Useful for defensive functions:
+
+```wsp
+fn safe_double(x) {
+    if type_of(x) != "number" {
+        return "error: expected number, got " + type_of(x)
+    }
+    return x * 2
+}
+
+print safe_double(5)      # 10
+print safe_double("hi")   # error: expected number, got string
+```
+
+The six possible return values: `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, `"none"`.
+
+### `assert(condition, message?)`
+
+Raises `Assertion failed: <message>` if the condition is falsy. Useful for catching incorrect assumptions early:
+
+```wsp
+fn process(items) {
+    assert(type_of(items) == "array", "process() expects an array")
+    assert(length(items) > 0, "items must not be empty")
+    # ...
+}
+```
+
+The message is optional — `assert(condition)` uses `"assertion failed"` as the default.
+
+`assert` fails on any falsy value: `false`, `0`, `""`, `[]`, `{}`, `none`.
+
+### `exit(code?)`
+
+Terminates the program immediately with the given exit code (default `0`). The exit code is passed to the OS, so it can be read by shell scripts:
+
+```wsp
+let script_args = args()
+if length(script_args) < 2 {
+    print "Usage: script.wsp <input> <output>"
+    exit(1)
+}
+```
+
+`exit()` in the REPL also terminates the session.
 
 ---
 
 ## Complete Examples
 
-### FizzBuzz
+### FizzBuzz with `else if`
 
 ```wsp
 for n in range(1, 101) {
-    if n % 15 == 0 {
-        print "FizzBuzz"
-    } else {
-        if n % 3 == 0 {
-            print "Fizz"
-        } else {
-            if n % 5 == 0 {
-                print "Buzz"
-            } else {
-                print n
-            }
-        }
-    }
+    if n % 15 == 0 { print "FizzBuzz" }
+    else if n % 3 == 0 { print "Fizz" }
+    else if n % 5 == 0 { print "Buzz" }
+    else { print n }
 }
 ```
 
@@ -491,39 +522,38 @@ let phonebook = add(phonebook, "Bob",   "07 98 76 54 32")
 
 print lookup(phonebook, "Alice")    # 06 12 34 56 78
 print lookup(phonebook, "Charlie")  # not found
-
-for name in keys(phonebook) {
-    print name + ": " + phonebook[name]
-}
 ```
 
-### Data processing
+### Validated data processing
 
 ```wsp
-fn filter(numbers, threshold) {
-    let result = []
-    for n in numbers {
-        if n > threshold {
-            let result = push(result, n)
-        }
-    }
-    return result
-}
+fn process(items) {
+    assert(type_of(items) == "array", "expected array")
+    assert(length(items) > 0, "array must not be empty")
 
-fn sum(numbers) {
     let total = 0
-    for n in numbers { let total = total + n }
+    for n in items {
+        assert(type_of(n) == "number", "all items must be numbers")
+        let total = total + n
+    }
     return total
 }
 
-let data = [3, 17, 2, 41, 8, 25, 6, 33]
-let high = filter(data, 10)
+print process([3, 8, 12, 7])   # 30
+```
 
-print "Values above 10:"
-print high
+### Script with argument handling
 
-print "Sum:"
-print sum(high)
+```wsp
+let script_args = args()
+if length(script_args) == 0 {
+    print "Usage: script.wsp <name>"
+    exit(1)
+}
+
+let name = script_args[0]
+print "Hello, " + name + "!"
+exit(0)
 ```
 
 ---
@@ -536,7 +566,7 @@ Since v2.0.0, Whispem compiles source code to bytecode before executing it:
 Source → Lexer → Parser → AST → Compiler → Bytecode → VM
 ```
 
-Since v3.0.0, the bytecode can be serialised to a `.whbc` file and run later without recompiling:
+Since v3.0.0, the bytecode can be serialised to a `.whbc` file:
 
 ```
 Source → ... → Compiler → serialise() → .whbc file
@@ -546,16 +576,21 @@ Source → ... → Compiler → serialise() → .whbc file
                                              VM
 ```
 
-You can inspect the compiled bytecode of any program with `--dump`:
+You can inspect the compiled bytecode with `--dump`:
 
 ```bash
 ./wvm --dump examples/fizzbuzz_proper.whbc
-whispem --dump examples/fizzbuzz_proper.wsp
 ```
 
-The VM is a stack machine with **34 opcodes** (one new in v3.0.0: `LOAD_GLOBAL`). Two implementations exist: `vm/wvm.c` (C, standalone) and `src/vm.rs` (Rust, reference). Both produce identical output. See [`docs/vm.md`](vm.md) for the complete specification and the `.whbc` binary format.
+The VM is a stack machine with **34 opcodes** and two implementations: `vm/wvm.c` (C, standalone) and `src/vm.rs` (Rust, reference). Both produce identical output.
+
+`else if` compiles to exactly the same bytecode as nested `if / else { if ... }` — it is purely a lexer and parser transformation with no VM impact.
+
+`assert` and `type_of` and `exit` compile as regular function calls (`CALL assert`, `CALL type_of`, `CALL exit`) — they are builtins resolved at call time in the VM.
+
+See [`docs/vm.md`](vm.md) for the complete VM specification and the `.whbc` binary format.
 
 ---
 
-**Whispem v3.0.0**  
+**Whispem v4.0.0**
 *You've seen the whole language. Everything Whispem has is in this document.*

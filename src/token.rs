@@ -1,8 +1,9 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    Let, Print, If, Else, While, For, In, And, Or, Not, Fn, Return, Break, Continue,
+    Let, Print, If, Else, ElseIf, While, For, In, And, Or, Not, Fn, Return, Break, Continue,
     Length, Push, Pop, Reverse, Slice, Range, Input, ReadFile, WriteFile, Keys, Values, HasKey,
     CharAt, Substr, Ord, NumToStr, StrToNum, Args, WriteHex,
+    Assert, TypeOf, Exit,
     True, False, Identifier(String), Number(f64), Str(String),
     Plus, Minus, Star, Slash, Percent,
     Equals, EqualEqual, Bang, BangEqual, Less, LessEqual, Greater, GreaterEqual,
@@ -17,6 +18,7 @@ impl std::fmt::Display for Token {
             Token::Print         => "'print'".to_string(),
             Token::If            => "'if'".to_string(),
             Token::Else          => "'else'".to_string(),
+            Token::ElseIf        => "'else if'".to_string(),
             Token::While         => "'while'".to_string(),
             Token::For           => "'for'".to_string(),
             Token::In            => "'in'".to_string(),
@@ -29,6 +31,9 @@ impl std::fmt::Display for Token {
             Token::Continue      => "'continue'".to_string(),
             Token::True          => "'true'".to_string(),
             Token::False         => "'false'".to_string(),
+            Token::Assert        => "'assert'".to_string(),
+            Token::TypeOf        => "'type_of'".to_string(),
+            Token::Exit          => "'exit'".to_string(),
             Token::Identifier(n) => format!("identifier '{}'", n),
             Token::Number(n)     => format!("number '{}'", n),
             Token::Str(s)        => format!("string \"{}\"", s),

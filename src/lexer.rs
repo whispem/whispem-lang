@@ -24,10 +24,12 @@ impl Lexer {
             let s = self.next_spanned()?;
             let eof = s.token == Token::Eof;
             tokens.push(s);
-            if eof {
-                break;
-            }
+            if eof { break; }
         }
+
+        // Collapse `Else Newline* If` into `ElseIf`.
+        let tokens = collapse_else_if(tokens);
+
         Ok(tokens)
     }
 
@@ -154,6 +156,9 @@ impl Lexer {
             "continue"   => Token::Continue,
             "true"       => Token::True,
             "false"      => Token::False,
+            "assert"     => Token::Assert,
+            "type_of"    => Token::TypeOf,
+            "exit"       => Token::Exit,
             "length"     => Token::Length,
             "push"       => Token::Push,
             "pop"        => Token::Pop,
@@ -178,7 +183,7 @@ impl Lexer {
     }
 
     fn read_string(&mut self, line: usize, col: usize) -> WhispemResult<Token> {
-        self.advance(); // consume opening `"`
+        self.advance();
         let span = Span::new(line, col);
         let mut val = String::new();
         loop {
@@ -209,4 +214,30 @@ impl Lexer {
         }
         Ok(Token::Str(val))
     }
+}
+
+// Collapse `Else (Newline*) If` → `ElseIf` so the parser sees a single token.
+fn collapse_else_if(tokens: Vec<Spanned>) -> Vec<Spanned> {
+    let mut out = Vec::with_capacity(tokens.len());
+    let mut i   = 0;
+    while i < tokens.len() {
+        if tokens[i].token == Token::Else {
+            let mut j = i + 1;
+            while j < tokens.len() && tokens[j].token == Token::Newline {
+                j += 1;
+            }
+            if j < tokens.len() && tokens[j].token == Token::If {
+                out.push(Spanned {
+                    token:  Token::ElseIf,
+                    line:   tokens[i].line,
+                    column: tokens[i].column,
+                });
+                i = j + 1;
+                continue;
+            }
+        }
+        out.push(tokens[i].clone());
+        i += 1;
+    }
+    out
 }

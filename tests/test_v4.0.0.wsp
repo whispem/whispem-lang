@@ -1,0 +1,97 @@
+# Whispem v4.0.0 — Feature Test Suite
+
+print "=== v4.0.0 Feature Tests ==="
+
+# ── else if ───────────────────────────────────────────────────────────────────
+print ""
+print "=== else if ==="
+
+let x = 1
+if x == 1 { print "one" }
+else if x == 2 { print "two" }
+else { print "other" }
+
+let x = 2
+if x == 1 { print "one" }
+else if x == 2 { print "two" }
+else { print "other" }
+
+let x = 99
+if x == 1 { print "one" }
+else if x == 2 { print "two" }
+else { print "other" }
+
+let score = 95
+if score >= 90 { print "A" }
+else if score >= 80 { print "B" }
+else if score >= 70 { print "C" }
+else { print "F" }
+
+let score = 83
+if score >= 90 { print "A" }
+else if score >= 80 { print "B" }
+else if score >= 70 { print "C" }
+else { print "F" }
+
+let score = 55
+if score >= 90 { print "A" }
+else if score >= 80 { print "B" }
+else if score >= 70 { print "C" }
+else { print "F" }
+
+# else if with no else — no output expected for x == 99
+let x = 99
+if x == 1 { print "one" }
+else if x == 2 { print "two" }
+
+# else if in a loop (FizzBuzz)
+print ""
+print "=== else if FizzBuzz ==="
+for n in range(1, 16) {
+    if n % 15 == 0 { print "FizzBuzz" }
+    else if n % 3 == 0 { print "Fizz" }
+    else if n % 5 == 0 { print "Buzz" }
+    else { print n }
+}
+
+# ── type_of ───────────────────────────────────────────────────────────────────
+print ""
+print "=== type_of ==="
+
+print type_of(42)
+print type_of(3.14)
+print type_of("hello")
+print type_of(true)
+print type_of(false)
+print type_of([1, 2, 3])
+print type_of({"a": 1})
+
+fn void_fn() {}
+print type_of(void_fn())
+
+fn safe_double(n) {
+    if type_of(n) != "number" {
+        return "error: expected number, got " + type_of(n)
+    }
+    return n * 2
+}
+
+print safe_double(5)
+print safe_double("hi")
+
+# ── assert ────────────────────────────────────────────────────────────────────
+print ""
+print "=== assert ==="
+
+assert(true)
+assert(1 == 1, "math broken")
+assert(length([1, 2, 3]) == 3, "length broken")
+assert("hello" != "world", "strings broken")
+print "all assertions passed"
+
+# ── exit ──────────────────────────────────────────────────────────────────────
+print ""
+print "=== exit ==="
+print "before exit"
+exit(0)
+print "after exit"

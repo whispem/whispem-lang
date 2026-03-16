@@ -1,7 +1,96 @@
 # Changelog
 
-All notable changes to Whispem are documented here.  
+All notable changes to Whispem are documented here.
 Format: [Semantic Versioning](https://semver.org). Dates are in YYYY-MM-DD format.
+
+---
+
+## [4.0.0] — 2026-03-16
+
+**The polish release.** `else if` syntax, three new builtins (`assert`, `type_of`, `exit`), clearer dict error messages, and a self-hosted compiler updated to match. 17 new Rust tests + `tests/test_v4.0.0.wsp`. Zero warnings.
+
+### Added
+
+- **`else if` syntax** — chains of `if / else if / else` are now first-class syntax instead of nested `if` inside `else`. The lexer collapses `else (newline*) if` into a single `ELSE_IF` token; the parser handles it recursively, producing the same nested `If` AST nodes as before — zero VM or compiler impact.
+
+  ```wsp
+  if score >= 90 { print "A" }
+  else if score >= 80 { print "B" }
+  else if score >= 70 { print "C" }
+  else { print "F" }
+  ```
+
+- **`assert(condition, message?)` builtin** — raises `AssertionFailed` with the provided message if the condition is falsy. Message is optional; defaults to `"assertion failed"`. Accepts any falsy value as failure (`false`, `0`, `""`, `[]`, `{}`, `none`).
+
+  ```wsp
+  assert(length(arr) > 0, "array must not be empty")
+  assert(type_of(n) == "number", "expected a number")
+  ```
+
+- **`type_of(value)` builtin** — returns the runtime type of any value as a string: `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, or `"none"`.
+
+  ```wsp
+  fn safe_add(a, b) {
+      if type_of(a) != "number" or type_of(b) != "number" {
+          return "type error"
+      }
+      return a + b
+  }
+  ```
+
+- **`exit(code?)` builtin** — terminates the program with the given exit code (default `0`). Propagated as `ErrorKind::Exit(i64)` internally; the CLI catches it and calls `process::exit` rather than printing an error.
+
+  ```wsp
+  if length(args()) == 0 {
+      print "Usage: script.wsp <file>"
+      exit(1)
+  }
+  ```
+
+- **`ErrorKind::AssertionFailed(String)`** — new error kind displayed as `Assertion failed: <message>`.
+
+- **`ErrorKind::Exit(i64)`** — new error kind used to propagate `exit()` through the call stack without printing anything.
+
+- **`Token::ElseIf`** — new token produced by the lexer's post-processing pass; never appears in source.
+
+- **`Token::Assert`, `Token::TypeOf`, `Token::Exit`** — reserved keywords.
+
+- **17 new tests** covering:
+  - `else if` basic chain, last branch, fallthrough to `else`, no `else`, and FizzBuzz rewritten with `else if`.
+  - `assert` passes with and without message, fails with message, fails with default message, fails on all falsy values.
+  - `type_of` on all six value types, in a conditional guard.
+  - `exit` stops execution, `exit(code)` propagates the correct code.
+
+- **Total: 147 tests** (110 Rust + 37 autonomous). All pass. Zero warnings.
+
+### Changed
+
+- **`src/lexer.rs`** — after tokenising, a `collapse_else_if` pass rewrites `Else (Newline*) If` sequences into `ElseIf`. This keeps the grammar change entirely in the lexer; no other file needs to know about `else if` as a two-word sequence.
+
+- **`src/parser.rs`** — `parse_if` delegates to a new `parse_else_branch` method that handles `ElseIf` (recursive) and `Else` (terminal). Also skips newlines before looking for `else if` / `else` so both inline and newline-separated styles work.
+
+- **`src/error.rs`** — `ErrorKind` extended with `AssertionFailed(String)` and `Exit(i64)`.
+
+- **`src/vm.rs`** — three new builtins: `assert`, `type_of`, `exit`. Dict key-not-found error message changed from `undefined variable 'dict key "foo"'` to `key "foo" not found in dict`. `call_builtin` signature changed to `&mut self` to allow future builtins that need mutable access.
+
+- **`src/main.rs`** — new `handle_vm_error` helper separates `Exit` (clean exit with code) from genuine runtime errors (print and exit 1). Version string updated.
+
+- **`src/repl.rs`** — version string updated to `4.0.0`. `exit()` in the REPL now terminates the process cleanly instead of printing an error.
+
+- **`compiler/wsc.wsp`** — updated to v4.0: `keyword_kind` recognises `assert`, `type_of`, `exit`; the lexer's collapse loop produces `ELSE_IF` tokens; `parse_stmt` handles `ASSERT` and `EXIT`; `parse_else_branch` is a new recursive function handling `ELSE_IF` and `ELSE`; `parse_primary` recognises `TYPE_OF`, `ASSERT`, `EXIT` as variable-like primaries for use in expressions.
+
+- **`Cargo.toml`** — version bumped to `4.0.0`.
+
+### Fixed
+
+- Dict key-not-found error message was `undefined variable 'dict key "foo"'` — now reads `key "foo" not found in dict`.
+- `else if` on the next line after `}` now works correctly (newlines are skipped before checking for `else if` / `else`).
+
+### Architecture notes
+
+`else if` is pure syntax sugar with no representation in the AST, bytecode, or VM. The `ElseIf` token exists only inside the lexer's output; by the time the parser emits `Stmt::If` nodes, `else if` has become a nested `If` in the `else_branch` — the same structure produced by v3 when writing `else { if ... }` by hand.
+
+`exit()` follows the same propagation path as any runtime error (`WhispemResult`), which means it correctly unwinds through nested function calls. The CLI distinguishes it from real errors by matching on `ErrorKind::Exit`.
 
 ---
 
@@ -11,103 +100,56 @@ Format: [Semantic Versioning](https://semver.org). Dates are in YYYY-MM-DD forma
 
 ### Added
 
-- **`.whbc` bytecode format** — binary serialisation of compiled chunks.  
-  `cargo run -- --compile file.wsp` produces a `.whbc` file.  
-  `cargo run -- file.whbc` executes it directly — no recompilation needed.  
+- **`.whbc` bytecode format** — binary serialisation of compiled chunks.
+  `cargo run -- --compile file.wsp` produces a `.whbc` file.
+  `cargo run -- file.whbc` executes it directly — no recompilation needed.
   Format: magic `WHBC` + version byte + function table. See `docs/vm.md` for the complete spec.
 
 - **`chunk::serialise(main, fns) → Vec<u8>`** — serialise a compiled program to the `.whbc` binary format.
 
-- **`chunk::deserialise(data) → (Chunk, HashMap)`** — deserialise a `.whbc` buffer back to executable chunks. Validates magic bytes and format version; every malformed input returns a clear `InvalidBytecode` error.
+- **`chunk::deserialise(data) → (Chunk, HashMap)`** — deserialise a `.whbc` buffer back to executable chunks.
 
-- **`OpCode::LoadGlobal` (0x12)** — new opcode for explicit global variable reads inside function bodies. Replaces the v2.0.0 approach of copying the entire globals map into each new call frame at call time. Functions now emit `LOAD_GLOBAL` for global names and `LOAD` for locals — cleaner semantics and the correct foundation for the self-hosted compiler.
+- **`OpCode::LoadGlobal` (0x12)** — explicit global variable reads inside function bodies.
 
-- **`--compile` CLI flag** — `whispem --compile file.wsp` compiles to `file.whbc`. Optionally accepts an explicit output path: `whispem --compile file.wsp out.whbc`.
+- **`--compile` CLI flag** — `whispem --compile file.wsp` compiles to `file.whbc`.
 
-- **`compiler/wsc.wsp`** — a Whispem compiler written in Whispem, targeting the WVM. Implements the full compilation pipeline: lexer, recursive-descent parser, bytecode compiler, and binary serialiser. Reads a `.wsp` source file and writes a `.whbc` bytecode file that the VM executes directly — output identical to the Rust compiler. Usage: `./wvm compiler/wsc.whbc <source.wsp>` (standalone) or `cargo run -- compiler/wsc.wsp <source.wsp>` (Rust).
+- **`compiler/wsc.wsp`** — a Whispem compiler written in Whispem, targeting the WVM.
 
-- **`vm/wvm.c`** — standalone C runtime that executes `.whbc` bytecode without Rust. Single-file implementation with refcounted copy-on-write values, the same 34 opcodes and 20 builtins as the Rust VM. Produces byte-for-byte identical output, including bootstrapping the self-hosted compiler. Includes `--dump` disassembler and interactive REPL. Build: `make` (→ `wvm`). Usage: `./wvm file.whbc [args...]`, `./wvm --dump file.whbc`, or `./wvm` for the REPL.
+- **`vm/wvm.c`** — standalone C runtime (~2000 lines). Build: `make`.
 
-- **`Makefile`** — builds the C VM: `gcc -O2 -Wall -Wextra -Wpedantic -o wvm vm/wvm.c -lm`.
+- **Bootstrap verified** — SHA-1 `f090aa0f650a3b00e4286b332f82c0ba5c3b71d5`, stable fixed point.
 
-- **Bootstrap verified** — `wsc.wsp` compiles itself to `wsc.whbc`, and the resulting bytecode compiler produces bit-identical output when compiling `wsc.wsp` again (SHA-1 `f090aa0f650a3b00e4286b332f82c0ba5c3b71d5`). This is the proof that the self-hosted compiler is a stable fixed point: `wsc(wsc) == wsc(wsc(wsc))`. The same fixed point holds on both the Rust VM and the C VM.
+- **`tests/run_tests.sh`** — autonomous test suite using only the C VM. 32 tests.
 
-- **`tests/run_tests.sh`** — autonomous test suite using only the C VM and the bootstrapped compiler. Compiles each `.wsp` example via `wsc.whbc`, runs the result, and compares output to expected baselines. 32 tests including bootstrap verification. No Rust needed.
+- **Rc-based copy-on-write** for `Value::Array` and `Value::Dict`.
 
-- **Rc-based copy-on-write for `Value::Array` and `Value::Dict`** — `Vec<Value>` and `HashMap<String, Value>` are now wrapped in `Rc`. Cloning a value just increments the reference count (O(1)); deep copies happen only on mutation via `Rc::make_mut`. This makes the bootstrap feasible — without it, the pass-by-value semantics caused the compiler to hang on its own 1618-line source.
+- **`args()`, `num_to_hex()`, `write_hex()`** builtins.
 
-- **`args()` builtin** — returns the script arguments passed after the `.wsp` filename as an array of strings. Enables `wsc.wsp` to accept input files from the command line.
-
-- **`num_to_hex()` builtin** — encodes a number as a 16-character hex string (IEEE-754 big-endian f64). Used by the self-hosted serialiser to produce correct floating-point constants.
-
-- **`write_hex()` builtin** — decodes a hex string to raw bytes and writes them to a file. Used by `wsc.wsp` to produce `.whbc` binary output.
-
-- **`ErrorKind::InvalidBytecode(String)`** and **`ErrorKind::SerializationError(String)`** — two new error kinds for the bytecode pipeline.
-
-- **`Compiler::global_names` and `Compiler::in_function`** — the compiler now tracks which names are global so it can emit `LOAD_GLOBAL` inside function bodies automatically, with no changes required to `.wsp` source files.
-
-- **13 new tests** covering:
-  - Bytecode round-trip for hello world, arithmetic, variables, functions, loops, arrays, dicts, FizzBuzz, and recursion.
-  - Global variable access via `LOAD_GLOBAL` after round-trip.
-  - Invalid magic bytes → `InvalidBytecode` error.
-  - Wrong format version → `InvalidBytecode` error.
-  - Truncated buffer → `InvalidBytecode` error.
-  - `output_path` helper (`.wsp` → `.whbc` extension replacement).
+- **`ErrorKind::InvalidBytecode(String)`** and **`ErrorKind::SerializationError(String)`**.
 
 - **Total: 125 tests** (93 Rust + 32 autonomous). All pass. Zero warnings.
 
 ### Changed
 
-- **`src/opcode.rs`** — `LoadGlobal = 0x12` added. `operand_size()` updated to return `1` for it. `from_byte()` and `name()` updated accordingly.
-
-- **`src/compiler.rs`** — `Compiler` gains `global_names: Vec<String>` and `in_function: bool`. First pass collects all top-level `let` names before compiling. `compile_expr` for `Expr::Variable` emits `LOAD_GLOBAL` when inside a function and the name is a known global, `LOAD` otherwise. Second-pass `Stmt::Let` in `<main>` appends to `global_names` as it executes.
-
-- **`src/value.rs`** — `Value::Array` and `Value::Dict` now wrap their inner data in `Rc` for copy-on-write semantics. All pattern-matching code works unchanged thanks to `Deref`; only mutation sites use `Rc::make_mut`.
-
-- **`src/vm.rs`** — `OpCode::Load` now calls `lookup_local` (locals only). `OpCode::LoadGlobal` reads `self.globals` directly. `OpCode::Call` no longer copies globals into the new frame's locals — `CallFrame` starts empty for user functions. `store()` logic unchanged: top-level stores go to `self.globals`, function stores go to the frame's `locals`. Three new builtins: `args()`, `num_to_hex()`, `write_hex()`. `length()` on strings now returns character count (not byte count) for correct UTF-8 handling. All Array/Dict construction sites wrap in `Rc::new`; all mutation sites use `Rc::make_mut`.
-
-- **`src/main.rs`** — CLI extended with `--compile`, `.whbc` run path, and script argument passing. Arguments after the `.wsp` filename are forwarded to the script via `args()`. `output_path` function extracted and tested.
-
-- **`src/token.rs`**, **`src/lexer.rs`**, **`src/parser.rs`** — `args` and `write_hex` added as reserved keywords with dedicated token variants.
-
-- **`src/chunk.rs`** — `serialise` and `deserialise` functions added at module level. `MAGIC` and `FORMAT_VERSION` constants exported. Disassembler updated to print `LOAD_GLOBAL` with the same width as other `LOAD` instructions.
-
-- **`src/error.rs`** — `ErrorKind` extended with `InvalidBytecode(String)` and `SerializationError(String)`. Both display cleanly.
-
-- **`Cargo.toml`** — version bumped to `3.0.0`.
-
-- **`src/repl.rs`** — version string updated to `3.0.0`.
-
-### Architecture notes
-
-The `LOAD_GLOBAL` opcode makes the compilation model explicit: a function chunk now contains two kinds of variable reads — `LOAD` for locals (parameters and inner `let`) and `LOAD_GLOBAL` for names that were declared at the top level of the source file. This is the semantics the self-hosted compiler needs to replicate.
-
-The `.whbc` format stores line numbers alongside every bytecode byte (as `u32`), so error messages keep accurate source locations after a round-trip.
-
-The self-hosted compiler (`compiler/wsc.wsp`) implements the full compilation pipeline in Whispem: lexer, recursive-descent parser, bytecode compiler, and binary serialiser. It reads a `.wsp` source file from disk and writes a `.whbc` bytecode file that the VM executes directly — output identical to the Rust compiler across all tested programs.
-
-The bootstrap is verified: running `whispem compiler/wsc.wsp compiler/wsc.wsp` produces `compiler/wsc.whbc` (80 055 bytes), and running that bytecode to compile wsc.wsp again produces the same SHA-1 hash (`f090aa0f...`) — a stable fixed point. The standalone C VM (`vm/wvm.c`) reproduces the same fixed point with zero Rust dependency, completing the chain from source to binary to execution in two independent runtimes.
+- `OpCode`, `Compiler`, `Value`, `Vm`, `Chunk`, `main.rs` — see v3.0.0 full notes.
+- `Cargo.toml` — version `3.0.0`.
 
 ---
 
 ## [2.5.0] — 2026-03-01
 
-**The quality release.** Zero warnings, richer error spans, and a full automated test suite.
+**The quality release.** Zero warnings, richer error spans, full automated test suite.
 
 ### Added
 
-- **`error::Span`** — `Span { line, column }` replacing bare `(usize, usize)` pairs. Every `WhispemError` now carries a `Span` with a human-readable `Display` impl (`[line N, col M]`).
-- **`WhispemError::at(kind, line, col)`** — convenience constructor.
-- **Compiler propagates source line to every opcode** — `compile_expr` receives `ctx_line`.
-- **Automated test suite** — 72 tests in `src/main.rs` covering all language features.
+- **`error::Span`** — `Span { line, column }` replacing bare `(usize, usize)` pairs.
+- **Compiler propagates source line to every opcode.**
+- **72 automated tests** in `src/main.rs`.
 - **`vm::CaptureVm`** — VM variant for in-process test assertions.
 
 ### Changed
 
-- `error.rs` — `WhispemError` holds `pub span: Span`.
-- `compiler.rs` — `compile_expr` gains `ctx_line: usize`.
-- `ast.rs` — removed `#[allow(dead_code)]`.
-- `Cargo.toml` — version `2.5.0`.
+- `error.rs`, `compiler.rs`, `ast.rs`, `Cargo.toml` — version `2.5.0`.
 
 ### Fixed
 
@@ -147,4 +189,5 @@ Tree-walking interpreter. Full language support including arrays, dicts, for loo
 | [x] 2.0.0 | Bytecode VM, compiler, `--dump`, `docs/vm.md` |
 | [x] 2.5.0 | Error spans, arity checking, short-circuit fix, 72 tests, 0 warnings |
 | [x] 3.0.0 | `.whbc` serialisation, `LOAD_GLOBAL`, `--compile`, self-hosted compiler, verified bootstrap, Rc COW, standalone C VM, 125 tests |
-| 4.0.0   | `else if` syntax sugar, closures, column numbers in errors |
+| [x] 4.0.0 | `else if`, `assert`, `type_of`, `exit`, dict error messages, 147 tests (110 Rust + 37 autonomes) |
+| 5.0.0 | Closures, string interpolation |

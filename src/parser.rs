@@ -12,8 +12,6 @@ impl Parser {
         Self { tokens, position: 0 }
     }
 
-    // ── Cursor helpers ────────────────────────────────────────────────────
-
     fn cur(&self) -> &Spanned {
         &self.tokens[self.position.min(self.tokens.len() - 1)]
     }
@@ -64,21 +62,15 @@ impl Parser {
         }
     }
 
-    // ── Top-level ─────────────────────────────────────────────────────────
-
     pub fn parse_program(&mut self) -> WhispemResult<Vec<Stmt>> {
         let mut stmts = Vec::new();
         loop {
             self.skip_nl();
-            if self.cur().token == Token::Eof {
-                break;
-            }
+            if self.cur().token == Token::Eof { break; }
             stmts.push(self.parse_stmt()?);
         }
         Ok(stmts)
     }
-
-    // ── Statements ────────────────────────────────────────────────────────
 
     fn parse_stmt(&mut self) -> WhispemResult<Stmt> {
         match &self.cur().token {
@@ -99,6 +91,8 @@ impl Parser {
                 self.advance();
                 Ok(Stmt::Continue { line: l })
             }
+            Token::Assert => self.parse_assert_stmt(),
+            Token::Exit   => self.parse_exit_stmt(),
             Token::WriteFile | Token::ReadFile | Token::WriteHex | Token::Args => {
                 let line = self.line();
                 let name = match &self.cur().token {
@@ -146,18 +140,40 @@ impl Parser {
         self.advance();
         let cond = self.parse_expr()?;
         let then = self.parse_block()?;
-        let else_ = if self.cur().token == Token::Else {
-            self.advance();
-            Some(self.parse_block()?)
-        } else {
-            None
-        };
+        let else_ = self.parse_else_branch()?;
         Ok(Stmt::If {
             condition:   cond,
             then_branch: then,
             else_branch: else_,
             line,
         })
+    }
+
+    // Handle `else if ...` and plain `else { ... }`.
+    // `else if` was collapsed to `ElseIf` by the lexer, so we just check
+    // for that token here and recursively build a nested If statement.
+    fn parse_else_branch(&mut self) -> WhispemResult<Option<Vec<Stmt>>> {
+        self.skip_nl();
+        match self.cur().token {
+            Token::ElseIf => {
+                let line = self.line();
+                self.advance();
+                let cond = self.parse_expr()?;
+                let then = self.parse_block()?;
+                let else_ = self.parse_else_branch()?;
+                Ok(Some(vec![Stmt::If {
+                    condition:   cond,
+                    then_branch: then,
+                    else_branch: else_,
+                    line,
+                }]))
+            }
+            Token::Else => {
+                self.advance();
+                Ok(Some(self.parse_block()?))
+            }
+            _ => Ok(None),
+        }
     }
 
     fn parse_while(&mut self) -> WhispemResult<Stmt> {
@@ -213,14 +229,37 @@ impl Parser {
         Ok(Stmt::Return { value, line })
     }
 
+    fn parse_assert_stmt(&mut self) -> WhispemResult<Stmt> {
+        let line = self.line();
+        self.advance();
+        let args = self.parse_call_args()?;
+        Ok(Stmt::Expression {
+            expr: Expr::Call { name: "assert".to_string(), arguments: args, line },
+            line,
+        })
+    }
+
+    fn parse_exit_stmt(&mut self) -> WhispemResult<Stmt> {
+        let line = self.line();
+        self.advance();
+        // exit() or exit(code)
+        let args = if self.cur().token == Token::LParen {
+            self.parse_call_args()?
+        } else {
+            vec![]
+        };
+        Ok(Stmt::Expression {
+            expr: Expr::Call { name: "exit".to_string(), arguments: args, line },
+            line,
+        })
+    }
+
     fn parse_block(&mut self) -> WhispemResult<Vec<Stmt>> {
         self.consume(Token::LeftBrace)?;
         let mut stmts = Vec::new();
         loop {
             self.skip_nl();
-            if self.cur().token == Token::RightBrace {
-                break;
-            }
+            if self.cur().token == Token::RightBrace { break; }
             if self.cur().token == Token::Eof {
                 return Err(WhispemError::new(ErrorKind::UnexpectedEof, self.span()));
             }
@@ -240,12 +279,7 @@ impl Parser {
             self.consume(Token::RightBracket)?;
             self.consume(Token::Equals)?;
             let val = self.parse_expr()?;
-            return Ok(Stmt::IndexAssign {
-                object: name,
-                index:  idx,
-                value:  val,
-                line,
-            });
+            return Ok(Stmt::IndexAssign { object: name, index: idx, value: val, line });
         }
 
         if self.cur().token == Token::LParen {
@@ -281,8 +315,6 @@ impl Parser {
         self.consume(Token::RParen)?;
         Ok(args)
     }
-
-    // ── Expressions (recursive descent) ──────────────────────────────────
 
     fn parse_expr(&mut self) -> WhispemResult<Expr> { self.parse_or() }
 
@@ -420,6 +452,9 @@ impl Parser {
             Token::StrToNum    => { self.advance(); Ok(Expr::Variable("str_to_num".to_string())) }
             Token::Args        => { self.advance(); Ok(Expr::Variable("args".to_string())) }
             Token::WriteHex    => { self.advance(); Ok(Expr::Variable("write_hex".to_string())) }
+            Token::Assert      => { self.advance(); Ok(Expr::Variable("assert".to_string())) }
+            Token::TypeOf      => { self.advance(); Ok(Expr::Variable("type_of".to_string())) }
+            Token::Exit        => { self.advance(); Ok(Expr::Variable("exit".to_string())) }
             Token::LeftBracket => {
                 self.advance();
                 self.skip_nl();

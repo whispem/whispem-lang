@@ -1,6 +1,6 @@
 # Whispem Examples
 
-**Version 3.0.0**
+**Version 4.0.0**
 
 Example programs covering all Whispem language features.
 
@@ -59,31 +59,13 @@ print a % b   # 1  ← modulo
 
 ---
 
-## Modulo
-```wsp
-# Even numbers between 1 and 10
-for n in range(1, 11) {
-    if n % 2 == 0 {
-        print n
-    }
-}
-```
-**File:** `examples/modulo.wsp`
-
----
-
-## FizzBuzz (with modulo)
+## FizzBuzz — with `else if` (v4.0.0)
 ```wsp
 for n in range(1, 101) {
-    if n % 15 == 0 {
-        print "FizzBuzz"
-    } else {
-        if n % 3 == 0 { print "Fizz" }
-        else {
-            if n % 5 == 0 { print "Buzz" }
-            else { print n }
-        }
-    }
+    if n % 15 == 0 { print "FizzBuzz" }
+    else if n % 3 == 0 { print "Fizz" }
+    else if n % 5 == 0 { print "Buzz" }
+    else { print n }
 }
 ```
 **File:** `examples/fizzbuzz_proper.wsp`
@@ -108,17 +90,15 @@ print full
 
 ---
 
-## Conditionals
+## Conditionals with `else if`
 ```wsp
-let temperature = 18
+let score = 85
 
-if temperature > 20 {
-    print "It's warm"
-} else {
-    print "It's cool"
-}
+if score >= 90 { print "A" }
+else if score >= 80 { print "B" }
+else if score >= 70 { print "C" }
+else { print "F" }
 ```
-**File:** `examples/condition.wsp`
 
 ---
 
@@ -185,30 +165,6 @@ print factorial(5)   # 120
 print factorial(10)  # 3628800
 ```
 **File:** `examples/function_recursive.wsp`
-
----
-
-## Short-circuit Logic
-```wsp
-# and: stops at first falsy value
-let r = false and (1 == 1)
-print r   # false — right side never evaluated
-
-# or: stops at first truthy value
-let r = true or (1 == 1)
-print r   # true — right side never evaluated
-
-# practical: guard before expensive call
-fn expensive(n) {
-    print "called!"
-    return n * 2
-}
-
-let safe = length([]) != 0 and expensive(42)
-# "called!" is never printed
-print safe   # false
-```
-**File:** `examples/short_circuit.wsp`
 
 ---
 
@@ -282,48 +238,70 @@ print lookup(phonebook, "Charlie")
 
 ---
 
-## Dictionaries — Word Counter
+## `type_of` (v4.0.0)
 ```wsp
-fn count_words(words) {
-    let counts = {}
-    for word in words {
-        if has_key(counts, word) {
-            counts[word] = counts[word] + 1
-        } else {
-            counts[word] = 1
-        }
+print type_of(42)           # number
+print type_of("hello")      # string
+print type_of(true)         # bool
+print type_of([1, 2, 3])    # array
+print type_of({"a": 1})     # dict
+
+fn safe_double(x) {
+    if type_of(x) != "number" {
+        return "error: expected number, got " + type_of(x)
     }
-    return counts
+    return x * 2
 }
 
-let words  = ["rust", "whispem", "rust", "language", "whispem", "rust"]
-let counts = count_words(words)
-
-for word in keys(counts) {
-    print word + ": " + counts[word]
-}
+print safe_double(5)      # 10
+print safe_double("hi")   # error: expected number, got string
 ```
-**File:** `examples/dict_word_count.wsp`
+
+---
+
+## `assert` (v4.0.0)
+```wsp
+fn process(items) {
+    assert(type_of(items) == "array", "expected array")
+    assert(length(items) > 0, "items must not be empty")
+
+    let total = 0
+    for n in items {
+        assert(type_of(n) == "number", "all items must be numbers")
+        let total = total + n
+    }
+    return total
+}
+
+print process([3, 8, 12, 7])   # 30
+# process([]) would raise: Assertion failed: items must not be empty
+```
+
+---
+
+## `exit` (v4.0.0)
+```wsp
+let script_args = args()
+
+if length(script_args) == 0 {
+    print "Usage: script.wsp <name>"
+    exit(1)
+}
+
+print "Hello, " + script_args[0] + "!"
+exit(0)
+```
 
 ---
 
 ## File I/O
 ```wsp
-write_file("hello.txt", "Hello from Whispem 3.0!")
+write_file("hello.txt", "Hello from Whispem 4.0!")
 
 let content = read_file("hello.txt")
 print content
 ```
 **File:** `examples/file_io.wsp`
-
----
-
-## User Input
-```wsp
-let name = input("What's your name? ")
-print "Hello, " + name + "!"
-```
-**File:** `examples/user_input.wsp`
 
 ---
 
@@ -366,9 +344,7 @@ fn is_prime(n) {
     if n == 2 { return true }
 
     for i in range(2, n) {
-        let quotient = n / i
-        let product  = i * quotient
-        if product == n { return false }
+        if n % i == 0 { return false }
     }
     return true
 }
@@ -384,33 +360,29 @@ for num in range(2, 31) {
 
 ---
 
-## Self-hosted Compiler (v3.0.0)
+## Self-hosted Compiler (v3.0.0+)
 
 ```bash
-# Compile a .wsp file to .whbc bytecode
 ./wvm compiler/wsc.whbc examples/hello.wsp
-# → examples/hello.whbc
-
-# Run the compiled bytecode
 ./wvm examples/hello.whbc
-# → Hello, Whispem!
 ```
 
-`compiler/wsc.wsp` is a Whispem compiler written in Whispem. It reads a `.wsp` source file, compiles it through the full pipeline (lexer, parser, compiler, serialiser), and writes a `.whbc` bytecode file — byte-for-byte identical to the Rust compiler’s output.
+`compiler/wsc.wsp` is a Whispem compiler written in Whispem. It reads a `.wsp` source file, compiles it through the full pipeline (lexer, parser, compiler, serialiser), and writes a `.whbc` bytecode file — byte-for-byte identical to the Rust compiler's output. Updated to v4.0 to support `else if`, `assert`, `type_of`, and `exit`.
 
 ---
 
 ## Notes
 
-- Examples are self-contained and runnable
-- Functions can be called before they are defined (forward calls work since v2.0.0)
-- Calling a function with the wrong number of arguments produces a clear runtime error
-- Arrays use 0-based indexing
-- `push()` returns a new array — the original is unchanged
-- Dictionary keys are always strings internally
-- `and`/`or` short-circuit correctly since v2.5.0
-- Use `--dump` to inspect bytecode, `--compile` to produce `.whbc` files (v3.0.0)
+- Examples are self-contained and runnable.
+- Functions can be called before they are defined (forward calls work since v2.0.0).
+- Calling a function with the wrong number of arguments produces a clear runtime error.
+- Arrays use 0-based indexing.
+- `push()` returns a new array — the original is unchanged.
+- Dictionary keys are always strings internally.
+- `and`/`or` short-circuit correctly since v2.5.0.
+- `else if` is supported natively since v4.0.0.
+- Use `--dump` to inspect bytecode, `--compile` to produce `.whbc` files.
 
 ---
 
-**Whispem v3.0.0**
+**Whispem v4.0.0**

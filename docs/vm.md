@@ -1,10 +1,10 @@
 # Whispem VM — Specification
 
-**Version 3.0.0**
+**Version 4.0.0**
 
 > *"A virtual machine should be as simple as the language it runs."*
 
-This document is the complete specification of the Whispem Virtual Machine (WVM).  
+This document is the complete specification of the Whispem Virtual Machine (WVM).
 It is intentionally written to be readable by a human — and by a Whispem program.
 
 ---
@@ -45,7 +45,7 @@ The WVM is a **stack-based virtual machine**.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                      Whispem v3.0.0                     │
+│                      Whispem v4.0.0                     │
 │                                                         │
 │  source.wsp ──► Compiler ──► Chunks ──► VM ──► output  │
 │                                │                        │
@@ -110,7 +110,7 @@ OPCODE <u8> <u8>    — two separate one-byte operands
 | `0x03` | `PUSH_NONE`           | —           | `( -- none )`              |                                                          |
 | `0x10` | `LOAD`                | `<u8>`      | `( -- value )`             | Push value from current frame's locals                   |
 | `0x11` | `STORE`               | `<u8>`      | `( value -- )`             | Pop and store into current scope (local or global)       |
-| `0x12` | `LOAD_GLOBAL`         | `<u8>`      | `( -- value )`             | **v3.0.0** — push value from `vm.globals` directly       |
+| `0x12` | `LOAD_GLOBAL`         | `<u8>`      | `( -- value )`             | Push value from `vm.globals` directly                    |
 | `0x20` | `ADD`                 | —           | `( a b -- a+b )`           | Add numbers or concatenate strings                       |
 | `0x21` | `SUB`                 | —           | `( a b -- a-b )`           |                                                          |
 | `0x22` | `MUL`                 | —           | `( a b -- a*b )`           |                                                          |
@@ -125,10 +125,10 @@ OPCODE <u8> <u8>    — two separate one-byte operands
 | `0x35` | `GTE`                 | —           | `( a b -- bool )`          |                                                          |
 | `0x36` | `NOT`                 | —           | `( a -- bool )`            |                                                          |
 | `0x40` | `JUMP`                | `<u16>`     | `( -- )`                   | Unconditional jump to absolute byte offset               |
-| `0x41` | `JUMP_IF_FALSE`       | `<u16>`     | `( cond -- )`              | **Pop** condition; jump if falsy                         |
-| `0x42` | `JUMP_IF_TRUE`        | `<u16>`     | `( cond -- )`              | **Pop** condition; jump if truthy                        |
-| `0x43` | `PEEK_JUMP_IF_FALSE`  | `<u16>`     | `( cond -- cond )`         | **Peek** (no pop); jump if falsy — used by `and`         |
-| `0x44` | `PEEK_JUMP_IF_TRUE`   | `<u16>`     | `( cond -- cond )`         | **Peek** (no pop); jump if truthy — used by `or`         |
+| `0x41` | `JUMP_IF_FALSE`       | `<u16>`     | `( cond -- )`              | Pop condition; jump if falsy                             |
+| `0x42` | `JUMP_IF_TRUE`        | `<u16>`     | `( cond -- )`              | Pop condition; jump if truthy                            |
+| `0x43` | `PEEK_JUMP_IF_FALSE`  | `<u16>`     | `( cond -- cond )`         | Peek (no pop); jump if falsy — used by `and`             |
+| `0x44` | `PEEK_JUMP_IF_TRUE`   | `<u16>`     | `( cond -- cond )`         | Peek (no pop); jump if truthy — used by `or`             |
 | `0x50` | `CALL`                | `<u8> <u8>` | `( args.. -- retval )`     | const idx of name + argc                                 |
 | `0x51` | `RETURN`              | —           | `( value -- )`             |                                                          |
 | `0x52` | `RETURN_NONE`         | —           | `( -- )`                   |                                                          |
@@ -140,7 +140,7 @@ OPCODE <u8> <u8>    — two separate one-byte operands
 | `0x71` | `POP`                 | —           | `( value -- )`             |                                                          |
 | `0xFF` | `HALT`                | —           | `( -- )`                   | Stop; pop current frame                                  |
 
-> **v3.0.0:** `LOAD_GLOBAL` (0x12) replaces the v2.0.0 approach of copying `globals` into each new call frame at `CALL` time. Function bodies now contain explicit `LOAD_GLOBAL` instructions for global names. This makes the bytecode self-describing: any reader (including `wsc.wsp`) can tell from the opcode alone whether a read is local or global.
+The instruction set is unchanged from v3.0.0. `else if`, `assert`, `type_of`, and `exit` are implemented entirely in the lexer, parser, and builtin resolver — they require no new opcodes.
 
 ---
 
@@ -164,7 +164,7 @@ The constants pool stores all literal values: numbers, strings, and variable/fun
 
 ```
 Magic:        4 bytes   "WHBC"  (0x57 0x48 0x42 0x43)
-Version:      1 byte    0x03 for v3.0.0
+Version:      1 byte    0x03 for v3.0.0 and v4.0.0
 
 fn_count:     u16 big-endian   (number of chunks, ≥ 1)
 
@@ -185,10 +185,7 @@ For each chunk  (index 0 = <main>):
   lines:        lines_len × u32 big-endian  (one per bytecode byte)
 ```
 
-**Notes:**
-- `Array` and `Dict` values never appear in the constants pool.
-- Line numbers are preserved in the serialised format so error messages remain accurate after deserialization.
-- A future version may add a checksum field after the function table.
+The format version remains `0x03`. v4.0.0 introduces no changes to the binary format — `.whbc` files produced by v3.0.0 and v4.0.0 are fully interchangeable.
 
 ---
 
@@ -207,18 +204,16 @@ struct CallFrame {
 2. If `name` matches a built-in → call directly, push result, done.
 3. Look up `name` in `vm.functions`.
 4. Check arity: `argc != chunk.param_count` → `ArgumentCount` error.
-5. Create a new `CallFrame` with **empty** locals.
+5. Create a new `CallFrame` with empty locals.
 6. Push arguments back for the preamble to consume.
 7. Push the new frame.
-
-Unlike v2.0.0, no globals are copied into the new frame. Global reads use `LOAD_GLOBAL` which reads `vm.globals` directly.
 
 **Function preamble (compiler-generated):**
 ```
 fn f(a, b, c):  STORE c, STORE b, STORE a   (reverse order)
 ```
 
-**On `RETURN` / `RETURN_NONE`:**  pop frame, push return value.  
+**On `RETURN` / `RETURN_NONE`:** pop frame, push return value.
 **On `HALT`:** pop frame, return `Ok(())`.
 
 ---
@@ -249,9 +244,9 @@ loop:
 | Global | `vm.globals: HashMap`          | Entire program    |
 | Local  | `frame.locals: HashMap`        | One function call |
 
-In v3.0.0, `LOAD` reads **only** `frame.locals`; `LOAD_GLOBAL` reads **only** `vm.globals`. The compiler ensures the right opcode is emitted for each variable reference.
+`LOAD` reads only `frame.locals`; `LOAD_GLOBAL` reads only `vm.globals`. The compiler ensures the right opcode is emitted for each variable reference.
 
-Functions **read** globals via `LOAD_GLOBAL`.  
+Functions **read** globals via `LOAD_GLOBAL`.
 Functions **cannot mutate** globals — `STORE` inside a function writes to `frame.locals`.
 
 ---
@@ -264,17 +259,19 @@ All errors are `WhispemError { kind: ErrorKind, span: Span }`.
 pub struct Span { pub line: usize, pub column: usize }
 ```
 
-### v3.0.0 new error kinds
+### v4.0.0 new error kinds
 
 | Kind | When |
 |------|------|
-| `InvalidBytecode(String)` | Bad magic, wrong version, truncated `.whbc` |
-| `SerializationError(String)` | Name too long, unsupported constant type |
+| `AssertionFailed(String)` | `assert()` called with a falsy condition |
+| `Exit(i64)` | `exit(code)` called — not printed, propagated to OS |
 
 ### Existing error kinds (unchanged)
 
 | Kind | When |
 |------|------|
+| `InvalidBytecode(String)` | Bad magic, wrong version, truncated `.whbc` |
+| `SerializationError(String)` | Name too long, unsupported constant type |
 | `UndefinedVariable` | `LOAD` / `LOAD_GLOBAL` of unknown name |
 | `UndefinedFunction` | `CALL` of unknown name |
 | `ArgumentCount` | Wrong arity |
@@ -282,6 +279,8 @@ pub struct Span { pub line: usize, pub column: usize }
 | `IndexOutOfBounds` | Array index out of range |
 | `DivisionByZero` | `DIV` or `MOD` with zero |
 | `StackUnderflow` | Compiler bug |
+
+`Exit` is special: it is caught by the CLI (`main.rs`) and passed to `process::exit` without printing anything. All other error kinds print to stderr and exit with code 1.
 
 ---
 
@@ -292,19 +291,25 @@ pub struct Span { pub line: usize, pub column: usize }
 1. **First pass** — collect all top-level `let` names into `global_names`. Compile all `fn` declarations into separate chunks.
 2. **Second pass** — compile the main body.
 
-Forward calls and `LOAD_GLOBAL` emission both depend on this.
+### `else if` — no bytecode impact
 
-### `LOAD` vs `LOAD_GLOBAL`
+`else if` is collapsed to `ElseIf` by the lexer before the parser runs. The parser produces nested `Stmt::If` nodes in the `else_branch` — the same structure that `else { if ... }` produces. The compiler sees no difference.
 
-Inside a function body, `Expr::Variable("x")` compiles to:
-- `LOAD_GLOBAL x` if `x` is in `global_names`
-- `LOAD x` otherwise (local variable or function parameter)
+### `assert`, `type_of`, `exit` — compiled as calls
+
+```
+assert(cond, msg)   →   PUSH_CONST cond, PUSH_CONST msg, CALL assert 2
+type_of(v)          →   PUSH_CONST v, CALL type_of 1
+exit(0)             →   PUSH_CONST 0, CALL exit 1
+```
+
+These are builtin calls resolved at runtime by `call_builtin`. No new opcodes.
 
 ### Jump patching
 
 Jumps are emitted with a `0xFFFF` placeholder, then patched once the target offset is known.
 
-### `for` loop desugaring (unchanged from v2.0.0)
+### `for` loop desugaring
 
 ```
 STORE __iter_N
@@ -324,40 +329,34 @@ after:
 
 ## Example: Annotated Bytecode
 
-### Global read from function (v3.0.0)
+### `else if` compiles identically to nested `if`
 
 ```wsp
-let greeting = "Hello"
-
-fn say(name) {
-    print greeting + ", " + name
-}
-
-say("Em")
+if x == 1 { print "one" }
+else if x == 2 { print "two" }
+else { print "other" }
 ```
 
-**Chunk `<main>`**
 ```
-0000  1  PUSH_CONST    0    'Hello'
-0002  1  STORE         0    'greeting'
-0004  7  PUSH_CONST    1    'Em'
-0006  7  CALL          2    'say' (1 args)
-0009  7  HALT
-```
-
-**Chunk `say`** — `param_count: 1`
-```
-0000  3  STORE         0    'name'       ← preamble
-0002  4  LOAD_GLOBAL   1    'greeting'   ← reads vm.globals, not frame.locals
-0004  4  PUSH_CONST    2    ', '
-0006  4  ADD
-0007  4  LOAD          0    'name'       ← reads frame.locals
-0009  4  ADD
-0010  4  PRINT
-0011  4  RETURN_NONE
+0000  LOAD x
+0002  PUSH_CONST 1
+0004  EQ
+0005  JUMP_IF_FALSE  → 0014      ← jump to else-if
+0008  PUSH_CONST "one"
+0010  PRINT
+0011  JUMP           → 0028      ← jump past all branches
+0014  LOAD x                     ← else-if branch
+0016  PUSH_CONST 2
+0018  EQ
+0019  JUMP_IF_FALSE  → 0026
+0022  PUSH_CONST "two"
+0024  PRINT
+0025  JUMP           → 0028
+0026  PUSH_CONST "other"         ← else branch
+0028  PRINT
 ```
 
-> Before v3.0.0, `say` would have started with `LOAD greeting` and `greeting` would have been copied from globals into `frame.locals` at call time. Now the frame starts empty and `LOAD_GLOBAL` reads globals directly.
+This is byte-for-byte identical to the output of `else { if x == 2 { ... } else { ... } }`.
 
 ---
 
@@ -379,26 +378,38 @@ Built-ins are resolved at `CALL` time before checking user-defined functions.
 | `keys`       | `(dict) → array`                 | Sorted                         |
 | `values`     | `(dict) → array`                 | Sorted by key                  |
 | `has_key`    | `(dict, key) → bool`             |                                |
+| `char_at`    | `(string, index) → string`       |                                |
+| `substr`     | `(string, start, len) → string`  |                                |
+| `ord`        | `(string) → number`              | Unicode codepoint              |
+| `num_to_str` | `(number) → string`              |                                |
+| `str_to_num` | `(string) → number`              |                                |
+| `args`       | `() → array`                     | Script arguments               |
+| `num_to_hex` | `(number) → string`              | IEEE-754 f64 as 16-char hex    |
+| `write_hex`  | `(path, hex) → none`             | Hex string → binary file       |
+| `type_of`    | `(value) → string`               | **v4.0.0** runtime type name   |
+| `assert`     | `(cond, msg?) → none`            | **v4.0.0** raises on falsy     |
+| `exit`       | `(code?) → none`                 | **v4.0.0** terminates program  |
 
 ---
 
 ## Source Files
 
-| File              | Role                                     |
-|-------------------|------------------------------------------|
-| `compiler/wsc.wsp`| Self-hosted compiler (1618 lines of Whispem) |
+| File              | Role                                          |
+|-------------------|-----------------------------------------------|
+| `compiler/wsc.wsp`| Self-hosted compiler (1724 lines of Whispem)  |
 | `vm/wvm.c`        | Standalone C VM — `--dump`, REPL, ~2000 lines |
-| `src/value.rs`    | `Value` enum                             |
-| `src/opcode.rs`   | `OpCode` enum — 34 opcodes               |
-| `src/chunk.rs`    | `Chunk` + `serialise` + `deserialise`    |
-| `src/compiler.rs` | AST → bytecode, `LOAD_GLOBAL` emission   |
-| `src/vm.rs`       | Rust VM loop, `LOAD_GLOBAL` execution    |
-| `src/error.rs`    | `WhispemError`, `ErrorKind`, `Span`      |
-| `src/main.rs`     | CLI: `--compile`, `.whbc` run, 93 Rust tests |
-
-Unchanged: `src/lexer.rs`, `src/parser.rs`, `src/ast.rs`, `src/token.rs`, `src/repl.rs`.
+| `src/value.rs`    | `Value` enum                                  |
+| `src/opcode.rs`   | `OpCode` enum — 34 opcodes (unchanged)        |
+| `src/chunk.rs`    | `Chunk` + `serialise` + `deserialise`         |
+| `src/compiler.rs` | AST → bytecode (unchanged from v3)            |
+| `src/vm.rs`       | Rust VM loop — `assert`, `type_of`, `exit`    |
+| `src/error.rs`    | `WhispemError`, `ErrorKind`, `Span`           |
+| `src/lexer.rs`    | Tokeniser — `else if` collapse pass           |
+| `src/parser.rs`   | Parser — `else if`, `assert`, `type_of`, `exit` |
+| `src/token.rs`    | Token types — `ElseIf`, `Assert`, `TypeOf`, `Exit` |
+| `src/main.rs`     | CLI — `handle_vm_error`, 110 Rust tests       |
 
 ---
 
-**Whispem VM — v3.0.0**  
+**Whispem VM — v4.0.0**
 *Self-hosted. Standalone. Bootstrappable.*

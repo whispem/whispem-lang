@@ -44,23 +44,23 @@ impl CallFrame {
 }
 
 pub struct Vm {
-    stack:         Vec<Value>,
-    frames:        Vec<CallFrame>,
-    globals:       HashMap<String, Value>,
-    pub functions: HashMap<String, Chunk>,
+    stack:           Vec<Value>,
+    frames:          Vec<CallFrame>,
+    globals:         HashMap<String, Value>,
+    pub functions:   HashMap<String, Chunk>,
     pub script_args: Vec<String>,
-    output:        Box<dyn Write + Send>,
+    output:          Box<dyn Write + Send>,
 }
 
 impl Vm {
     pub fn new() -> Self {
         Self {
-            stack:     Vec::with_capacity(256),
-            frames:    Vec::with_capacity(64),
-            globals:   HashMap::new(),
-            functions: HashMap::new(),
+            stack:       Vec::with_capacity(256),
+            frames:      Vec::with_capacity(64),
+            globals:     HashMap::new(),
+            functions:   HashMap::new(),
             script_args: Vec::new(),
-            output:    Box::new(io::stdout()),
+            output:      Box::new(io::stdout()),
         }
     }
 
@@ -74,16 +74,15 @@ impl Vm {
             }
             fn flush(&mut self) -> io::Result<()> { Ok(()) }
         }
-        // SAFETY: ArcWriter wraps an Arc<Mutex<_>> which is inherently Send.
         unsafe impl Send for ArcWriter {}
 
         Self {
-            stack:     Vec::with_capacity(256),
-            frames:    Vec::with_capacity(64),
-            globals:   HashMap::new(),
-            functions: HashMap::new(),
+            stack:       Vec::with_capacity(256),
+            frames:      Vec::with_capacity(64),
+            globals:     HashMap::new(),
+            functions:   HashMap::new(),
             script_args: Vec::new(),
-            output:    Box::new(ArcWriter(buf)),
+            output:      Box::new(ArcWriter(buf)),
         }
     }
 
@@ -124,7 +123,6 @@ impl Vm {
                     self.stack.push(val);
                 }
 
-                // v3.0.0: explicit global read — does not touch locals.
                 OpCode::LoadGlobal => {
                     let idx  = self.frame_mut().read_byte();
                     let name = self.const_str(idx);
@@ -217,32 +215,24 @@ impl Vm {
                 OpCode::JumpIfFalse => {
                     let target = self.frame_mut().read_u16() as usize;
                     let cond   = self.pop()?;
-                    if !cond.is_truthy() {
-                        self.frame_mut().ip = target;
-                    }
+                    if !cond.is_truthy() { self.frame_mut().ip = target; }
                 }
                 OpCode::JumpIfTrue => {
                     let target = self.frame_mut().read_u16() as usize;
                     let cond   = self.pop()?;
-                    if cond.is_truthy() {
-                        self.frame_mut().ip = target;
-                    }
+                    if cond.is_truthy() { self.frame_mut().ip = target; }
                 }
                 OpCode::PeekJumpIfFalse => {
                     let target = self.frame_mut().read_u16() as usize;
                     let cond   = self.stack.last()
                         .ok_or_else(|| WhispemError::runtime(ErrorKind::StackUnderflow))?;
-                    if !cond.is_truthy() {
-                        self.frame_mut().ip = target;
-                    }
+                    if !cond.is_truthy() { self.frame_mut().ip = target; }
                 }
                 OpCode::PeekJumpIfTrue => {
                     let target = self.frame_mut().read_u16() as usize;
                     let cond   = self.stack.last()
                         .ok_or_else(|| WhispemError::runtime(ErrorKind::StackUnderflow))?;
-                    if cond.is_truthy() {
-                        self.frame_mut().ip = target;
-                    }
+                    if cond.is_truthy() { self.frame_mut().ip = target; }
                 }
 
                 OpCode::Call => {
@@ -277,9 +267,7 @@ impl Vm {
                         }
 
                         let new_frame = CallFrame::new(chunk);
-                        for arg in args {
-                            self.stack.push(arg);
-                        }
+                        for arg in args { self.stack.push(arg); }
                         self.frames.push(new_frame);
                     }
                 }
@@ -333,9 +321,7 @@ impl Vm {
                     let line = format!("{}\n", val.format());
                     let _    = self.output.write_all(line.as_bytes());
                 }
-                OpCode::Pop => {
-                    self.pop()?;
-                }
+                OpCode::Pop  => { self.pop()?; }
                 OpCode::Halt => {
                     self.frames.pop();
                     return Ok(());
@@ -346,7 +332,7 @@ impl Vm {
 
     // ─── Built-ins ────────────────────────────────────────────────────────
 
-    fn call_builtin(&self, name: &str, args: &[Value]) -> WhispemResult<Option<Value>> {
+    fn call_builtin(&mut self, name: &str, args: &[Value]) -> WhispemResult<Option<Value>> {
         let line = self.frame().current_line();
 
         let result = match name {
@@ -357,9 +343,7 @@ impl Vm {
                     Value::Str(s)   => Value::Number(s.chars().count() as f64),
                     Value::Dict(d)  => Value::Number(d.len() as f64),
                     other => return Err(self.type_err_at(
-                        "array, string, or dict",
-                        other.type_name(),
-                        line,
+                        "array, string, or dict", other.type_name(), line,
                     )),
                 }
             }
@@ -378,10 +362,7 @@ impl Vm {
                 match args[0].clone() {
                     Value::Array(mut a) => {
                         if a.is_empty() {
-                            return Err(WhispemError::new(
-                                ErrorKind::EmptyArray,
-                                Span::new(line, 0),
-                            ));
+                            return Err(WhispemError::new(ErrorKind::EmptyArray, Span::new(line, 0)));
                         }
                         Rc::make_mut(&mut a).pop().unwrap()
                     }
@@ -406,8 +387,7 @@ impl Vm {
                     Value::Array(a) => {
                         if start > end {
                             return Err(WhispemError::new(
-                                ErrorKind::InvalidSlice { start, end },
-                                Span::new(line, 0),
+                                ErrorKind::InvalidSlice { start, end }, Span::new(line, 0),
                             ));
                         }
                         if end > a.len() {
@@ -426,19 +406,13 @@ impl Vm {
                 let start = self.to_i64(&args[0], line)?;
                 let end   = self.to_i64(&args[1], line)?;
                 Value::Array(Rc::new(
-                    (start..end)
-                        .map(|i| Value::Number(i as f64))
-                        .collect(),
+                    (start..end).map(|i| Value::Number(i as f64)).collect(),
                 ))
             }
             "input" => {
                 if args.len() > 1 {
                     return Err(WhispemError::new(
-                        ErrorKind::ArgumentCount {
-                            name:     "input".into(),
-                            expected: 1,
-                            got:      args.len(),
-                        },
+                        ErrorKind::ArgumentCount { name: "input".into(), expected: 1, got: args.len() },
                         Span::new(line, 0),
                     ));
                 }
@@ -457,9 +431,7 @@ impl Vm {
                 let mut buf = String::new();
                 io::stdin().read_line(&mut buf).unwrap();
                 Value::Str(
-                    buf.trim_end_matches('\n')
-                        .trim_end_matches('\r')
-                        .to_string(),
+                    buf.trim_end_matches('\n').trim_end_matches('\r').to_string(),
                 )
             }
             "read_file" => {
@@ -523,7 +495,6 @@ impl Vm {
                     other => return Err(self.type_err_at("dict", other.type_name(), line)),
                 }
             }
-            // ── String builtins (v3.0.0) ──────────────────────────────────
             "char_at" => {
                 self.arity(name, 2, args.len(), line)?;
                 match (&args[0], &args[1]) {
@@ -542,10 +513,10 @@ impl Vm {
                 self.arity(name, 3, args.len(), line)?;
                 match (&args[0], &args[1], &args[2]) {
                     (Value::Str(s), Value::Number(start), Value::Number(len)) => {
-                        let st  = *start as usize;
-                        let ln  = *len as usize;
+                        let st    = *start as usize;
+                        let ln    = *len as usize;
                         let chars: Vec<char> = s.chars().collect();
-                        let end = (st + ln).min(chars.len());
+                        let end   = (st + ln).min(chars.len());
                         let result: String = chars[st.min(chars.len())..end].iter().collect();
                         Value::Str(result)
                     }
@@ -557,7 +528,10 @@ impl Vm {
                 match &args[0] {
                     Value::Str(s) => {
                         let ch = s.chars().next().ok_or_else(|| WhispemError::new(
-                            ErrorKind::TypeError { expected: "non-empty string".into(), found: "empty string".into() },
+                            ErrorKind::TypeError {
+                                expected: "non-empty string".into(),
+                                found:    "empty string".into(),
+                            },
                             Span::new(line, 0),
                         ))?;
                         Value::Number(ch as u32 as f64)
@@ -580,7 +554,10 @@ impl Vm {
                 match &args[0] {
                     Value::Str(s) => {
                         let n = s.trim().parse::<f64>().map_err(|_| WhispemError::new(
-                            ErrorKind::TypeError { expected: "numeric string".into(), found: format!("\"{}\"", s) },
+                            ErrorKind::TypeError {
+                                expected: "numeric string".into(),
+                                found:    format!("\"{}\"", s),
+                            },
                             Span::new(line, 0),
                         ))?;
                         Value::Number(n)
@@ -591,17 +568,13 @@ impl Vm {
             "args" => {
                 self.arity(name, 0, args.len(), line)?;
                 Value::Array(Rc::new(
-                    self.script_args.iter()
-                        .map(|s| Value::Str(s.clone()))
-                        .collect()
+                    self.script_args.iter().map(|s| Value::Str(s.clone())).collect()
                 ))
             }
             "num_to_hex" => {
                 self.arity(name, 1, args.len(), line)?;
                 match &args[0] {
-                    Value::Number(n) => {
-                        Value::Str(format!("{:016x}", n.to_bits()))
-                    }
+                    Value::Number(n) => Value::Str(format!("{:016x}", n.to_bits())),
                     other => return Err(self.type_err_at("number", other.type_name(), line)),
                 }
             }
@@ -617,15 +590,58 @@ impl Vm {
                 };
                 let bytes: Vec<u8> = (0..hex.len())
                     .step_by(2)
-                    .map(|i| u8::from_str_radix(&hex[i..i+2], 16).unwrap_or(0))
+                    .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap_or(0))
                     .collect();
-                fs::write(&path, &bytes)
-                    .map(|_| Value::None)
-                    .map_err(|e| WhispemError::new(
-                        ErrorKind::FileWrite { path: path.clone(), reason: e.to_string() },
-                        Span::new(line, 0),
-                    ))?
+                fs::write(&path, &bytes).map_err(|e| WhispemError::new(
+                    ErrorKind::FileWrite { path: path.clone(), reason: e.to_string() },
+                    Span::new(line, 0),
+                ))?;
+                Value::None
             }
+
+            // ── v4.0.0 builtins ──────────────────────────────────────────
+
+            "assert" => {
+                if args.len() < 1 || args.len() > 2 {
+                    return Err(WhispemError::new(
+                        ErrorKind::ArgumentCount { name: "assert".into(), expected: 2, got: args.len() },
+                        Span::new(line, 0),
+                    ));
+                }
+                if !args[0].is_truthy() {
+                    let msg = if args.len() == 2 {
+                        args[1].format()
+                    } else {
+                        "assertion failed".to_string()
+                    };
+                    return Err(WhispemError::new(
+                        ErrorKind::AssertionFailed(msg),
+                        Span::new(line, 0),
+                    ));
+                }
+                Value::None
+            }
+
+            "type_of" => {
+                self.arity(name, 1, args.len(), line)?;
+                Value::Str(args[0].type_name().to_string())
+            }
+
+            "exit" => {
+                if args.len() > 1 {
+                    return Err(WhispemError::new(
+                        ErrorKind::ArgumentCount { name: "exit".into(), expected: 1, got: args.len() },
+                        Span::new(line, 0),
+                    ));
+                }
+                let code = if args.is_empty() {
+                    0i64
+                } else {
+                    self.to_i64(&args[0], line)?
+                };
+                return Err(WhispemError::new(ErrorKind::Exit(code), Span::unknown()));
+            }
+
             _ => return Ok(None),
         };
         Ok(Some(result))
@@ -633,7 +649,6 @@ impl Vm {
 
     // ─── Variable lookup / store ─────────────────────────────────────────
 
-    /// Look up a variable: current frame's locals first, then globals.
     fn lookup_local(&self, name: &str) -> Option<Value> {
         self.frames.last()
             .and_then(|f| f.locals.get(name).cloned())
@@ -642,13 +657,11 @@ impl Vm {
 
     fn store(&mut self, name: String, value: Value) {
         if self.frames.len() > 1 {
-            // Inside a function — store as local.
             if let Some(frame) = self.frames.last_mut() {
                 frame.locals.insert(name, value);
                 return;
             }
         }
-        // Top-level — store as global.
         self.globals.insert(name, value);
     }
 
@@ -671,7 +684,7 @@ impl Vm {
                 let key = self.to_dict_key(idx)?;
                 map.get(&key).cloned().ok_or_else(|| {
                     WhispemError::new(
-                        ErrorKind::UndefinedVariable(format!("dict key \"{}\"", key)),
+                        ErrorKind::UndefinedVariable(format!("key \"{}\" not found in dict", key)),
                         Span::new(line, 0),
                     )
                 })
@@ -713,9 +726,7 @@ impl Vm {
                 format!("{}", n)
             }),
             other => Err(self.type_err_at(
-                "string or number (as dict key)",
-                other.type_name(),
-                line,
+                "string or number (as dict key)", other.type_name(), line,
             )),
         }
     }

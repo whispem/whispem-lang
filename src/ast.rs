@@ -6,7 +6,7 @@ pub enum Expr {
     Variable(String),
     Array(Vec<Expr>),
     Dict(Vec<(Expr, Expr)>),
-    Index  { object: Box<Expr>, index: Box<Expr> },
+    Index   { object: Box<Expr>, index: Box<Expr> },
     Binary  { left: Box<Expr>, op: BinaryOp,  right: Box<Expr> },
     Logical { left: Box<Expr>, op: LogicalOp, right: Box<Expr> },
     Unary   { op: UnaryOp, operand: Box<Expr> },
