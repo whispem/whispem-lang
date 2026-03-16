@@ -222,12 +222,14 @@ whispem file.whbc                # run precompiled bytecode
 
 ## Testing
 
+> **Note:** `compiler/wsc.whbc` is not tracked by git. Generate it once before running the autonomous test suite: `cargo run -- --compile compiler/wsc.wsp`
+
 ```bash
 ./tests/run_tests.sh   # autonomous tests (no Rust needed)
 cargo test             # 110 Rust tests
 ```
 
-110 Rust tests cover the entire language: arithmetic, strings, booleans, comparisons, logic, control flow, functions, recursion, forward calls, arrays, dictionaries, truthiness, error spans, integration programs, bytecode round-trip tests, and all v4.0.0 features. 38 autonomous tests run via the C VM only, covering all example programs and bootstrap verification.
+110 Rust tests cover the entire language: arithmetic, strings, booleans, comparisons, logic, control flow, functions, recursion, forward calls, arrays, dictionaries, truthiness, error spans, integration programs, bytecode round-trip tests, and all v4.0.0 features. 37 autonomous tests run via the C VM only, covering all example programs and bootstrap verification.
 
 ---
 
