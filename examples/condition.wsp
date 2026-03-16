@@ -1,4 +1,4 @@
-# Conditional execution with if/else
+# Conditional execution with if / else if / else
 
 let temperature = 18
 
@@ -8,17 +8,15 @@ if temperature > 20 {
     print "It's cool"
 }
 
-# Nested conditions
+# Chained conditions with else if
 let score = 85
 
 if score >= 90 {
     print "Grade: A"
+} else if score >= 80 {
+    print "Grade: B"
 } else {
-    if score >= 80 {
-        print "Grade: B"
-    } else {
-        print "Grade: C"
-    }
+    print "Grade: C"
 }
 
 # Using booleans
