@@ -4,7 +4,7 @@
 
 [![Version](https://img.shields.io/badge/version-4.0.0-cyan.svg)](https://github.com/whispem/whispem-lang/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Tests](https://img.shields.io/badge/tests-147%20passing-brightgreen.svg)](https://github.com/whispem/whispem-lang/actions)
+![Tests](https://img.shields.io/badge/tests-147%20passing-brightgreen.svg)
 
 > *Whisper your intent. The machine listens.*
 
