@@ -1,6 +1,6 @@
 # Whispem Examples
 
-**Version 4.0.0**
+**Version 5.0.0**
 
 A collection of Whispem programs demonstrating every language feature.
 
@@ -9,16 +9,9 @@ A collection of Whispem programs demonstrating every language feature.
 ## Running examples
 
 ```bash
-# Standalone (no Rust needed)
-make                                         # build wvm (once)
-./wvm compiler/wsc.whbc examples/hello.wsp   # compile + run
-./wvm examples/hello.whbc                    # run precompiled
-./wvm --dump examples/hello.whbc             # inspect bytecode
-
-# Rust reference implementation
-cargo run -- examples/hello.wsp
-cargo run -- --compile examples/hello.wsp
-cargo run -- --dump examples/hello.wsp
+cargo run -- examples/<file>.wsp
+cargo run -- --compile examples/<file>.wsp   # → <file>.whbc
+cargo run -- --dump examples/<file>.wsp       # disassemble
 ```
 
 ---
@@ -34,6 +27,9 @@ cargo run -- --dump examples/hello.wsp
 | `arithmetic.wsp` | `+`, `-`, `*`, `/`, `%` |
 | `modulo.wsp` | Modulo operator with a loop |
 | `strings.wsp` | String literals, escape sequences, concatenation |
+| `comments.wsp` | Comment syntax |
+| `boolean.wsp` | Boolean values |
+| `comparison.wsp` | Comparison operators |
 
 ### Control flow
 
@@ -41,18 +37,38 @@ cargo run -- --dump examples/hello.wsp
 |------|---------------|
 | `condition.wsp` | `if` / `else if` / `else` |
 | `while_loop.wsp` | `while` loop |
+| `countdown.wsp` | While loop counting down |
 | `for_loop.wsp` | `for … in`, `range()` |
 | `break_continue.wsp` | `break`, `continue` |
-| `short_circuit.wsp` | `and`/`or` short-circuit evaluation |
+| `logical_operators.wsp` | `and`, `or`, `not` |
+| `short_circuit.wsp` | Short-circuit evaluation |
 
 ### Functions
 
 | File | What it shows |
 |------|---------------|
 | `function_basic.wsp` | Defining and calling functions |
+| `function_return.wsp` | Return values |
+| `function_no_params.wsp` | Zero-parameter functions |
 | `function_recursive.wsp` | Recursion — factorial |
 | `prime_numbers.wsp` | Recursion + loops |
-| `fizzbuzz_proper.wsp` | FizzBuzz using `else if`, modulo, and `range` |
+| `fizzbuzz_proper.wsp` | FizzBuzz with `else if` and `range` |
+
+### Lambdas and closures (v5.0.0)
+
+| File | What it shows |
+|------|---------------|
+| `lambda_basic.wsp` | Lambdas stored in variables, passed as arguments |
+| `closure_adder.wsp` | Closure factory — `make_adder` |
+| `closure_counter.wsp` | Mutable shared state across calls |
+| `closure_pair.wsp` | Two closures sharing the same upvalue cell |
+| `higher_order.wsp` | `map_array`, `filter_array` using lambdas |
+
+### F-strings (v5.0.0)
+
+| File | What it shows |
+|------|---------------|
+| `fstrings.wsp` | Basic interpolation, expressions in holes |
 
 ### Arrays
 
@@ -60,14 +76,27 @@ cargo run -- --dump examples/hello.wsp
 |------|---------------|
 | `array_basic.wsp` | Literals, indexing, index assignment |
 | `array_functions.wsp` | `push`, `pop`, `reverse`, `slice`, `range`, `length` |
+| `array_advanced.wsp` | `pop`, `reverse`, `slice`, `range`, combining operations |
+| `array_iteration.wsp` | While-loop iteration over array by index |
+| `array_mixed_types.wsp` | Arrays with mixed types, nested arrays |
+| `array_build_dynamic.wsp` | Building arrays dynamically |
+| `array_with_functions.wsp` | `sum_array`, `find_max` |
 
 ### Dictionaries
 
 | File | What it shows |
 |------|---------------|
 | `dict_basic.wsp` | Literals, access, update, `has_key`, `keys`, `length` |
+| `dict_nested.wsp` | Dict as a record type, nested data |
 | `dict_phonebook.wsp` | Dictionary as a data structure |
 | `dict_word_count.wsp` | Building a frequency table |
+
+### Introspection (v4.0.0+)
+
+| File | What it shows |
+|------|---------------|
+| `test_basic.wsp` | Integration test — types, control flow, functions, arrays, dicts |
+| `test_control_flow.wsp` | Control flow integration test |
 
 ### I/O
 
@@ -75,12 +104,66 @@ cargo run -- --dump examples/hello.wsp
 |------|---------------|
 | `user_input.wsp` | `input()` |
 | `file_io.wsp` | `read_file()`, `write_file()` |
+| `interactive_game.wsp` | Number guessing game |
 
 ### Advanced
 
 | File | What it shows |
 |------|---------------|
-| `data_processing.wsp` | Filter, sum, higher-order patterns with arrays |
+| `data_processing.wsp` | Filter, sum, max — higher-order patterns |
+| `task_manager.wsp` | Simple task manager with arrays |
+
+---
+
+## v5.0.0 features
+
+### Lambdas
+
+`fn(params) { body }` as a first-class expression:
+
+```wsp
+let double = fn(x) { return x * 2 }
+print double(7)   # 14
+
+fn apply(f, x) { return f(x) }
+print apply(fn(n) { return n * n }, 5)   # 25
+
+# Immediate call
+print fn(x) { return x + 1 }(10)   # 11
+```
+
+### Closures
+
+```wsp
+fn make_adder(n) {
+    return fn(x) { return x + n }
+}
+print make_adder(5)(3)   # 8
+```
+
+Captured variables are shared and mutable:
+
+```wsp
+fn make_counter() {
+    let count = 0
+    return fn() {
+        let count = count + 1
+        return count
+    }
+}
+let c = make_counter()
+print c()   # 1
+print c()   # 2
+print c()   # 3
+```
+
+### F-strings
+
+```wsp
+let name = "Em"
+let x = 42
+print f"Hello, {name}! Value: {x * 2}"
+```
 
 ---
 
@@ -88,16 +171,12 @@ cargo run -- --dump examples/hello.wsp
 
 ### `else if`
 
-`else if` is now native syntax — no more nesting `if` inside `else`:
-
 ```wsp
 if score >= 90 { print "A" }
 else if score >= 80 { print "B" }
 else if score >= 70 { print "C" }
 else { print "F" }
 ```
-
-`examples/fizzbuzz_proper.wsp` has been updated to use `else if`.
 
 ### `assert(condition, message?)`
 
@@ -108,14 +187,7 @@ assert(type_of(x) == "number")
 
 ### `type_of(value)`
 
-Returns `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, or `"none"`:
-
-```wsp
-fn safe_double(x) {
-    if type_of(x) != "number" { return "error" }
-    return x * 2
-}
-```
+Returns `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, `"function"`, or `"none"`.
 
 ### `exit(code?)`
 
@@ -125,24 +197,6 @@ if length(args()) == 0 {
     exit(1)
 }
 ```
-
----
-
-## Self-hosted compiler (v3.0.0+)
-
-```bash
-./wvm compiler/wsc.whbc examples/hello.wsp
-```
-
-`compiler/wsc.wsp` is a Whispem compiler written in Whispem — 1724 lines implementing the full compilation pipeline: lexer, recursive-descent parser, bytecode compiler, and binary serialiser. Updated in v4.0.0 to support `else if`, `assert`, `type_of`, and `exit`.
-
-## Autonomous test suite
-
-```bash
-./tests/run_tests.sh
-```
-
-Compiles each example via `wsc.whbc`, runs it, and compares output to expected baselines. No Rust needed.
 
 ---
 

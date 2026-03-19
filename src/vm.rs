@@ -1,21 +1,33 @@
 use crate::chunk::Chunk;
 use crate::error::{ErrorKind, Span, WhispemError, WhispemResult};
 use crate::opcode::OpCode;
-use crate::value::Value;
+use crate::value::{Upvalue, Value};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Write};
 use std::rc::Rc;
 
 struct CallFrame {
-    chunk:  Chunk,
-    ip:     usize,
-    locals: HashMap<String, Value>,
+    chunk:    Rc<Chunk>,
+    ip:       usize,
+    locals:   HashMap<String, Value>,
+    // Upvalues captured from an enclosing frame (for closures).
+    upvalues: Vec<Rc<RefCell<Upvalue>>>,
+    // Open upvalue cells for locals in *this* frame that have been captured
+    // by at least one closure.  Shared with those closures via Rc.
+    open_upvalues: HashMap<String, Rc<RefCell<Upvalue>>>,
 }
 
 impl CallFrame {
-    fn new(chunk: Chunk) -> Self {
-        Self { chunk, ip: 0, locals: HashMap::new() }
+    fn new(chunk: Rc<Chunk>, upvalues: Vec<Rc<RefCell<Upvalue>>>) -> Self {
+        Self {
+            chunk,
+            ip: 0,
+            locals: HashMap::new(),
+            upvalues,
+            open_upvalues: HashMap::new(),
+        }
     }
 
     #[inline]
@@ -87,7 +99,8 @@ impl Vm {
     }
 
     pub fn run(&mut self, main_chunk: Chunk) -> WhispemResult<()> {
-        self.frames.push(CallFrame::new(main_chunk));
+        let chunk = Rc::new(main_chunk);
+        self.frames.push(CallFrame::new(chunk, vec![]));
         self.execute()
     }
 
@@ -142,6 +155,22 @@ impl Vm {
                     self.store(name, val);
                 }
 
+                OpCode::LoadUpvalue => {
+                    let slot = self.frame_mut().read_byte() as usize;
+                    let val  = self.load_upvalue(slot)?;
+                    self.stack.push(val);
+                }
+
+                OpCode::StoreUpvalue => {
+                    let slot = self.frame_mut().read_byte() as usize;
+                    let val  = self.pop()?;
+                    self.store_upvalue(slot, val)?;
+                }
+
+                OpCode::CloseUpvalue => {
+                    let _slot = self.frame_mut().read_byte();
+                }
+
                 OpCode::Add => {
                     let (a, b) = self.pop2()?;
                     let r = self.add(a, b)?;
@@ -177,11 +206,11 @@ impl Vm {
 
                 OpCode::Eq => {
                     let (a, b) = self.pop2()?;
-                    self.stack.push(Value::Bool(self.eq(&a, &b)));
+                    self.stack.push(Value::Bool(self.eq_val(&a, &b)));
                 }
                 OpCode::Neq => {
                     let (a, b) = self.pop2()?;
-                    self.stack.push(Value::Bool(!self.eq(&a, &b)));
+                    self.stack.push(Value::Bool(!self.eq_val(&a, &b)));
                 }
                 OpCode::Lt => {
                     let (a, b) = self.pop2()?;
@@ -235,6 +264,66 @@ impl Vm {
                     if cond.is_truthy() { self.frame_mut().ip = target; }
                 }
 
+                OpCode::MakeClosure => {
+                    let name_idx  = self.frame_mut().read_byte();
+                    let uv_count  = self.frame_mut().read_byte() as usize;
+                    let fn_name   = self.const_str(name_idx);
+
+                    // Read upvalue descriptors: each is (is_local: u8, name_len: u8, name_bytes...).
+                    let mut uv_descs: Vec<(bool, String)> = Vec::with_capacity(uv_count);
+                    for _ in 0..uv_count {
+                        let is_local  = self.frame_mut().read_byte() != 0;
+                        let name_len  = self.frame_mut().read_byte() as usize;
+                        let mut name_bytes = Vec::with_capacity(name_len);
+                        for _ in 0..name_len {
+                            name_bytes.push(self.frame_mut().read_byte());
+                        }
+                        let name = String::from_utf8(name_bytes).unwrap_or_default();
+                        uv_descs.push((is_local, name));
+                    }
+
+                    let proto = self.functions.get(&fn_name).cloned().ok_or_else(|| {
+                        WhispemError::new(
+                            ErrorKind::UndefinedFunction(fn_name.clone()),
+                            Span::new(self.frame().current_line(), 0),
+                        )
+                    })?;
+
+                    let mut upvalues: Vec<Rc<RefCell<Upvalue>>> = Vec::with_capacity(uv_count);
+                    for (is_local, name) in uv_descs {
+                        if is_local {
+                            let cell = if let Some(existing) =
+                                self.frames.last().and_then(|f| f.open_upvalues.get(&name)).cloned()
+                            {
+                                existing
+                            } else {
+                                let val = self.lookup_local(&name).unwrap_or(Value::None);
+                                let cell = Rc::new(RefCell::new(Upvalue::new(val)));
+                                if let Some(frame) = self.frames.last_mut() {
+                                    frame.open_upvalues.insert(name, cell.clone());
+                                }
+                                cell
+                            };
+                            upvalues.push(cell);
+                        } else {
+                            let slot: usize = name.parse().unwrap_or(0);
+                            let uv = self.frame().upvalues.get(slot)
+                                .cloned()
+                                .ok_or_else(|| WhispemError::runtime(
+                                    ErrorKind::UpvalueError(
+                                        format!("parent upvalue slot {} out of range", slot)
+                                    )
+                                ))?;
+                            upvalues.push(uv);
+                        }
+                    }
+
+                    self.stack.push(Value::Closure {
+                        chunk:    Rc::new(proto),
+                        upvalues,
+                    });
+                }
+
                 OpCode::Call => {
                     let name_idx = self.frame_mut().read_byte();
                     let argc     = self.frame_mut().read_byte() as usize;
@@ -245,31 +334,45 @@ impl Vm {
                         .collect::<WhispemResult<_>>()?;
                     args.reverse();
 
+                    if name == "__callee__" {
+                        let callee = self.pop()?;
+                        self.call_value(callee, args, argc)?;
+                        continue;
+                    }
+
                     if let Some(result) = self.call_builtin(&name, &args)? {
                         self.stack.push(result);
-                    } else {
-                        let chunk = self.functions.get(&name).cloned().ok_or_else(|| {
-                            WhispemError::new(
-                                ErrorKind::UndefinedFunction(name.clone()),
-                                Span::new(self.frame().current_line(), 0),
-                            )
-                        })?;
-
-                        if argc != chunk.param_count {
-                            return Err(WhispemError::new(
-                                ErrorKind::ArgumentCount {
-                                    name:     name.clone(),
-                                    expected: chunk.param_count,
-                                    got:      argc,
-                                },
-                                Span::new(self.frame().current_line(), 0),
-                            ));
-                        }
-
-                        let new_frame = CallFrame::new(chunk);
-                        for arg in args { self.stack.push(arg); }
-                        self.frames.push(new_frame);
+                        continue;
                     }
+
+                    if let Some(closure_val) = self.lookup_local(&name) {
+                        if matches!(closure_val, Value::Closure { .. }) {
+                            self.call_value(closure_val, args, argc)?;
+                            continue;
+                        }
+                    }
+
+                    let chunk = self.functions.get(&name).cloned().ok_or_else(|| {
+                        WhispemError::new(
+                            ErrorKind::UndefinedFunction(name.clone()),
+                            Span::new(self.frame().current_line(), 0),
+                        )
+                    })?;
+
+                    if argc != chunk.param_count {
+                        return Err(WhispemError::new(
+                            ErrorKind::ArgumentCount {
+                                name:     name.clone(),
+                                expected: chunk.param_count,
+                                got:      argc,
+                            },
+                            Span::new(self.frame().current_line(), 0),
+                        ));
+                    }
+
+                    let new_frame = CallFrame::new(Rc::new(chunk), vec![]);
+                    for arg in args { self.stack.push(arg); }
+                    self.frames.push(new_frame);
                 }
 
                 OpCode::Return => {
@@ -330,7 +433,54 @@ impl Vm {
         }
     }
 
-    // ─── Built-ins ────────────────────────────────────────────────────────
+    fn call_value(&mut self, callee: Value, args: Vec<Value>, argc: usize) -> WhispemResult<()> {
+        match callee {
+            Value::Closure { chunk, upvalues } => {
+                if argc != chunk.param_count {
+                    return Err(WhispemError::new(
+                        ErrorKind::ArgumentCount {
+                            name:     chunk.name.clone(),
+                            expected: chunk.param_count,
+                            got:      argc,
+                        },
+                        Span::new(self.frame().current_line(), 0),
+                    ));
+                }
+                let new_frame = CallFrame::new(chunk, upvalues);
+                for arg in args { self.stack.push(arg); }
+                self.frames.push(new_frame);
+                Ok(())
+            }
+            other => Err(WhispemError::new(
+                ErrorKind::TypeError {
+                    expected: "function".to_string(),
+                    found:    other.type_name().to_string(),
+                },
+                Span::new(self.frame().current_line(), 0),
+            )),
+        }
+    }
+
+
+    fn load_upvalue(&self, slot: usize) -> WhispemResult<Value> {
+        let uv = self.frame().upvalues.get(slot).ok_or_else(|| {
+            WhispemError::runtime(ErrorKind::UpvalueError(
+                format!("upvalue slot {} out of range", slot),
+            ))
+        })?;
+        Ok(uv.borrow().get().clone())
+    }
+
+    fn store_upvalue(&mut self, slot: usize, val: Value) -> WhispemResult<()> {
+        let uv = self.frame().upvalues.get(slot).cloned().ok_or_else(|| {
+            WhispemError::runtime(ErrorKind::UpvalueError(
+                format!("upvalue slot {} out of range", slot),
+            ))
+        })?;
+        uv.borrow_mut().set(val);
+        Ok(())
+    }
+
 
     fn call_builtin(&mut self, name: &str, args: &[Value]) -> WhispemResult<Option<Value>> {
         let line = self.frame().current_line();
@@ -430,9 +580,7 @@ impl Vm {
                 }
                 let mut buf = String::new();
                 io::stdin().read_line(&mut buf).unwrap();
-                Value::Str(
-                    buf.trim_end_matches('\n').trim_end_matches('\r').to_string(),
-                )
+                Value::Str(buf.trim_end_matches('\n').trim_end_matches('\r').to_string())
             }
             "read_file" => {
                 self.arity(name, 1, args.len(), line)?;
@@ -499,7 +647,7 @@ impl Vm {
                 self.arity(name, 2, args.len(), line)?;
                 match (&args[0], &args[1]) {
                     (Value::Str(s), Value::Number(n)) => {
-                        let i = *n as usize;
+                        let i  = *n as usize;
                         let ch = s.chars().nth(i).ok_or_else(|| WhispemError::new(
                             ErrorKind::IndexOutOfBounds { index: i, length: s.chars().count() },
                             Span::new(line, 0),
@@ -598,9 +746,6 @@ impl Vm {
                 ))?;
                 Value::None
             }
-
-            // ── v4.0.0 builtins ──────────────────────────────────────────
-
             "assert" => {
                 if args.len() < 1 || args.len() > 2 {
                     return Err(WhispemError::new(
@@ -621,12 +766,10 @@ impl Vm {
                 }
                 Value::None
             }
-
             "type_of" => {
                 self.arity(name, 1, args.len(), line)?;
                 Value::Str(args[0].type_name().to_string())
             }
-
             "exit" => {
                 if args.len() > 1 {
                     return Err(WhispemError::new(
@@ -647,7 +790,6 @@ impl Vm {
         Ok(Some(result))
     }
 
-    // ─── Variable lookup / store ─────────────────────────────────────────
 
     fn lookup_local(&self, name: &str) -> Option<Value> {
         self.frames.last()
@@ -656,6 +798,11 @@ impl Vm {
     }
 
     fn store(&mut self, name: String, value: Value) {
+        // If a closure has captured this local, update the shared cell so the
+        // closure sees the new value.
+        if let Some(cell) = self.frames.last().and_then(|f| f.open_upvalues.get(&name)).cloned() {
+            cell.borrow_mut().set(value.clone());
+        }
         if self.frames.len() > 1 {
             if let Some(frame) = self.frames.last_mut() {
                 frame.locals.insert(name, value);
@@ -665,7 +812,6 @@ impl Vm {
         self.globals.insert(name, value);
     }
 
-    // ─── Collection helpers ───────────────────────────────────────────────
 
     fn get_index(&self, obj: Value, idx: Value) -> WhispemResult<Value> {
         let line = self.frame().current_line();
@@ -745,7 +891,6 @@ impl Vm {
         }
     }
 
-    // ─── Arithmetic helpers ───────────────────────────────────────────────
 
     fn add(&self, a: Value, b: Value) -> WhispemResult<Value> {
         match (a, b) {
@@ -785,7 +930,7 @@ impl Vm {
         }
     }
 
-    fn eq(&self, a: &Value, b: &Value) -> bool {
+    fn eq_val(&self, a: &Value, b: &Value) -> bool {
         match (a, b) {
             (Value::Number(x), Value::Number(y)) => x == y,
             (Value::Str(x),    Value::Str(y))    => x == y,
@@ -812,7 +957,6 @@ impl Vm {
         }
     }
 
-    // ─── Stack helpers ────────────────────────────────────────────────────
 
     fn pop(&mut self) -> WhispemResult<Value> {
         self.stack.pop().ok_or_else(|| WhispemError::runtime(ErrorKind::StackUnderflow))

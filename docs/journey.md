@@ -1,7 +1,7 @@
 # My Journey: From Literature to Programming Languages
 
 *Hi, I'm Emilie — everyone calls me Em'.*
-*This is the story of how I went from studying literature and linguistics to building a self-hosting programming language with a bytecode VM in Rust.*
+*This is the story of how I went from studying literature and linguistics to building a self-hosting programming language with closures, lambdas, and a bytecode VM in Rust.*
 
 ---
 
@@ -73,52 +73,47 @@ Not a toy. Not a clone. Something with a clear philosophy:
 
 **February 25, 2026** — Whispem 2.0.0. The tree-walking interpreter replaced by a bytecode compiler and a stack-based virtual machine.
 
-**March 1, 2026** — Whispem 2.5.0. Correctness verified by 72 automated tests. `Span`, arity checking, short-circuit fix.
+**March 1, 2026** — Whispem 2.5.0. Correctness verified by 72 automated tests.
 
 ---
 
-## March 2026 — Self-hosting and polish
+## March 2026 — Self-hosting, polish, and closures
 
-**March 2, 2026** — Whispem 3.0.0. The self-hosting release.
+**March 2, 2026** — Whispem 3.0.0. The self-hosting release. Bytecode serialisation, `LOAD_GLOBAL`, `compiler/wsc.wsp`, verified bootstrap, standalone C VM.
 
-Three things happened at once: bytecode serialisation (`.whbc` format), `LOAD_GLOBAL` opcode, and `compiler/wsc.wsp` — a Whispem compiler written in Whispem. The bootstrap is verified: the compiler compiles itself, producing bit-identical output. `vm/wvm.c` completes the chain: a standalone C runtime that runs `.whbc` without Rust.
+**March 16, 2026** — Whispem 4.0.0. The polish release. `else if`, `assert`, `type_of`, `exit`. Zero VM changes — purely lexer, parser, and builtins. 147 tests.
 
-**March 16, 2026** — Whispem 4.0.0. The polish release.
+**March 18, 2026** — Whispem 5.0.0. The closure release.
 
-Four additions chosen for their daily impact: `else if` (no more nesting `if` inside `else`), `assert` (correctness checks), `type_of` (defensive code), `exit` (script control). Zero VM changes — purely lexer, parser, and builtins. 147 tests. Zero warnings.
+Three additions that change what programs can express: **lambdas** (first-class anonymous functions), **closures** (capturing variables from enclosing scopes with shared mutable state), and **f-strings** (string interpolation with arbitrary expressions).
 
-Writing `else if` in Whispem for the first time after having worked around it since v1.0.0 was a small but satisfying moment. Some features are worth waiting until the language is ready for them.
+The upvalue machinery was the most interesting engineering challenge so far. The problem: how do you share a mutable variable between a function and the closures it creates, so that writes from either side are visible to the other? The answer in Whispem uses `Rc<RefCell<Upvalue>>` — a reference-counted heap cell — shared between the enclosing frame's `open_upvalues` table and the closure's upvalue list. When the enclosing scope stores a new value, it writes through the cell. When the closure reads it via `LOAD_UPVALUE`, it reads from the same cell.
+
+The whole mechanism is ~150 lines of Rust and ~100 lines of C. Readable enough that you can understand it in one sitting — which was the point.
+
+Writing the first closure test that actually worked — `make_counter()` returning `1, 2, 3` across three calls — was quietly satisfying. Small moment, big milestone.
 
 ---
 
 ## What building Whispem taught me
 
 **v1.x — the interpreter:**
-- How lexers tokenize source code
-- How parsers build an AST
-- How a tree-walking interpreter executes that AST
-- How to make error messages useful
+How lexers tokenize. How parsers build ASTs. How tree-walking interpreters execute. How to make error messages useful.
 
 **v2.0.0 — the VM:**
-- How bytecode compilers translate AST nodes into instructions
-- How stack machines execute bytecode using call frames
-- How constants pools, jump patching, and parameter binding work
+How bytecode compilers translate AST nodes into instructions. How stack machines execute. How constants pools, jump patching, and parameter binding work.
 
 **v2.5.0 — correctness:**
-- How to write an in-process test harness without platform-specific code
-- How short-circuit evaluation works at the bytecode level
+How to write an in-process test harness. How short-circuit evaluation works at the bytecode level.
 
 **v3.0.0 — self-hosting:**
-- How binary formats are structured
-- What it means for a language to describe its own compilation
-- That the gap between "working interpreter" and "self-hosting" is mostly conceptual
-- That a self-hosted compiler can have subtle bugs invisible until you write an autonomous test suite
+How binary formats are structured. What it means for a language to describe its own compilation. That the gap between "working interpreter" and "self-hosting" is mostly conceptual.
 
 **v4.0.0 — polish:**
-- That syntax sugar done right is invisible — `else if` emits identical bytecode to the nested form
-- That `type_of` and `assert` cost almost nothing to implement but change how you write programs
-- That zero warnings is a discipline worth keeping even when adding small features
-- That sometimes the right time to add a feature is after you've used the workaround long enough to know exactly what you want
+That syntax sugar done right is invisible. That `else if` emits identical bytecode to the nested form. That zero warnings is a discipline worth keeping.
+
+**v5.0.0 — closures:**
+How upvalue analysis works in a scope-stack compiler. How to share mutable state between frames using reference-counted heap cells. That the inline-name encoding for `MAKE_CLOSURE` — writing variable names as raw bytes in the bytecode stream instead of using constant-pool indices — is the cleanest solution because it makes descriptors self-contained. That `Rc<RefCell<T>>` is the right tool when you need shared mutable state with deterministic cleanup in Rust.
 
 ---
 
@@ -145,9 +140,9 @@ The skills that matter most in programming — careful observation, systematic t
 | February 19, 2026 | Whispem 1.5.0 |
 | February 25, 2026 | Whispem 2.0.0 — bytecode VM |
 | March 1, 2026 | Whispem 2.5.0 — error spans, arity, short-circuit, 72 tests |
-| March 2, 2026 | Whispem 3.0.0 — `.whbc`, `LOAD_GLOBAL`, `--compile`, self-hosting |
-| March 2, 2026 | Standalone C VM, REPL, `--dump`, autonomous test suite — 125 tests, zero Rust dependency |
+| March 2, 2026 | Whispem 3.0.0 — self-hosting, C VM, 125 tests |
 | March 16, 2026 | Whispem 4.0.0 — `else if`, `assert`, `type_of`, `exit`, 147 tests |
+| March 19, 2026 | Whispem 5.0.0 — closures, lambdas, f-strings, 130 Rust + 37 autonomous tests |
 
 ---
 
@@ -158,4 +153,4 @@ The skills that matter most in programming — careful observation, systematic t
 
 ---
 
-*Em' — Marseille, 2026*
+*Em' — Marseille, March 2026*

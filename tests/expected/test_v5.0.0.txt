@@ -1,4 +1,4 @@
-=== v4.0.0 Feature Tests ===
+=== v5.0.0 Feature Tests ===
 
 === else if ===
 one
@@ -39,6 +39,12 @@ error: expected number, got string
 
 === assert ===
 all assertions passed
+
+=== f-strings ===
+Hello, Em!
+Score: 42
+Double: 84
+3 items
 
 === exit ===
 before exit

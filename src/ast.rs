@@ -1,7 +1,16 @@
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub enum FStrPart {
+    Literal(String),
+    Expr(Box<Expr>),
+}
+
+#[derive(Debug, Clone)]
 pub enum Expr {
     Number(f64),
     Str(String),
+    #[allow(dead_code)]
+    FStr(Vec<FStrPart>),
     Bool(bool),
     Variable(String),
     Array(Vec<Expr>),
@@ -11,6 +20,8 @@ pub enum Expr {
     Logical { left: Box<Expr>, op: LogicalOp, right: Box<Expr> },
     Unary   { op: UnaryOp, operand: Box<Expr> },
     Call    { name: String, arguments: Vec<Expr>, line: usize },
+    Lambda  { params: Vec<String>, body: Vec<Stmt>, line: usize },
+    CallExpr { callee: Box<Expr>, arguments: Vec<Expr>, line: usize },
 }
 
 #[derive(Debug, Clone, PartialEq)]

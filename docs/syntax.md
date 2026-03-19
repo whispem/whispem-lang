@@ -1,6 +1,6 @@
 # Whispem Syntax Reference
 
-**Version 4.0.0**
+**Version 5.0.0**
 
 Complete reference for the Whispem programming language syntax.
 
@@ -20,12 +20,15 @@ Whispem is line-oriented. No semicolons. Blocks delimited by `{` and `}`.
 8. [Conditionals](#conditionals)
 9. [Loops](#loops)
 10. [Functions](#functions)
-11. [Strings](#strings)
-12. [Built-in Functions](#built-in-functions)
-13. [Comments](#comments)
-14. [Operator Precedence](#operator-precedence)
-15. [Reserved Keywords](#reserved-keywords)
-16. [Error Messages](#error-messages)
+11. [Lambdas](#lambdas)
+12. [Closures](#closures)
+13. [F-strings](#f-strings)
+14. [Strings](#strings)
+15. [Built-in Functions](#built-in-functions)
+16. [Comments](#comments)
+17. [Operator Precedence](#operator-precedence)
+18. [Reserved Keywords](#reserved-keywords)
+19. [Error Messages](#error-messages)
 
 ---
 
@@ -52,14 +55,15 @@ There is no bare assignment — only `let x = expr` and `x[i] = expr`.
 
 ## Types
 
-| Type | Examples | Notes |
-|------|----------|-------|
-| `number` | `42`, `3.14`, `-7` | All numbers are `f64` |
-| `string` | `"hello"`, `""` | UTF-8 |
-| `bool` | `true`, `false` | |
-| `array` | `[1, "two", true]` | Ordered, mixed types |
-| `dict` | `{"key": "value"}` | Keys are always strings |
-| `none` | — | Returned by void functions |
+| Type       | Examples                        | `type_of` |
+|------------|---------------------------------|-----------|
+| `number`   | `42`, `3.14`, `-7`              | `"number"` |
+| `string`   | `"hello"`, `""`                 | `"string"` |
+| `bool`     | `true`, `false`                 | `"bool"` |
+| `array`    | `[1, "two", true]`              | `"array"` |
+| `dict`     | `{"key": "value"}`              | `"dict"` |
+| `function` | `fn(x) { return x }`, closures  | `"function"` |
+| `none`     | returned by void functions      | `"none"` |
 
 Types are inferred automatically.
 
@@ -103,7 +107,7 @@ let person = {"name": "Em", "age": 26, "city": "Marseille"}
 let empty  = {}
 ```
 
-Keys must be strings. Values can be any type.
+Keys must be strings. Values can be any type — including functions and closures.
 
 ### Access
 
@@ -112,8 +116,7 @@ print person["name"]   # Em
 print person["age"]    # 26
 ```
 
-Accessing a key that does not exist raises a clear runtime error:
-`key "foo" not found in dict`
+Accessing a key that does not exist raises: `key "foo" not found in dict`.
 
 ### Assignment
 
@@ -149,10 +152,20 @@ let b = not true
 "Hello" + ", " + "world!"
 ```
 
-Numbers and booleans are converted to string automatically when concatenated with a string:
+Numbers and booleans are coerced to string automatically:
 
 ```wsp
 print "Count: " + 42   # Count: 42
+```
+
+### Chained calls
+
+Calls can be chained on any expression value:
+
+```wsp
+make_adder(5)(3)        # 8
+fns[0](10)              # calls closure stored at index 0
+fn(x) { return x*2 }(7) # 14 — immediate lambda call
 ```
 
 ---
@@ -180,9 +193,9 @@ a or b    # true if at least one truthy
 not a     # negates
 ```
 
-`and` and `or` short-circuit: the left value becomes the result when the right side would not change the outcome.
+`and` and `or` short-circuit.
 
-**Truthiness:** a value is falsy if it is `false`, `0`, `""`, `[]`, `{}`, or `none`. Everything else is truthy.
+**Truthiness:** `false`, `0`, `""`, `[]`, `{}`, `none` are falsy. Everything else — including functions — is truthy.
 
 ---
 
@@ -198,7 +211,7 @@ if condition {
 }
 ```
 
-Both `else if` and `else` are optional. `else if` chains are supported natively — no need to nest `if` inside `else`:
+Both `else if` and `else` are optional. `else if` is native syntax — no need to nest `if` inside `else`.
 
 ```wsp
 if score >= 90 {
@@ -210,14 +223,6 @@ if score >= 90 {
 } else {
     print "F"
 }
-```
-
-`else if` can appear on the same line as `}` or on the next line — both are valid:
-
-```wsp
-if x == 1 { print "one" }
-else if x == 2 { print "two" }
-else { print "other" }
 ```
 
 ---
@@ -237,13 +242,8 @@ while i < 5 {
 ### For
 
 ```wsp
-for item in [1, 2, 3] {
-    print item
-}
-
-for i in range(0, 10) {
-    print i
-}
+for item in [1, 2, 3] { print item }
+for i in range(0, 10) { print i }
 ```
 
 `for` desugars to a counter-based while loop at compile time. The iterable must be an array.
@@ -266,38 +266,118 @@ for n in range(1, 100) {
 fn greet(name) {
     return "Hello, " + name + "!"
 }
-
 print greet("world")
 ```
 
-### Recursion
+Functions can be called before they are defined (forward calls work). Arity is checked at call time.
 
-```wsp
-fn factorial(n) {
-    if n <= 1 { return 1 }
-    return n * factorial(n - 1)
-}
-```
+### Scope
+
+Top-level `let` bindings are globals. Variables inside a function are locals. Functions can read globals (via `LOAD_GLOBAL`); they cannot mutate globals.
 
 ### Return values
 
 A function with no explicit `return` returns `none`. A bare `return` also returns `none`.
 
-### Arity checking
+---
 
-Calling a function with the wrong number of arguments raises a runtime error:
-`Function 'add' expected 2 arguments, got 3`
+## Lambdas
 
-### Scope
+`fn(params) { body }` is a first-class expression. It can be stored, passed, returned, and called immediately.
 
-- Variables declared at the top level are globals.
-- Variables declared inside a function are locals.
-- Functions can read globals (via `LOAD_GLOBAL` in the bytecode).
-- Functions cannot mutate globals — `STORE` inside a function writes to the frame's locals.
+```wsp
+# Store
+let double = fn(x) { return x * 2 }
+print double(7)   # 14
 
-### Forward calls
+# Pass as argument
+fn apply(f, x) { return f(x) }
+print apply(fn(n) { return n * n }, 5)   # 25
 
-Functions are compiled before the main body. You can call a function defined later in the file.
+# Return from function
+fn make_double() { return fn(x) { return x * 2 } }
+print make_double()(7)   # 14
+
+# Store in array
+let fns = [fn(x) { return x + 1 }, fn(x) { return x * 2 }]
+print fns[0](10)   # 11
+print fns[1](10)   # 20
+
+# Immediate call
+print fn(x) { return x * 2 }(7)   # 14
+```
+
+`type_of(fn(x){return x})` returns `"function"`.
+
+---
+
+## Closures
+
+A function defined inside another function automatically captures variables from the enclosing scope.
+
+```wsp
+fn make_adder(n) {
+    return fn(x) { return x + n }   # n is captured
+}
+let add5 = make_adder(5)
+print add5(3)    # 8
+print add5(10)   # 15
+```
+
+Captured variables are **shared and mutable** — all closures created in the same scope share the same cell:
+
+```wsp
+fn make_counter() {
+    let count = 0
+    return fn() {
+        let count = count + 1
+        return count
+    }
+}
+let c = make_counter()
+print c()   # 1
+print c()   # 2
+print c()   # 3
+```
+
+Each call to `make_counter()` creates an independent counter:
+
+```wsp
+let c1 = make_counter()
+let c2 = make_counter()
+print c1()   # 1
+print c1()   # 2
+print c2()   # 1  ← independent
+```
+
+Closures can be nested to arbitrary depth:
+
+```wsp
+fn outer(a) {
+    return fn(b) {
+        return fn(c) { return a + b + c }
+    }
+}
+print outer(1)(2)(3)   # 6
+```
+
+---
+
+## F-strings
+
+`f"..."` strings support `{expr}` interpolation. Any expression is valid inside braces.
+
+```wsp
+let name  = "Em"
+let score = 42
+print f"Hello, {name}!"
+print f"Score: {score}, doubled: {score * 2}"
+print f"{length([1, 2, 3])} items"
+```
+
+Escape sequences work normally inside f-strings. To include a literal `{` or `}`, use `\{` or `\}`.
+
+F-strings compile to a chain of `+` concatenations — identical performance to hand-written concatenation. No runtime overhead.
 
 ---
 
@@ -312,6 +392,8 @@ Functions are compiled before the main body. You can call a function defined lat
 | `\r` | carriage return |
 | `\\` | backslash |
 | `\"` | double quote |
+| `\{` | literal `{` (in f-strings) |
+| `\}` | literal `}` (in f-strings) |
 
 ### Concatenation
 
@@ -322,8 +404,6 @@ let full = "Hello" + ", " + "world!"
 ---
 
 ## Built-in Functions
-
-Built-ins are resolved at call time by the VM before checking user-defined functions.
 
 ### Arrays
 
@@ -362,15 +442,15 @@ Built-ins are resolved at call time by the VM before checking user-defined funct
 | `input` | `(prompt?) → string` | Read line from stdin |
 | `read_file` | `(path) → string` | Read file contents |
 | `write_file` | `(path, content) → none` | Write string to file |
-| `args` | `() → array` | Script arguments (after `.wsp` filename) |
+| `args` | `() → array` | Script arguments |
 | `write_hex` | `(path, hex) → none` | Decode hex string to bytes, write to file |
 | `num_to_hex` | `(n) → string` | IEEE-754 f64 as 16-char hex string |
 
-### Introspection and control (v4.0.0)
+### Introspection and control
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `type_of` | `(value) → string` | Runtime type: `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, `"none"` |
+| `type_of` | `(value) → string` | Runtime type: `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, `"function"`, `"none"` |
 | `assert` | `(condition, message?) → none` | Raises `AssertionFailed` if condition is falsy |
 | `exit` | `(code?) → none` | Terminates the program with the given exit code (default `0`) |
 
@@ -392,14 +472,15 @@ From highest to lowest:
 | Level | Operators |
 |-------|-----------|
 | 1 (highest) | `( )` parentheses |
-| 2 | `[ ]` indexing |
-| 3 | function calls |
-| 4 | `-` (unary), `not` |
-| 5 | `*`, `/`, `%` |
-| 6 | `+`, `-` |
-| 7 | `<`, `>`, `<=`, `>=`, `==`, `!=` |
-| 8 | `and` |
-| 9 (lowest) | `or` |
+| 2 | `[ ]` indexing, `( )` call (postfix) |
+| 3 | unary `-`, `not` |
+| 4 | `*`, `/`, `%` |
+| 5 | `+`, `-` |
+| 6 | `<`, `>`, `<=`, `>=`, `==`, `!=` |
+| 7 | `and` |
+| 8 (lowest) | `or` |
+
+Chained calls and index accesses associate left-to-right: `f(1)(2)`, `a[0][1]`, `f(1)[0](2)`.
 
 ---
 
@@ -410,7 +491,7 @@ let  print  if  else  while  for  in  fn  return  break  continue
 and  or  not  true  false  assert  type_of  exit
 ```
 
-Built-in function names are also reserved:
+Built-in function names:
 ```
 length  push  pop  reverse  slice  range
 input  read_file  write_file  args  write_hex
@@ -425,7 +506,7 @@ char_at  substr  ord  num_to_str  str_to_num  num_to_hex
 Errors include source location as `[line N, col M]`:
 
 ```
-[line 3, col 0]  Error: Undefined variable: 'counter'
+[line 3, col 0]  Error: Undefined variable: 'x'
 [line 5, col 0]  Error: key "foo" not found in dict
 [line 7, col 0]  Error: Array index 10 out of bounds (length: 5)
 [line 9, col 0]  Error: Function 'add' expected 2 arguments, got 3
@@ -436,4 +517,4 @@ Errors include source location as `[line N, col M]`:
 
 ---
 
-**Whispem v4.0.0 — Complete Syntax Reference**
+**Whispem v5.0.0 — Complete Syntax Reference**

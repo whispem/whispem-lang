@@ -1,6 +1,6 @@
 # Whispem VM — Specification
 
-**Version 4.0.0**
+**Version 5.0.0**
 
 > *"A virtual machine should be as simple as the language it runs."*
 
@@ -20,11 +20,12 @@ It is intentionally written to be readable by a human — and by a Whispem progr
 7. [Call Frames](#call-frames)
 8. [Execution Model](#execution-model)
 9. [Variable Scoping](#variable-scoping)
-10. [Error Handling](#error-handling)
-11. [Compilation: AST → Bytecode](#compilation-ast--bytecode)
-12. [Example: Annotated Bytecode](#example-annotated-bytecode)
-13. [Built-in Functions](#built-in-functions)
-14. [Source Files](#source-files)
+10. [Closures and Upvalues](#closures-and-upvalues)
+11. [Error Handling](#error-handling)
+12. [Compilation: AST → Bytecode](#compilation-ast--bytecode)
+13. [Example: Annotated Bytecode](#example-annotated-bytecode)
+14. [Built-in Functions](#built-in-functions)
+15. [Source Files](#source-files)
 
 ---
 
@@ -45,7 +46,7 @@ The WVM is a **stack-based virtual machine**.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                      Whispem v4.0.0                     │
+│                      Whispem v5.0.0                     │
 │                                                         │
 │  source.wsp ──► Compiler ──► Chunks ──► VM ──► output  │
 │                                │                        │
@@ -64,83 +65,105 @@ The WVM is a **stack-based virtual machine**.
 
 **Key components:**
 
-- **Compiler** — AST → one `Chunk` per function + one for `<main>`
-- **Chunk** — flat byte array + constants pool + per-byte line numbers + `param_count`
+- **Compiler** — AST → one `Chunk` per function/lambda + one for `<main>`
+- **Chunk** — flat byte array + constants pool + per-byte line numbers + `param_count` + `upvalue_count`
 - **VM** — reads one opcode at a time, executes it
 - **Stack** — shared `Vec<Value>` across all frames
-- **Call frames** — one `CallFrame` per active call, each with its own `ip` and `locals`
+- **Call frames** — one `CallFrame` per active call, each with its own `ip`, `locals`, `upvalues`, and `open_upvalues`
 - **Globals** — `HashMap<String, Value>` for top-level variables
-- **Output** — `Box<dyn Write + Send>`; stdout by default, injectable for tests
+- **Upvalue cells** — `Rc<RefCell<Upvalue>>` heap-allocated cells shared between frames for mutable closure state
 
 ---
 
 ## Data Types
 
-| Type     | Rust representation         | Notes                          |
-|----------|-----------------------------|--------------------------------|
-| `number` | `f64`                       | All numbers are floating point |
-| `string` | `String`                    | UTF-8                          |
-| `bool`   | `bool`                      |                                |
-| `array`  | `Vec<Value>`                | Ordered, mixed types           |
-| `dict`   | `HashMap<String, Value>`    | Keys are always strings        |
-| `none`   | `Value::None`               | Returned by void functions     |
+| Type       | Rust representation              | Notes                          |
+|------------|----------------------------------|--------------------------------|
+| `number`   | `f64`                            | All numbers are floating point |
+| `string`   | `String`                         | UTF-8                          |
+| `bool`     | `bool`                           |                                |
+| `array`    | `Vec<Value>`                     | Ordered, mixed types           |
+| `dict`     | `HashMap<String, Value>`         | Keys are always strings        |
+| `function` | `Closure { chunk, upvalues }`    | First-class function value     |
+| `none`     | `Value::None`                    | Returned by void functions     |
+
+`type_of` returns `"function"` for both named functions called as closures and anonymous lambdas.
 
 ---
 
 ## Instruction Set
 
-**Total: 34 opcodes.** One byte per opcode, optional operand bytes follow.
+**Total: 38 opcodes.** One byte per opcode, optional operand bytes follow.
 
 ### Notation
 
 ```
 OPCODE              — no operands
-OPCODE <u8>         — one-byte operand (0–255)
-OPCODE <u16>        — two-byte operand, big-endian (0–65535)
+OPCODE <u8>         — one-byte operand
+OPCODE <u16>        — two-byte operand, big-endian
 OPCODE <u8> <u8>    — two separate one-byte operands
 ```
 
 ### Complete Opcode Table
 
-| Code   | Name                  | Operands    | Stack effect               | Description                                              |
-|--------|-----------------------|-------------|----------------------------|----------------------------------------------------------|
-| `0x00` | `PUSH_CONST`          | `<u8>`      | `( -- value )`             | Push constant at pool index                              |
-| `0x01` | `PUSH_TRUE`           | —           | `( -- true )`              |                                                          |
-| `0x02` | `PUSH_FALSE`          | —           | `( -- false )`             |                                                          |
-| `0x03` | `PUSH_NONE`           | —           | `( -- none )`              |                                                          |
-| `0x10` | `LOAD`                | `<u8>`      | `( -- value )`             | Push value from current frame's locals                   |
-| `0x11` | `STORE`               | `<u8>`      | `( value -- )`             | Pop and store into current scope (local or global)       |
-| `0x12` | `LOAD_GLOBAL`         | `<u8>`      | `( -- value )`             | Push value from `vm.globals` directly                    |
-| `0x20` | `ADD`                 | —           | `( a b -- a+b )`           | Add numbers or concatenate strings                       |
-| `0x21` | `SUB`                 | —           | `( a b -- a-b )`           |                                                          |
-| `0x22` | `MUL`                 | —           | `( a b -- a*b )`           |                                                          |
-| `0x23` | `DIV`                 | —           | `( a b -- a/b )`           | Error on zero divisor                                    |
-| `0x24` | `MOD`                 | —           | `( a b -- a%b )`           |                                                          |
-| `0x25` | `NEG`                 | —           | `( a -- -a )`              |                                                          |
-| `0x30` | `EQ`                  | —           | `( a b -- bool )`          |                                                          |
-| `0x31` | `NEQ`                 | —           | `( a b -- bool )`          |                                                          |
-| `0x32` | `LT`                  | —           | `( a b -- bool )`          |                                                          |
-| `0x33` | `LTE`                 | —           | `( a b -- bool )`          |                                                          |
-| `0x34` | `GT`                  | —           | `( a b -- bool )`          |                                                          |
-| `0x35` | `GTE`                 | —           | `( a b -- bool )`          |                                                          |
-| `0x36` | `NOT`                 | —           | `( a -- bool )`            |                                                          |
-| `0x40` | `JUMP`                | `<u16>`     | `( -- )`                   | Unconditional jump to absolute byte offset               |
-| `0x41` | `JUMP_IF_FALSE`       | `<u16>`     | `( cond -- )`              | Pop condition; jump if falsy                             |
-| `0x42` | `JUMP_IF_TRUE`        | `<u16>`     | `( cond -- )`              | Pop condition; jump if truthy                            |
-| `0x43` | `PEEK_JUMP_IF_FALSE`  | `<u16>`     | `( cond -- cond )`         | Peek (no pop); jump if falsy — used by `and`             |
-| `0x44` | `PEEK_JUMP_IF_TRUE`   | `<u16>`     | `( cond -- cond )`         | Peek (no pop); jump if truthy — used by `or`             |
-| `0x50` | `CALL`                | `<u8> <u8>` | `( args.. -- retval )`     | const idx of name + argc                                 |
-| `0x51` | `RETURN`              | —           | `( value -- )`             |                                                          |
-| `0x52` | `RETURN_NONE`         | —           | `( -- )`                   |                                                          |
-| `0x60` | `MAKE_ARRAY`          | `<u8>`      | `( n items -- array )`     |                                                          |
-| `0x61` | `MAKE_DICT`           | `<u8>`      | `( n pairs -- dict )`      |                                                          |
-| `0x62` | `GET_INDEX`           | —           | `( obj idx -- value )`     |                                                          |
-| `0x63` | `SET_INDEX`           | —           | `( obj idx val -- obj' )`  | Mutate array/dict; push mutated copy                     |
-| `0x70` | `PRINT`               | —           | `( value -- )`             | Write to the VM output sink                              |
-| `0x71` | `POP`                 | —           | `( value -- )`             |                                                          |
-| `0xFF` | `HALT`                | —           | `( -- )`                   | Stop; pop current frame                                  |
+| Code   | Name                  | Operands           | Stack effect               | Description                                              |
+|--------|-----------------------|--------------------|----------------------------|----------------------------------------------------------|
+| `0x00` | `PUSH_CONST`          | `<u8>`             | `( -- value )`             | Push constant at pool index                              |
+| `0x01` | `PUSH_TRUE`           | —                  | `( -- true )`              |                                                          |
+| `0x02` | `PUSH_FALSE`          | —                  | `( -- false )`             |                                                          |
+| `0x03` | `PUSH_NONE`           | —                  | `( -- none )`              |                                                          |
+| `0x10` | `LOAD`                | `<u8>`             | `( -- value )`             | Push value from current frame's locals (or globals)      |
+| `0x11` | `STORE`               | `<u8>`             | `( value -- )`             | Pop and store into current scope                         |
+| `0x12` | `LOAD_GLOBAL`         | `<u8>`             | `( -- value )`             | Push value from `vm.globals` directly                    |
+| `0x13` | `LOAD_UPVALUE`        | `<u8>`             | `( -- value )`             | Push value from the current frame's upvalue list         |
+| `0x14` | `STORE_UPVALUE`       | `<u8>`             | `( value -- )`             | Write through shared upvalue cell                        |
+| `0x15` | `CLOSE_UPVALUE`       | `<u8>`             | `( -- )`                   | Reserved; no-op in current implementation                |
+| `0x20` | `ADD`                 | —                  | `( a b -- a+b )`           | Add numbers or concatenate strings                       |
+| `0x21` | `SUB`                 | —                  | `( a b -- a-b )`           |                                                          |
+| `0x22` | `MUL`                 | —                  | `( a b -- a*b )`           |                                                          |
+| `0x23` | `DIV`                 | —                  | `( a b -- a/b )`           | Error on zero divisor                                    |
+| `0x24` | `MOD`                 | —                  | `( a b -- a%b )`           |                                                          |
+| `0x25` | `NEG`                 | —                  | `( a -- -a )`              |                                                          |
+| `0x30` | `EQ`                  | —                  | `( a b -- bool )`          |                                                          |
+| `0x31` | `NEQ`                 | —                  | `( a b -- bool )`          |                                                          |
+| `0x32` | `LT`                  | —                  | `( a b -- bool )`          |                                                          |
+| `0x33` | `LTE`                 | —                  | `( a b -- bool )`          |                                                          |
+| `0x34` | `GT`                  | —                  | `( a b -- bool )`          |                                                          |
+| `0x35` | `GTE`                 | —                  | `( a b -- bool )`          |                                                          |
+| `0x36` | `NOT`                 | —                  | `( a -- bool )`            |                                                          |
+| `0x40` | `JUMP`                | `<u16>`            | `( -- )`                   | Unconditional jump to absolute byte offset               |
+| `0x41` | `JUMP_IF_FALSE`       | `<u16>`            | `( cond -- )`              | Pop condition; jump if falsy                             |
+| `0x42` | `JUMP_IF_TRUE`        | `<u16>`            | `( cond -- )`              | Pop condition; jump if truthy                            |
+| `0x43` | `PEEK_JUMP_IF_FALSE`  | `<u16>`            | `( cond -- cond )`         | Peek; jump if falsy — used by `and`                      |
+| `0x44` | `PEEK_JUMP_IF_TRUE`   | `<u16>`            | `( cond -- cond )`         | Peek; jump if truthy — used by `or`                      |
+| `0x50` | `CALL`                | `<u8> <u8>`        | `( args.. -- retval )`     | const idx of name + argc                                 |
+| `0x51` | `RETURN`              | —                  | `( value -- )`             |                                                          |
+| `0x52` | `RETURN_NONE`         | —                  | `( -- )`                   |                                                          |
+| `0x53` | `MAKE_CLOSURE`        | variable           | `( -- closure )`           | Create `Value::Closure`; see encoding below              |
+| `0x60` | `MAKE_ARRAY`          | `<u8>`             | `( n items -- array )`     |                                                          |
+| `0x61` | `MAKE_DICT`           | `<u8>`             | `( n pairs -- dict )`      |                                                          |
+| `0x62` | `GET_INDEX`           | —                  | `( obj idx -- value )`     |                                                          |
+| `0x63` | `SET_INDEX`           | —                  | `( obj idx val -- obj' )`  | Mutate array/dict; push mutated copy                     |
+| `0x70` | `PRINT`               | —                  | `( value -- )`             | Write to the VM output sink                              |
+| `0x71` | `POP`                 | —                  | `( value -- )`             |                                                          |
+| `0xFF` | `HALT`                | —                  | `( -- )`                   | Stop; pop current frame                                  |
 
-The instruction set is unchanged from v3.0.0. `else if`, `assert`, `type_of`, and `exit` are implemented entirely in the lexer, parser, and builtin resolver — they require no new opcodes.
+### `MAKE_CLOSURE` encoding
+
+`MAKE_CLOSURE` has a variable-length encoding because each upvalue descriptor
+embeds the variable name string inline:
+
+```
+0x53                      — MAKE_CLOSURE opcode
+<u8>                      — constant-pool index of the chunk name string
+<u8>                      — upvalue count (N)
+for each of N upvalues:
+  <u8>                    — is_local: 1 = local in enclosing frame, 0 = upvalue of enclosing frame
+  <u8>                    — name_len
+  <name_len bytes>        — UTF-8 variable name (if is_local) or decimal slot index (if not)
+```
+
+This encoding is self-contained — it does not depend on any particular chunk's constant pool.
 
 ---
 
@@ -148,31 +171,31 @@ The instruction set is unchanged from v3.0.0. `else if`, `assert`, `type_of`, an
 
 ```rust
 pub struct Chunk {
-    pub code:        Vec<u8>,      // raw bytecode
-    pub constants:   Vec<Value>,   // pool (max 256 entries)
-    pub lines:       Vec<usize>,   // one entry per bytecode byte
-    pub name:        String,       // "<main>" or function name
-    pub param_count: usize,        // 0 for <main>
+    pub code:          Vec<u8>,
+    pub constants:     Vec<Value>,
+    pub lines:         Vec<usize>,
+    pub name:          String,
+    pub param_count:   usize,
+    pub upvalue_count: usize,   // v5: number of upvalues this function closes over
 }
 ```
-
-The constants pool stores all literal values: numbers, strings, and variable/function names (as `Value::Str`). It is indexed by `u8` — max **256 constants per chunk**. Strings are deduplicated.
 
 ---
 
 ## `.whbc` Binary Format
 
 ```
-Magic:        4 bytes   "WHBC"  (0x57 0x48 0x42 0x43)
-Version:      1 byte    0x03 for v3.0.0 and v4.0.0
+Magic:          4 bytes   "WHBC"  (0x57 0x48 0x42 0x43)
+Version:        1 byte    0x04 for v5.0.0
 
-fn_count:     u16 big-endian   (number of chunks, ≥ 1)
+fn_count:       u16 big-endian   (number of chunks, ≥ 1)
 
 For each chunk  (index 0 = <main>):
   name_len:     u16 big-endian
   name:         UTF-8 bytes (name_len bytes)
   param_count:  u8
-  const_count:  u8              (0–255)
+  upvalue_count:u8                          ← NEW in v5
+  const_count:  u8                          (0–255)
   For each constant:
     tag:        u8
       0 = Number  → 8 bytes IEEE-754 big-endian f64
@@ -185,7 +208,11 @@ For each chunk  (index 0 = <main>):
   lines:        lines_len × u32 big-endian  (one per bytecode byte)
 ```
 
-The format version remains `0x03`. v4.0.0 introduces no changes to the binary format — `.whbc` files produced by v3.0.0 and v4.0.0 are fully interchangeable.
+**Version history:**
+- `0x03` — v3.0.0 / v4.0.0 (no `upvalue_count` field)
+- `0x04` — v5.0.0 (adds `upvalue_count` field per chunk)
+
+Files from different versions are not interchangeable. Recompile from source when upgrading.
 
 ---
 
@@ -193,28 +220,32 @@ The format version remains `0x03`. v4.0.0 introduces no changes to the binary fo
 
 ```rust
 struct CallFrame {
-    chunk:  Chunk,
-    ip:     usize,
-    locals: HashMap<String, Value>,   // parameters + inner lets
+    chunk:         Rc<Chunk>,
+    ip:            usize,
+    locals:        HashMap<String, Value>,
+    upvalues:      Vec<Rc<RefCell<Upvalue>>>,  // captured from enclosing scope
+    open_upvalues: HashMap<String, Rc<RefCell<Upvalue>>>, // locals this frame has shared
 }
 ```
 
 **On `CALL name_idx argc`:**
-1. Pop `argc` arguments from the stack (last arg on top); reverse them.
-2. If `name` matches a built-in → call directly, push result, done.
-3. Look up `name` in `vm.functions`.
-4. Check arity: `argc != chunk.param_count` → `ArgumentCount` error.
-5. Create a new `CallFrame` with empty locals.
-6. Push arguments back for the preamble to consume.
-7. Push the new frame.
+1. Pop `argc` arguments from the stack; reverse them.
+2. If `name == "__callee__"` → pop the callee value from the stack and dispatch as closure.
+3. If `name` matches a built-in → call directly, push result.
+4. If a local/global with this name holds a `Value::Closure` → dispatch as closure.
+5. Look up `name` in `vm.functions` (named function table).
+6. Check arity: `argc != chunk.param_count` → `ArgumentCount` error.
+7. Push a new `CallFrame`.
 
-**Function preamble (compiler-generated):**
-```
-fn f(a, b, c):  STORE c, STORE b, STORE a   (reverse order)
-```
+**On `MAKE_CLOSURE name_idx uv_count [descriptors...]`:**
+1. Look up the chunk prototype by name.
+2. For each upvalue descriptor:
+   - `is_local = true` → find or create a shared `Rc<RefCell<Upvalue>>` cell for the named local in the current frame, recording it in `open_upvalues`.
+   - `is_local = false` → re-use the parent upvalue cell at the given slot index.
+3. Push `Value::Closure { chunk, upvalues }`.
 
-**On `RETURN` / `RETURN_NONE`:** pop frame, push return value.
-**On `HALT`:** pop frame, return `Ok(())`.
+**On `STORE` when a local is captured:**
+`store()` also writes through any `open_upvalue` cell for that name, so all closures that share the cell see the new value immediately.
 
 ---
 
@@ -224,30 +255,60 @@ fn f(a, b, c):  STORE c, STORE b, STORE a   (reverse order)
 loop:
   byte = frame.chunk.code[frame.ip]; frame.ip += 1
   match opcode(byte):
-    ...
-    LOAD        idx  → push( frame.locals[const_str(idx)] )
+    LOAD        idx  → push( frame.locals[const_str(idx)] ) or globals fallback
     LOAD_GLOBAL idx  → push( vm.globals[const_str(idx)] )
+    LOAD_UPVALUE slot → push( frame.upvalues[slot].borrow().get().clone() )
     STORE       idx  →
+      write through open_upvalue cell if one exists for this name
       if in function:  frame.locals[const_str(idx)] = pop()
       else:            vm.globals[const_str(idx)]   = pop()
+    STORE_UPVALUE slot → frame.upvalues[slot].borrow_mut().set(pop())
     ...
 ```
 
-**Truthiness:** `false`, `0`, `""`, `[]`, `{}`, `none` are falsy. Everything else is truthy.
+**Truthiness:** `false`, `0`, `""`, `[]`, `{}`, `none` are falsy. Everything else (including closures) is truthy.
 
 ---
 
 ## Variable Scoping
 
-| Scope  | Storage                        | Lifetime          |
-|--------|--------------------------------|-------------------|
-| Global | `vm.globals: HashMap`          | Entire program    |
-| Local  | `frame.locals: HashMap`        | One function call |
+| Scope    | Storage                                       | Lifetime          |
+|----------|-----------------------------------------------|-------------------|
+| Global   | `vm.globals: HashMap`                         | Entire program    |
+| Local    | `frame.locals: HashMap`                       | One function call |
+| Upvalue  | `Rc<RefCell<Upvalue>>` shared heap cell       | Until all closures that reference it are dropped |
 
-`LOAD` reads only `frame.locals`; `LOAD_GLOBAL` reads only `vm.globals`. The compiler ensures the right opcode is emitted for each variable reference.
+`LOAD` reads `frame.locals` first, then `vm.globals` as fallback.
+`LOAD_GLOBAL` reads only `vm.globals`.
+`LOAD_UPVALUE` reads the upvalue cell at the given slot index.
 
-Functions **read** globals via `LOAD_GLOBAL`.
-Functions **cannot mutate** globals — `STORE` inside a function writes to `frame.locals`.
+---
+
+## Closures and Upvalues
+
+### Capture model
+
+Whispem uses **eager capture with shared mutation**:
+
+1. When `MAKE_CLOSURE` executes, each captured local is looked up in the enclosing frame's locals and wrapped in an `Rc<RefCell<Upvalue>>` cell.
+2. The cell is stored in the enclosing frame's `open_upvalues` map (keyed by variable name).
+3. The same `Rc` is shared with the new closure's upvalue list.
+4. When the enclosing frame later `STORE`s to the variable, it also writes through the cell — so the closure sees the new value.
+5. When multiple closures capture the same variable, they all share the same `Rc`. Mutations via `STORE_UPVALUE` are immediately visible to all sharers.
+
+### Example
+
+```wsp
+fn make_counter() {
+    let count = 0
+    return fn() {
+        let count = count + 1   # LOAD_UPVALUE 0, ADD, STORE_UPVALUE 0
+        return count             # LOAD_UPVALUE 0
+    }
+}
+```
+
+The inner lambda captures `count` as upvalue slot 0. Each call reads and writes through the shared cell. Across calls, the cell retains the updated value.
 
 ---
 
@@ -259,51 +320,59 @@ All errors are `WhispemError { kind: ErrorKind, span: Span }`.
 pub struct Span { pub line: usize, pub column: usize }
 ```
 
-### v4.0.0 new error kinds
+### v5.0.0 new error kinds
 
 | Kind | When |
 |------|------|
-| `AssertionFailed(String)` | `assert()` called with a falsy condition |
-| `Exit(i64)` | `exit(code)` called — not printed, propagated to OS |
+| `UpvalueError(String)` | Internal upvalue invariant violated (compiler bug) |
 
-### Existing error kinds (unchanged)
+### Full error kind table
 
 | Kind | When |
 |------|------|
 | `InvalidBytecode(String)` | Bad magic, wrong version, truncated `.whbc` |
-| `SerializationError(String)` | Name too long, unsupported constant type |
+| `SerializationError(String)` | Constant type not serialisable |
 | `UndefinedVariable` | `LOAD` / `LOAD_GLOBAL` of unknown name |
-| `UndefinedFunction` | `CALL` of unknown name |
+| `UndefinedFunction` | `CALL` of unknown name (not a builtin, not a closure) |
 | `ArgumentCount` | Wrong arity |
 | `TypeError` | Operation on wrong type |
 | `IndexOutOfBounds` | Array index out of range |
 | `DivisionByZero` | `DIV` or `MOD` with zero |
 | `StackUnderflow` | Compiler bug |
+| `AssertionFailed(String)` | `assert()` called with falsy condition |
+| `Exit(i64)` | `exit(code)` — propagates to CLI, not printed |
+| `UpvalueError(String)` | v5.0.0 — upvalue in invalid state |
 
-`Exit` is special: it is caught by the CLI (`main.rs`) and passed to `process::exit` without printing anything. All other error kinds print to stderr and exit with code 1.
+`Exit` is caught by the CLI and passed to `process::exit` without printing.
 
 ---
 
 ## Compilation: AST → Bytecode
 
-### Two-pass compilation
+### Three-pass compilation
 
-1. **First pass** — collect all top-level `let` names into `global_names`. Compile all `fn` declarations into separate chunks.
-2. **Second pass** — compile the main body.
+1. **First pass** — collect all top-level `let` names into `global_names`.
+2. **Second pass** — compile all named `fn` declarations (enables forward calls).
+3. **Third pass** — compile the main body.
 
-### `else if` — no bytecode impact
+### f-strings — zero VM impact
 
-`else if` is collapsed to `ElseIf` by the lexer before the parser runs. The parser produces nested `Stmt::If` nodes in the `else_branch` — the same structure that `else { if ... }` produces. The compiler sees no difference.
+`f"Hello, {name}!"` is desugared by the **parser** into a chain of `Binary::Add` nodes before the compiler sees it. The compiler emits the same `ADD` sequences as hand-written `"Hello, " + name + "!"`. No new opcodes, no new AST nodes visible to the compiler.
 
-### `assert`, `type_of`, `exit` — compiled as calls
+### Lambdas — `MAKE_CLOSURE` with empty upvalue list (or captured vars)
 
 ```
-assert(cond, msg)   →   PUSH_CONST cond, PUSH_CONST msg, CALL assert 2
-type_of(v)          →   PUSH_CONST v, CALL type_of 1
-exit(0)             →   PUSH_CONST 0, CALL exit 1
+fn(x) { return x * 2 }
 ```
+compiles to:
+```
+MAKE_CLOSURE '__lambda_1_0' (0 upvalues)
+```
+The lambda chunk is stored in `functions` under its generated name.
 
-These are builtin calls resolved at runtime by `call_builtin`. No new opcodes.
+### `else if` — zero bytecode impact
+
+`else if` is collapsed to `ElseIf` by the lexer; the parser builds nested `Stmt::If` nodes — identical AST to `else { if ... }`. The compiler sees no difference.
 
 ### Jump patching
 
@@ -329,87 +398,102 @@ after:
 
 ## Example: Annotated Bytecode
 
-### `else if` compiles identically to nested `if`
+### Closure with shared mutable counter
 
 ```wsp
-if x == 1 { print "one" }
-else if x == 2 { print "two" }
-else { print "other" }
+fn make_counter() {
+    let count = 0
+    return fn() {
+        let count = count + 1
+        return count
+    }
+}
 ```
 
 ```
-0000  LOAD x
-0002  PUSH_CONST 1
-0004  EQ
-0005  JUMP_IF_FALSE  → 0014      ← jump to else-if
-0008  PUSH_CONST "one"
-0010  PRINT
-0011  JUMP           → 0028      ← jump past all branches
-0014  LOAD x                     ← else-if branch
-0016  PUSH_CONST 2
-0018  EQ
-0019  JUMP_IF_FALSE  → 0026
-0022  PUSH_CONST "two"
-0024  PRINT
-0025  JUMP           → 0028
-0026  PUSH_CONST "other"         ← else branch
-0028  PRINT
+== make_counter ==
+0000     2  STORE                0    'count'        ← param_count=0, stores 0
+0002     3  PUSH_CONST           0    '0'
+0004     3  STORE                0    'count'
+0006     4  MAKE_CLOSURE         1    '__lambda_4_0' (1 upvalues)
+              [is_local=1 name='count']
+0014     4  RETURN
+0015     4  RETURN_NONE
+
+== __lambda_4_0 ==
+0000     5  LOAD_UPVALUE         0               ← read count from shared cell
+0002     5  PUSH_CONST           0    '1'
+0004     5  ADD
+0005     5  STORE_UPVALUE        0               ← write back through shared cell
+0007     6  LOAD_UPVALUE         0
+0009     6  RETURN
+0010     6  RETURN_NONE
 ```
 
-This is byte-for-byte identical to the output of `else { if x == 2 { ... } else { ... } }`.
+### f-string desugaring
+
+```wsp
+let name = "Em"
+print f"Hello, {name}!"
+```
+Compiles identically to:
+```wsp
+let name = "Em"
+print "Hello, " + name + "!"
+```
 
 ---
 
 ## Built-in Functions
 
-Built-ins are resolved at `CALL` time before checking user-defined functions.
+Built-ins are resolved at `CALL` time before checking user-defined functions or closures.
 
-| Name         | Signature                        | Description                    |
-|--------------|----------------------------------|--------------------------------|
-| `length`     | `(array\|string\|dict) → number` |                                |
-| `push`       | `(array, value) → array`         | Returns new array              |
-| `pop`        | `(array) → value`                | Returns last element           |
-| `reverse`    | `(array) → array`                |                                |
-| `slice`      | `(array, start, end) → array`    | `[start, end)`                 |
-| `range`      | `(start, end) → array`           | Integer range                  |
-| `input`      | `(prompt?) → string`             |                                |
-| `read_file`  | `(path) → string`                |                                |
-| `write_file` | `(path, content) → none`         |                                |
-| `keys`       | `(dict) → array`                 | Sorted                         |
-| `values`     | `(dict) → array`                 | Sorted by key                  |
-| `has_key`    | `(dict, key) → bool`             |                                |
-| `char_at`    | `(string, index) → string`       |                                |
-| `substr`     | `(string, start, len) → string`  |                                |
-| `ord`        | `(string) → number`              | Unicode codepoint              |
-| `num_to_str` | `(number) → string`              |                                |
-| `str_to_num` | `(string) → number`              |                                |
-| `args`       | `() → array`                     | Script arguments               |
-| `num_to_hex` | `(number) → string`              | IEEE-754 f64 as 16-char hex    |
-| `write_hex`  | `(path, hex) → none`             | Hex string → binary file       |
-| `type_of`    | `(value) → string`               | **v4.0.0** runtime type name   |
-| `assert`     | `(cond, msg?) → none`            | **v4.0.0** raises on falsy     |
-| `exit`       | `(code?) → none`                 | **v4.0.0** terminates program  |
+| Name         | Signature                              | Description                    |
+|--------------|----------------------------------------|--------------------------------|
+| `length`     | `(array\|string\|dict) → number`       |                                |
+| `push`       | `(array, value) → array`               | Returns new array              |
+| `pop`        | `(array) → value`                      | Returns last element           |
+| `reverse`    | `(array) → array`                      |                                |
+| `slice`      | `(array, start, end) → array`          | `[start, end)`                 |
+| `range`      | `(start, end) → array`                 | Integer range                  |
+| `input`      | `(prompt?) → string`                   |                                |
+| `read_file`  | `(path) → string`                      |                                |
+| `write_file` | `(path, content) → none`               |                                |
+| `keys`       | `(dict) → array`                       | Sorted                         |
+| `values`     | `(dict) → array`                       | Sorted by key                  |
+| `has_key`    | `(dict, key) → bool`                   |                                |
+| `char_at`    | `(string, index) → string`             |                                |
+| `substr`     | `(string, start, len) → string`        |                                |
+| `ord`        | `(string) → number`                    | Unicode codepoint              |
+| `num_to_str` | `(number) → string`                    |                                |
+| `str_to_num` | `(string) → number`                    |                                |
+| `args`       | `() → array`                           | Script arguments               |
+| `num_to_hex` | `(number) → string`                    | IEEE-754 f64 as 16-char hex    |
+| `write_hex`  | `(path, hex) → none`                   | Hex string → binary file       |
+| `type_of`    | `(value) → string`                     | Runtime type name              |
+| `assert`     | `(cond, msg?) → none`                  | Raises on falsy                |
+| `exit`       | `(code?) → none`                       | Terminates program             |
 
 ---
 
 ## Source Files
 
-| File              | Role                                          |
-|-------------------|-----------------------------------------------|
-| `compiler/wsc.wsp`| Self-hosted compiler (1724 lines of Whispem)  |
-| `vm/wvm.c`        | Standalone C VM — `--dump`, REPL, ~2000 lines |
-| `src/value.rs`    | `Value` enum                                  |
-| `src/opcode.rs`   | `OpCode` enum — 34 opcodes (unchanged)        |
-| `src/chunk.rs`    | `Chunk` + `serialise` + `deserialise`         |
-| `src/compiler.rs` | AST → bytecode (unchanged from v3)            |
-| `src/vm.rs`       | Rust VM loop — `assert`, `type_of`, `exit`    |
-| `src/error.rs`    | `WhispemError`, `ErrorKind`, `Span`           |
-| `src/lexer.rs`    | Tokeniser — `else if` collapse pass           |
-| `src/parser.rs`   | Parser — `else if`, `assert`, `type_of`, `exit` |
-| `src/token.rs`    | Token types — `ElseIf`, `Assert`, `TypeOf`, `Exit` |
-| `src/main.rs`     | CLI — `handle_vm_error`, 110 Rust tests       |
+| File              | Role                                              |
+|-------------------|---------------------------------------------------|
+| `src/value.rs`    | `Value` enum — includes `Closure`, `Upvalue`      |
+| `src/opcode.rs`   | `OpCode` enum — 38 opcodes                        |
+| `src/chunk.rs`    | `Chunk` + `serialise` + `deserialise`             |
+| `src/compiler.rs` | AST → bytecode — upvalue analysis, closure emit   |
+| `src/vm.rs`       | Rust VM loop — closure dispatch, upvalue cells    |
+| `src/error.rs`    | `WhispemError`, `ErrorKind`, `Span`               |
+| `src/lexer.rs`    | Tokeniser — `else if` collapse, f-string lexing   |
+| `src/parser.rs`   | Parser — lambdas, f-string desugaring, `CallExpr` |
+| `src/token.rs`    | Token types — `FStr`, `ElseIf`, `Assert`, `TypeOf`, `Exit` |
+| `src/ast.rs`      | AST — `Lambda`, `CallExpr`, `FStr`, `FStrPart`    |
+| `src/main.rs`     | CLI — `handle_vm_error`, 130 Rust tests · 37 autonomous tests           |
+| `vm/wvm.c`        | Standalone C VM — full v5 support, ~1000 lines    |
 
 ---
 
-**Whispem VM — v4.0.0**
-*Self-hosted. Standalone. Bootstrappable.*
+**Whispem VM — v5.0.0**
+*Closures. Lambdas. F-strings. Self-hosted. Standalone.*

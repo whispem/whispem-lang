@@ -1,6 +1,10 @@
-# wsc.wsp — Whispem Self-hosted Compiler v4.0
+# wsc.wsp — Whispem Self-hosted Compiler v5.0
 # Reads a .wsp source file, compiles it, writes a .whbc bytecode file.
 # Usage: whispem compiler/wsc.wsp <source.wsp>
+#
+# v5 changes vs v4:
+#   - Format version byte: 03 → 04
+#   - serialise_chunk emits upvalue_count = 0 after param_count
 
 # ── Opcodes ───────────────────────────────────────────────────────────────────
 let OP_PUSH_CONST    = 0
@@ -187,16 +191,21 @@ fn lex(src) {
                                                             ls["str_val"] = ls["str_val"] + "\t"
                                                             ls["pos"]     = ls["pos"] + 2
                                                         } else {
-                                                            if nc == "\"" {
-                                                                ls["str_val"] = ls["str_val"] + "\""
+                                                            if nc == "r" {
+                                                                ls["str_val"] = ls["str_val"] + "\r"
                                                                 ls["pos"]     = ls["pos"] + 2
                                                             } else {
-                                                                if nc == "\\" {
-                                                                    ls["str_val"] = ls["str_val"] + "\\"
+                                                                if nc == "\"" {
+                                                                    ls["str_val"] = ls["str_val"] + "\""
                                                                     ls["pos"]     = ls["pos"] + 2
                                                                 } else {
-                                                                    ls["str_val"] = ls["str_val"] + c
-                                                                    ls["pos"]     = ls["pos"] + 1
+                                                                    if nc == "\\" {
+                                                                        ls["str_val"] = ls["str_val"] + "\\"
+                                                                        ls["pos"]     = ls["pos"] + 2
+                                                                    } else {
+                                                                        ls["str_val"] = ls["str_val"] + c
+                                                                        ls["pos"]     = ls["pos"] + 1
+                                                                    }
                                                                 }
                                                             }
                                                         }
@@ -218,6 +227,43 @@ fn lex(src) {
                                                 ls["tokens"] = push(ls["tokens"], make_tok("NUMBER", nstr, ls["line"]))
                                             } else {
                                                 if is_alpha(ch) {
+                                                    if ch == "f" and ls["pos"] + 1 < slen and char_at(src, ls["pos"] + 1) == "\"" {
+                                                        ls["pos"]     = ls["pos"] + 2
+                                                        ls["str_val"] = ""
+                                                        while ls["pos"] < slen and char_at(src, ls["pos"]) != "\"" {
+                                                            let c = char_at(src, ls["pos"])
+                                                            if c == "\\" and ls["pos"] + 1 < slen {
+                                                                let nc = char_at(src, ls["pos"] + 1)
+                                                                if nc == "n" {
+                                                                    ls["str_val"] = ls["str_val"] + "\n"
+                                                                    ls["pos"]     = ls["pos"] + 2
+                                                                } else {
+                                                                    if nc == "t" {
+                                                                        ls["str_val"] = ls["str_val"] + "\t"
+                                                                        ls["pos"]     = ls["pos"] + 2
+                                                                    } else {
+                                                                        if nc == "\"" {
+                                                                            ls["str_val"] = ls["str_val"] + "\""
+                                                                            ls["pos"]     = ls["pos"] + 2
+                                                                        } else {
+                                                                            if nc == "\\" {
+                                                                                ls["str_val"] = ls["str_val"] + "\\"
+                                                                                ls["pos"]     = ls["pos"] + 2
+                                                                            } else {
+                                                                                ls["str_val"] = ls["str_val"] + c
+                                                                                ls["pos"]     = ls["pos"] + 1
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                ls["str_val"] = ls["str_val"] + c
+                                                                ls["pos"]     = ls["pos"] + 1
+                                                            }
+                                                        }
+                                                        ls["pos"]    = ls["pos"] + 1
+                                                        ls["tokens"] = push(ls["tokens"], make_tok("FSTR", ls["str_val"], ls["line"]))
+                                                    } else {
                                                     let ws = ls["pos"]
                                                     while ls["pos"] < slen and is_alnum(char_at(src, ls["pos"])) {
                                                         ls["pos"] = ls["pos"] + 1
@@ -225,6 +271,7 @@ fn lex(src) {
                                                     let word     = substr(src, ws, ls["pos"] - ws)
                                                     let kind     = keyword_kind(word)
                                                     ls["tokens"] = push(ls["tokens"], make_tok(kind, word, ls["line"]))
+                                                    }
                                                 } else {
                                                     ls["pos"] = ls["pos"] + 1
                                                 }
@@ -581,7 +628,6 @@ fn parse_stmt(ps) {
         return ps_ret(st["ps"], node("Function", d))
     }
 
-    # assert(cond) or assert(cond, msg) — treated as a call expression statement
     if k == "ASSERT" {
         st["ps"] = ps_adv(st["ps"])
         st["ps"] = ps_eat(st["ps"], "LPAREN")
@@ -606,7 +652,6 @@ fn parse_stmt(ps) {
         return ps_ret(st["ps"], node("Expr", d))
     }
 
-    # exit() or exit(code)
     if k == "EXIT" {
         st["ps"] = ps_adv(st["ps"])
         st["args"] = []
@@ -708,8 +753,6 @@ fn parse_stmt(ps) {
     return ps_ret(st["ps"], node("Expr", d))
 }
 
-# Parse else / else if branch after an if block.
-# Returns ps with result = list of stmts (possibly empty).
 fn parse_else_branch(ps, ln) {
     let st = {}
     st["ps"] = ps_skip(ps)
@@ -929,6 +972,86 @@ fn parse_postfix(ps) {
     return ps_ret(st["ps"], st["expr"])
 }
 
+# ── F-string desugaring ───────────────────────────────────────────────────────
+# Splits raw f-string content into literal and expression parts,
+# re-lexes each expression hole, and folds into a left-associative ADD chain.
+
+fn fstr_desugar(raw) {
+    let st = {}
+    st["i"]     = 0
+    st["len"]   = length(raw)
+    st["parts"] = []
+
+    while st["i"] < st["len"] {
+        if char_at(raw, st["i"]) == "{" {
+            st["i"] = st["i"] + 1
+            let expr_src = ""
+            let depth = 1
+            while st["i"] < st["len"] and depth > 0 {
+                let c = char_at(raw, st["i"])
+                if c == "{" { let depth = depth + 1 }
+                if c == "}" { let depth = depth - 1 }
+                if depth > 0 {
+                    let expr_src = expr_src + c
+                }
+                st["i"] = st["i"] + 1
+            }
+            let part = {}
+            part["kind"] = "expr"
+            part["src"]  = expr_src
+            st["parts"] = push(st["parts"], part)
+        } else {
+            let lit = ""
+            while st["i"] < st["len"] and char_at(raw, st["i"]) != "{" {
+                let lit = lit + char_at(raw, st["i"])
+                st["i"] = st["i"] + 1
+            }
+            let part = {}
+            part["kind"] = "lit"
+            part["src"]  = lit
+            st["parts"] = push(st["parts"], part)
+        }
+    }
+
+    let nodes = []
+    let pi = 0
+    while pi < length(st["parts"]) {
+        let p = st["parts"][pi]
+        if p["kind"] == "lit" {
+            let e = {}
+            e["kind"]  = "Str"
+            e["value"] = p["src"]
+            let nodes = push(nodes, e)
+        } else {
+            let toks = lex(p["src"])
+            let ps2  = make_ps(toks)
+            let ps2  = parse_expr(ps2)
+            let nodes = push(nodes, ps2["result"])
+        }
+        let pi = pi + 1
+    }
+
+    if length(nodes) == 0 {
+        let e = {}
+        e["kind"]  = "Str"
+        e["value"] = ""
+        return e
+    }
+
+    let acc = nodes[0]
+    let ni = 1
+    while ni < length(nodes) {
+        let e = {}
+        e["kind"]  = "Binary"
+        e["op"]    = "+"
+        e["left"]  = acc
+        e["right"] = nodes[ni]
+        let acc = e
+        let ni = ni + 1
+    }
+    return acc
+}
+
 fn parse_primary(ps) {
     let k = ps_kind(ps)
 
@@ -947,6 +1070,13 @@ fn parse_primary(ps) {
         let e = {}
         e["kind"]  = "Str"
         e["value"] = v
+        return ps_ret(p2, e)
+    }
+
+    if k == "FSTR" {
+        let v  = ps_val(ps)
+        let p2 = ps_adv(ps)
+        let e  = fstr_desugar(v)
         return ps_ret(p2, e)
     }
 
@@ -1039,7 +1169,6 @@ fn parse_primary(ps) {
         return ps_ret(st["ps"], e)
     }
 
-    # type_of and assert as expression primaries (e.g. in let x = type_of(v))
     if k == "TYPE_OF" or k == "ASSERT" or k == "EXIT" {
         let name = ps_val(ps)
         let p2 = ps_adv(ps)
@@ -1633,6 +1762,8 @@ fn serialise_chunk(c) {
     }
 
     acc["out"] = acc["out"] + byte_to_hex(pc)
+    # v5: emit upvalue_count = 0 (self-hosted compiler does not compile closures)
+    acc["out"] = acc["out"] + "00"
     acc["out"] = acc["out"] + byte_to_hex(nc)
     st["ci"] = 0
     while st["ci"] < nc {
@@ -1662,7 +1793,8 @@ fn serialise_chunk(c) {
 
 fn serialise(ctx) {
     let acc     = {}
-    acc["out"]  = "57484243" + "03"
+    # v5: version byte 04 (was 03 in v4)
+    acc["out"]  = "57484243" + "04"
     acc["all"]  = [ctx["chunk"]]
     let fn_keys = keys(ctx["functions"])
     let st = {}
@@ -1696,7 +1828,7 @@ fn main() {
     let slen = length(source_path)
     let out_path = substr(source_path, 0, slen - 4) + ".whbc"
 
-    print "=== wsc.wsp -- Whispem Self-hosted Compiler v4.0 ==="
+    print "=== wsc.wsp -- Whispem Self-hosted Compiler v5.0 ==="
     print ""
     print "Source: " + source_path
     print ""

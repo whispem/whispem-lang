@@ -1,6 +1,6 @@
-# Whispem v4.0.0 — Feature Test Suite
+# Whispem v5.0.0 — Autonomous Feature Test Suite
 
-print "=== v4.0.0 Feature Tests ==="
+print "=== v5.0.0 Feature Tests ==="
 
 # ── else if ───────────────────────────────────────────────────────────────────
 print ""
@@ -39,12 +39,10 @@ else if score >= 80 { print "B" }
 else if score >= 70 { print "C" }
 else { print "F" }
 
-# else if with no else — no output expected for x == 99
 let x = 99
 if x == 1 { print "one" }
 else if x == 2 { print "two" }
 
-# else if in a loop (FizzBuzz)
 print ""
 print "=== else if FizzBuzz ==="
 for n in range(1, 16) {
@@ -88,6 +86,17 @@ assert(1 == 1, "math broken")
 assert(length([1, 2, 3]) == 3, "length broken")
 assert("hello" != "world", "strings broken")
 print "all assertions passed"
+
+# ── f-strings (v5) ────────────────────────────────────────────────────────────
+print ""
+print "=== f-strings ==="
+
+let name = "Em"
+let score = 42
+print f"Hello, {name}!"
+print f"Score: {score}"
+print f"Double: {score * 2}"
+print f"{length([1, 2, 3])} items"
 
 # ── exit ──────────────────────────────────────────────────────────────────────
 print ""

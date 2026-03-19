@@ -4,24 +4,27 @@ use crate::value::Value;
 
 #[derive(Debug, Clone)]
 pub struct Chunk {
-    pub code:        Vec<u8>,
-    pub constants:   Vec<Value>,
-    pub lines:       Vec<usize>,
-    pub name:        String,
-    pub param_count: usize,
+    pub code:         Vec<u8>,
+    pub constants:    Vec<Value>,
+    pub lines:        Vec<usize>,
+    pub name:         String,
+    pub param_count:  usize,
+    // Number of upvalues this function closes over.
+    pub upvalue_count: usize,
 }
 
-pub const MAGIC: &[u8; 4] = b"WHBC";
-pub const FORMAT_VERSION: u8 = 3;
+pub const MAGIC:          &[u8; 4] = b"WHBC";
+pub const FORMAT_VERSION: u8       = 4;
 
 impl Chunk {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
-            code:        Vec::new(),
-            constants:   Vec::new(),
-            lines:       Vec::new(),
-            name:        name.into(),
-            param_count: 0,
+            code:          Vec::new(),
+            constants:     Vec::new(),
+            lines:         Vec::new(),
+            name:          name.into(),
+            param_count:   0,
+            upvalue_count: 0,
         }
     }
 
@@ -36,19 +39,19 @@ impl Chunk {
 
     pub fn emit_op_u8(&mut self, op: OpCode, operand: u8, line: usize) {
         self.emit_byte(op as u8, line);
-        self.emit_byte(operand, line);
+        self.emit_byte(operand,  line);
     }
 
     pub fn emit_op_u16(&mut self, op: OpCode, operand: u16, line: usize) {
-        self.emit_byte(op as u8, line);
-        self.emit_byte((operand >> 8) as u8, line);
+        self.emit_byte(op as u8,              line);
+        self.emit_byte((operand >> 8) as u8,  line);
         self.emit_byte((operand & 0xFF) as u8, line);
     }
 
     pub fn emit_jump(&mut self, op: OpCode, line: usize) -> usize {
         self.emit_byte(op as u8, line);
-        self.emit_byte(0xFF, line);
-        self.emit_byte(0xFF, line);
+        self.emit_byte(0xFF,     line);
+        self.emit_byte(0xFF,     line);
         self.code.len() - 2
     }
 
@@ -59,12 +62,18 @@ impl Chunk {
     }
 
     pub fn add_constant(&mut self, value: Value) -> u8 {
-        if let Value::Str(ref s) = value {
-            for (i, existing) in self.constants.iter().enumerate() {
-                if let Value::Str(ref e) = existing {
-                    if e == s { return i as u8; }
-                }
-            }
+        // Deduplicate strings and numbers — matches wsc.wsp behaviour.
+        let duplicate = match &value {
+            Value::Str(s) => self.constants.iter().position(|c| {
+                matches!(c, Value::Str(e) if e == s)
+            }),
+            Value::Number(n) => self.constants.iter().position(|c| {
+                matches!(c, Value::Number(e) if e.to_bits() == n.to_bits())
+            }),
+            _ => None,
+        };
+        if let Some(idx) = duplicate {
+            return idx as u8;
         }
         assert!(self.constants.len() < 256, "constants pool overflow in '{}'", self.name);
         let idx = self.constants.len() as u8;
@@ -74,6 +83,7 @@ impl Chunk {
 
     pub fn current_offset(&self) -> usize { self.code.len() }
 }
+
 
 pub fn serialise(
     main_chunk: &Chunk,
@@ -107,7 +117,8 @@ fn write_chunk(chunk: &Chunk, out: &mut Vec<u8>) -> WhispemResult<()> {
     out.push((nl >> 8) as u8);
     out.push((nl & 0xFF) as u8);
     out.extend_from_slice(name_bytes);
-    out.push(chunk.param_count as u8);
+    out.push(chunk.param_count   as u8);
+    out.push(chunk.upvalue_count as u8);
 
     if chunk.constants.len() > 256 {
         return Err(WhispemError::runtime(ErrorKind::SerializationError(
@@ -152,14 +163,15 @@ fn write_const(v: &Value, out: &mut Vec<u8>) -> WhispemResult<()> {
             out.extend_from_slice(bytes);
         }
         Value::None => { out.push(3); }
-        Value::Array(_) | Value::Dict(_) => {
+        Value::Array(_) | Value::Dict(_) | Value::Closure { .. } => {
             return Err(WhispemError::runtime(ErrorKind::SerializationError(
-                "arrays and dicts cannot appear in the constants pool".to_string(),
+                "arrays, dicts, and closures cannot appear in the constants pool".to_string(),
             )));
         }
     }
     Ok(())
 }
+
 
 pub fn deserialise(
     data: &[u8],
@@ -202,9 +214,9 @@ fn read_chunk(data: &[u8], mut cursor: usize) -> WhispemResult<(Chunk, usize)> {
         .to_string();
     cursor += name_len;
 
-    need(data, cursor, 1)?;
-    let param_count = data[cursor] as usize;
-    cursor += 1;
+    need(data, cursor, 2)?;
+    let param_count   = data[cursor] as usize; cursor += 1;
+    let upvalue_count = data[cursor] as usize; cursor += 1;
 
     need(data, cursor, 1)?;
     let const_count = data[cursor] as usize;
@@ -232,7 +244,7 @@ fn read_chunk(data: &[u8], mut cursor: usize) -> WhispemResult<(Chunk, usize)> {
     }
     cursor += lines_len * 4;
 
-    Ok((Chunk { code, constants, lines, name, param_count }, cursor))
+    Ok((Chunk { code, constants, lines, name, param_count, upvalue_count }, cursor))
 }
 
 fn read_const(data: &[u8], mut cursor: usize) -> WhispemResult<(Value, usize)> {
@@ -267,6 +279,7 @@ fn read_const(data: &[u8], mut cursor: usize) -> WhispemResult<(Value, usize)> {
     }
 }
 
+
 impl Chunk {
     pub fn disassemble(&self) {
         println!("== {} ==", self.name);
@@ -294,40 +307,60 @@ impl Chunk {
             }
         };
 
-        match op.operand_size() {
-            0 => { println!("{}", op.name()); offset + 1 }
-            1 => {
-                let idx = self.code[offset + 1] as usize;
-                println!("{:<20} {:3}    {}", op.name(), idx, self.constant_annotation(idx));
-                offset + 2
-            }
-            2 => {
-                match op {
-                    OpCode::Jump
-                    | OpCode::JumpIfFalse
-                    | OpCode::JumpIfTrue
-                    | OpCode::PeekJumpIfFalse
-                    | OpCode::PeekJumpIfTrue => {
-                        let hi = self.code[offset + 1] as u16;
-                        let lo = self.code[offset + 2] as u16;
-                        println!("{:<20}        -> {:04}", op.name(), (hi << 8) | lo);
-                    }
-                    OpCode::Call => {
-                        let name_idx = self.code[offset + 1] as usize;
-                        let argc     = self.code[offset + 2];
-                        println!(
-                            "{:<20} {:3}    {} ({} args)",
-                            op.name(), name_idx, self.constant_annotation(name_idx), argc
-                        );
-                    }
-                    _ => {
-                        println!("{:<20} {:#04x} {:#04x}", op.name(),
-                                 self.code[offset + 1], self.code[offset + 2]);
+        match op {
+            OpCode::MakeClosure => {
+                let name_idx = self.code[offset + 1] as usize;
+                let uv_count = self.code[offset + 2] as usize;
+                println!(
+                    "{:<20} {:3}    {} ({} upvalues)",
+                    op.name(), name_idx, self.constant_annotation(name_idx), uv_count
+                );
+                // Variable-length descriptors: (is_local: 1) + (name_len: 1) + (name_len bytes)
+                let mut pos = offset + 3;
+                for _ in 0..uv_count {
+                    pos += 1; // is_local
+                    if pos < self.code.len() {
+                        let nl = self.code[pos] as usize;
+                        pos += 1 + nl;
                     }
                 }
-                offset + 3
+                pos
             }
-            _ => { println!("{} (?)", op.name()); offset + 1 }
+            _ => match op.operand_size() {
+                0 => { println!("{}", op.name()); offset + 1 }
+                1 => {
+                    let idx = self.code[offset + 1] as usize;
+                    println!("{:<20} {:3}    {}", op.name(), idx, self.constant_annotation(idx));
+                    offset + 2
+                }
+                2 => {
+                    match op {
+                        OpCode::Jump
+                        | OpCode::JumpIfFalse
+                        | OpCode::JumpIfTrue
+                        | OpCode::PeekJumpIfFalse
+                        | OpCode::PeekJumpIfTrue => {
+                            let hi = self.code[offset + 1] as u16;
+                            let lo = self.code[offset + 2] as u16;
+                            println!("{:<20}        -> {:04}", op.name(), (hi << 8) | lo);
+                        }
+                        OpCode::Call => {
+                            let name_idx = self.code[offset + 1] as usize;
+                            let argc     = self.code[offset + 2];
+                            println!(
+                                "{:<20} {:3}    {} ({} args)",
+                                op.name(), name_idx, self.constant_annotation(name_idx), argc
+                            );
+                        }
+                        _ => {
+                            println!("{:<20} {:#04x} {:#04x}", op.name(),
+                                     self.code[offset + 1], self.code[offset + 2]);
+                        }
+                    }
+                    offset + 3
+                }
+                _ => { println!("{} (?)", op.name()); offset + 1 }
+            }
         }
     }
 
@@ -339,13 +372,15 @@ impl Chunk {
                 if n.fract() == 0.0 { format!("'{}'", *n as i64) }
                 else { format!("'{}'", n) }
             }
-            Value::Bool(b)  => format!("'{}'", b),
-            Value::None     => "'none'".to_string(),
-            Value::Array(_) => "[array]".to_string(),
-            Value::Dict(_)  => "{dict}".to_string(),
+            Value::Bool(b)   => format!("'{}'", b),
+            Value::None      => "'none'".to_string(),
+            Value::Array(_)  => "[array]".to_string(),
+            Value::Dict(_)   => "{dict}".to_string(),
+            Value::Closure {..} => "<closure>".to_string(),
         }
     }
 }
+
 
 fn bad_bc(msg: impl Into<String>) -> WhispemError {
     WhispemError::runtime(ErrorKind::InvalidBytecode(msg.into()))

@@ -1,6 +1,7 @@
 use crate::ast::{BinaryOp, Expr, LogicalOp, Stmt, UnaryOp};
 use crate::error::{ErrorKind, Span, WhispemError, WhispemResult};
-use crate::token::{Spanned, Token};
+use crate::lexer::Lexer;
+use crate::token::{FStrPart as TokenFStrPart, Spanned, Token};
 
 pub struct Parser {
     tokens:   Vec<Spanned>,
@@ -149,9 +150,6 @@ impl Parser {
         })
     }
 
-    // Handle `else if ...` and plain `else { ... }`.
-    // `else if` was collapsed to `ElseIf` by the lexer, so we just check
-    // for that token here and recursively build a nested If statement.
     fn parse_else_branch(&mut self) -> WhispemResult<Option<Vec<Stmt>>> {
         self.skip_nl();
         match self.cur().token {
@@ -197,7 +195,13 @@ impl Parser {
     fn parse_fn(&mut self) -> WhispemResult<Stmt> {
         let line = self.line();
         self.advance();
-        let name = self.consume_ident()?;
+        let name   = self.consume_ident()?;
+        let params = self.parse_param_list()?;
+        let body   = self.parse_block()?;
+        Ok(Stmt::Function { name, params, body, line })
+    }
+
+    fn parse_param_list(&mut self) -> WhispemResult<Vec<String>> {
         self.consume(Token::LParen)?;
         let mut params = Vec::new();
         if self.cur().token != Token::RParen {
@@ -211,8 +215,7 @@ impl Parser {
             }
         }
         self.consume(Token::RParen)?;
-        let body = self.parse_block()?;
-        Ok(Stmt::Function { name, params, body, line })
+        Ok(params)
     }
 
     fn parse_return(&mut self) -> WhispemResult<Stmt> {
@@ -242,7 +245,6 @@ impl Parser {
     fn parse_exit_stmt(&mut self) -> WhispemResult<Stmt> {
         let line = self.line();
         self.advance();
-        // exit() or exit(code)
         let args = if self.cur().token == Token::LParen {
             self.parse_call_args()?
         } else {
@@ -277,9 +279,32 @@ impl Parser {
             self.advance();
             let idx = self.parse_expr()?;
             self.consume(Token::RightBracket)?;
-            self.consume(Token::Equals)?;
-            let val = self.parse_expr()?;
-            return Ok(Stmt::IndexAssign { object: name, index: idx, value: val, line });
+
+            if self.cur().token == Token::Equals {
+                self.advance();
+                let val = self.parse_expr()?;
+                return Ok(Stmt::IndexAssign { object: name, index: idx, value: val, line });
+            }
+
+            let obj = Expr::Variable(name);
+            let indexed = Expr::Index { object: Box::new(obj), index: Box::new(idx) };
+            let mut e = indexed;
+            while self.cur().token == Token::LParen || self.cur().token == Token::LeftBracket {
+                match self.cur().token {
+                    Token::LParen => {
+                        let args = self.parse_call_args()?;
+                        e = Expr::CallExpr { callee: Box::new(e), arguments: args, line };
+                    }
+                    Token::LeftBracket => {
+                        self.advance();
+                        let inner_idx = self.parse_expr()?;
+                        self.consume(Token::RightBracket)?;
+                        e = Expr::Index { object: Box::new(e), index: Box::new(inner_idx) };
+                    }
+                    _ => break,
+                }
+            }
+            return Ok(Stmt::Expression { expr: e, line });
         }
 
         if self.cur().token == Token::LParen {
@@ -403,36 +428,53 @@ impl Parser {
     }
 
     fn parse_postfix(&mut self) -> WhispemResult<Expr> {
-        let mut e = self.parse_call()?;
-        while self.cur().token == Token::LeftBracket {
-            self.advance();
-            let idx = self.parse_expr()?;
-            self.consume(Token::RightBracket)?;
-            e = Expr::Index { object: Box::new(e), index: Box::new(idx) };
-        }
-        Ok(e)
-    }
-
-    fn parse_call(&mut self) -> WhispemResult<Expr> {
-        let e = self.parse_term()?;
-        if let Expr::Variable(ref name) = e {
-            if self.cur().token == Token::LParen {
-                let line = self.cur().line;
-                let name = name.clone();
-                let args = self.parse_call_args()?;
-                return Ok(Expr::Call { name, arguments: args, line });
+        let mut e = self.parse_primary()?;
+        loop {
+            match self.cur().token {
+                Token::LeftBracket => {
+                    self.advance();
+                    let idx = self.parse_expr()?;
+                    self.consume(Token::RightBracket)?;
+                    e = Expr::Index { object: Box::new(e), index: Box::new(idx) };
+                }
+                Token::LParen => {
+                    let line = self.line();
+                    if let Expr::Variable(ref name) = e {
+                        let name = name.clone();
+                        let args = self.parse_call_args()?;
+                        e = Expr::Call { name, arguments: args, line };
+                    } else {
+                        let args = self.parse_call_args()?;
+                        e = Expr::CallExpr { callee: Box::new(e), arguments: args, line };
+                    }
+                }
+                _ => break,
             }
         }
         Ok(e)
     }
 
-    fn parse_term(&mut self) -> WhispemResult<Expr> {
+    fn parse_primary(&mut self) -> WhispemResult<Expr> {
         let s = self.cur().clone();
         match &s.token {
             Token::Number(n)   => { let v = *n; self.advance(); Ok(Expr::Number(v)) }
             Token::Str(st)     => { let v = st.clone(); self.advance(); Ok(Expr::Str(v)) }
+            Token::FStr(parts) => {
+                let parts = parts.clone();
+                self.advance();
+                self.desugar_fstr(parts, s.line)
+            }
             Token::True        => { self.advance(); Ok(Expr::Bool(true)) }
             Token::False       => { self.advance(); Ok(Expr::Bool(false)) }
+
+            Token::Fn => {
+                let line = s.line;
+                self.advance();
+                let params = self.parse_param_list()?;
+                let body   = self.parse_block()?;
+                Ok(Expr::Lambda { params, body, line })
+            }
+
             Token::Length      => { self.advance(); Ok(Expr::Variable("length".to_string())) }
             Token::Push        => { self.advance(); Ok(Expr::Variable("push".to_string())) }
             Token::Pop         => { self.advance(); Ok(Expr::Variable("pop".to_string())) }
@@ -519,4 +561,39 @@ impl Parser {
             )),
         }
     }
+
+    fn desugar_fstr(&self, parts: Vec<TokenFStrPart>, line: usize) -> WhispemResult<Expr> {
+        if parts.is_empty() {
+            return Ok(Expr::Str(String::new()));
+        }
+
+        let mut ast_parts: Vec<Expr> = Vec::with_capacity(parts.len());
+        for part in parts {
+            match part {
+                TokenFStrPart::Literal(s) => ast_parts.push(Expr::Str(s)),
+                TokenFStrPart::Expr(src)  => {
+                    let inner = parse_expr_from_str(&src, line)?;
+                    ast_parts.push(inner);
+                }
+            }
+        }
+
+        let mut result = ast_parts.remove(0);
+        for part in ast_parts {
+            result = Expr::Binary {
+                left:  Box::new(result),
+                op:    BinaryOp::Add,
+                right: Box::new(part),
+            };
+        }
+        Ok(result)
+    }
+}
+
+fn parse_expr_from_str(src: &str, line: usize) -> WhispemResult<Expr> {
+    let mut lexer  = Lexer::new(src);
+    let tokens     = lexer.tokenize()?;
+    let mut parser = Parser::new(tokens);
+    let _ = line; // used for future span correction
+    parser.parse_expr()
 }

@@ -1,10 +1,16 @@
 #[derive(Debug, Clone, PartialEq)]
+pub enum FStrPart {
+    Literal(String),
+    Expr(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Let, Print, If, Else, ElseIf, While, For, In, And, Or, Not, Fn, Return, Break, Continue,
     Length, Push, Pop, Reverse, Slice, Range, Input, ReadFile, WriteFile, Keys, Values, HasKey,
     CharAt, Substr, Ord, NumToStr, StrToNum, Args, WriteHex,
     Assert, TypeOf, Exit,
-    True, False, Identifier(String), Number(f64), Str(String),
+    True, False, Identifier(String), Number(f64), Str(String), FStr(Vec<FStrPart>),
     Plus, Minus, Star, Slash, Percent,
     Equals, EqualEqual, Bang, BangEqual, Less, LessEqual, Greater, GreaterEqual,
     LParen, RParen, LeftBrace, RightBrace, LeftBracket, RightBracket, Comma, Colon,
@@ -37,6 +43,7 @@ impl std::fmt::Display for Token {
             Token::Identifier(n) => format!("identifier '{}'", n),
             Token::Number(n)     => format!("number '{}'", n),
             Token::Str(s)        => format!("string \"{}\"", s),
+            Token::FStr(_)       => "f-string".to_string(),
             Token::Plus          => "'+'".to_string(),
             Token::Minus         => "'-'".to_string(),
             Token::Star          => "'*'".to_string(),

@@ -1,5 +1,5 @@
 use crate::error::{ErrorKind, Span, WhispemError, WhispemResult};
-use crate::token::{Spanned, Token};
+use crate::token::{FStrPart, Spanned, Token};
 
 pub struct Lexer {
     input:    Vec<char>,
@@ -26,11 +26,7 @@ impl Lexer {
             tokens.push(s);
             if eof { break; }
         }
-
-        // Collapse `Else Newline* If` into `ElseIf`.
-        let tokens = collapse_else_if(tokens);
-
-        Ok(tokens)
+        Ok(collapse_else_if(tokens))
     }
 
     fn cur(&self)  -> Option<char> { self.input.get(self.position).copied() }
@@ -92,7 +88,11 @@ impl Lexer {
                 self.advance();
                 if self.cur() == Some('=') { self.advance(); Token::GreaterEqual } else { Token::Greater }
             }
-            Some('"')                                => self.read_string(line, col)?,
+            Some('"') => self.read_string(line, col)?,
+            Some('f') if self.peek() == Some('"') => {
+                self.advance(); // consume 'f'
+                self.read_fstring(line, col)?
+            }
             Some(c) if c.is_ascii_digit()            => self.read_number(),
             Some(c) if c.is_alphabetic() || c == '_' => self.read_ident(),
             Some(c) => {
@@ -183,18 +183,13 @@ impl Lexer {
     }
 
     fn read_string(&mut self, line: usize, col: usize) -> WhispemResult<Token> {
-        self.advance();
+        self.advance(); // opening "
         let span = Span::new(line, col);
         let mut val = String::new();
         loop {
             match self.cur() {
-                None | Some('\n') => {
-                    return Err(WhispemError::new(ErrorKind::UnterminatedString, span));
-                }
-                Some('"') => {
-                    self.advance();
-                    break;
-                }
+                None | Some('\n') => return Err(WhispemError::new(ErrorKind::UnterminatedString, span)),
+                Some('"') => { self.advance(); break; }
                 Some('\\') => {
                     self.advance();
                     match self.cur() {
@@ -204,9 +199,7 @@ impl Lexer {
                         Some('\\') => { val.push('\\'); self.advance(); }
                         Some('"')  => { val.push('"');  self.advance(); }
                         Some(c)    => { val.push('\\'); val.push(c); self.advance(); }
-                        None       => {
-                            return Err(WhispemError::new(ErrorKind::UnterminatedString, span));
-                        }
+                        None => return Err(WhispemError::new(ErrorKind::UnterminatedString, span)),
                     }
                 }
                 Some(c) => { val.push(c); self.advance(); }
@@ -214,9 +207,68 @@ impl Lexer {
         }
         Ok(Token::Str(val))
     }
+
+    fn read_fstring(&mut self, line: usize, col: usize) -> WhispemResult<Token> {
+        self.advance(); // opening "
+        let span = Span::new(line, col);
+        let mut parts: Vec<FStrPart> = Vec::new();
+        let mut lit   = String::new();
+
+        loop {
+            match self.cur() {
+                None | Some('\n') => return Err(WhispemError::new(ErrorKind::UnterminatedString, span)),
+                Some('"') => {
+                    self.advance();
+                    if !lit.is_empty() {
+                        parts.push(FStrPart::Literal(lit.clone()));
+                        lit.clear();
+                    }
+                    break;
+                }
+                Some('{') => {
+                    self.advance();
+                    if !lit.is_empty() {
+                        parts.push(FStrPart::Literal(lit.clone()));
+                        lit.clear();
+                    }
+                    let mut expr_src = String::new();
+                    let mut depth    = 1usize;
+                    loop {
+                        match self.cur() {
+                            None => return Err(WhispemError::new(ErrorKind::UnterminatedString, span)),
+                            Some('{') => { depth += 1; expr_src.push('{'); self.advance(); }
+                            Some('}') => {
+                                depth -= 1;
+                                if depth == 0 { self.advance(); break; }
+                                expr_src.push('}');
+                                self.advance();
+                            }
+                            Some(c) => { expr_src.push(c); self.advance(); }
+                        }
+                    }
+                    parts.push(FStrPart::Expr(expr_src));
+                }
+                Some('\\') => {
+                    self.advance();
+                    match self.cur() {
+                        Some('n')  => { lit.push('\n'); self.advance(); }
+                        Some('t')  => { lit.push('\t'); self.advance(); }
+                        Some('r')  => { lit.push('\r'); self.advance(); }
+                        Some('\\') => { lit.push('\\'); self.advance(); }
+                        Some('"')  => { lit.push('"');  self.advance(); }
+                        Some('{')  => { lit.push('{');  self.advance(); }
+                        Some('}')  => { lit.push('}');  self.advance(); }
+                        Some(c)    => { lit.push('\\'); lit.push(c); self.advance(); }
+                        None => return Err(WhispemError::new(ErrorKind::UnterminatedString, span)),
+                    }
+                }
+                Some(c) => { lit.push(c); self.advance(); }
+            }
+        }
+        Ok(Token::FStr(parts))
+    }
 }
 
-// Collapse `Else (Newline*) If` → `ElseIf` so the parser sees a single token.
 fn collapse_else_if(tokens: Vec<Spanned>) -> Vec<Spanned> {
     let mut out = Vec::with_capacity(tokens.len());
     let mut i   = 0;

@@ -1,18 +1,10 @@
 # Whispem Examples
 
-**Version 4.0.0**
+**Version 5.0.0**
 
 Example programs covering all Whispem language features.
 
-Run any example (no Rust needed):
-```bash
-make                                              # build wvm (once)
-./wvm compiler/wsc.whbc examples/<file>.wsp       # compile + run
-./wvm examples/<file>.whbc                        # run precompiled
-./wvm --dump examples/<file>.whbc                 # inspect bytecode
-```
-
-With the Rust reference implementation:
+Run any example:
 ```bash
 cargo run -- examples/<file>.wsp
 cargo run -- --compile examples/<file>.wsp
@@ -22,6 +14,7 @@ cargo run -- --dump examples/<file>.wsp
 ---
 
 ## Hello World
+
 ```wsp
 let message = "Hello, Whispem!"
 print message
@@ -31,35 +24,46 @@ print message
 ---
 
 ## Variables
+
 ```wsp
 let x = 10
 let y = 20
 let name = "Whispem"
-
 print x
 print y
 print name
 ```
-**File:** `examples/variables.wsp`
 
 ---
 
 ## Arithmetic
+
 ```wsp
 let a = 10
 let b = 3
-
 print a + b   # 13
 print a - b   # 7
 print a * b   # 30
 print a / b   # 3.333...
-print a % b   # 1  ← modulo
+print a % b   # 1
 ```
-**File:** `examples/arithmetic.wsp`
 
 ---
 
-## FizzBuzz — with `else if` (v4.0.0)
+## F-strings (v5.0.0)
+
+```wsp
+let name  = "Em"
+let score = 42
+print f"Hello, {name}!"
+print f"Score: {score}, doubled: {score * 2}"
+print f"{length([1, 2, 3])} items in the list"
+```
+
+---
+
+## FizzBuzz — with `else if`
+
 ```wsp
 for n in range(1, 101) {
     if n % 15 == 0 { print "FizzBuzz" }
@@ -72,25 +76,8 @@ for n in range(1, 101) {
 
 ---
 
-## Strings
-```wsp
-let greeting = "Hello"
-let name = "World"
-
-let multiline = "Line one\nLine two"
-print multiline
-
-let quoted = "She said \"Hello\""
-print quoted
-
-let full = greeting + ", " + name + "!"
-print full
-```
-**File:** `examples/strings.wsp`
-
----
-
 ## Conditionals with `else if`
+
 ```wsp
 let score = 85
 
@@ -103,33 +90,28 @@ else { print "F" }
 ---
 
 ## While Loops
+
 ```wsp
 let counter = 0
-
 while counter < 5 {
     print counter
     let counter = counter + 1
 }
 ```
-**File:** `examples/while_loop.wsp`
 
 ---
 
 ## For Loops
-```wsp
-for num in [1, 2, 3, 4, 5] {
-    print num
-}
 
-for i in range(0, 10) {
-    print i
-}
+```wsp
+for num in [1, 2, 3, 4, 5] { print num }
+for i in range(0, 10) { print i }
 ```
-**File:** `examples/for_loop.wsp`
 
 ---
 
 ## Break and Continue
+
 ```wsp
 for num in range(1, 20) {
     if num > 10 { break }
@@ -137,212 +119,245 @@ for num in range(1, 20) {
     print num
 }
 ```
-**File:** `examples/break_continue.wsp`
 
 ---
 
 ## Functions
+
 ```wsp
 fn greet(name) {
-    print "Hello, " + name + "!"
+    return "Hello, " + name + "!"
 }
-
-greet("World")
-greet("Whispem")
+print greet("World")
 ```
-**File:** `examples/function_basic.wsp`
 
 ---
 
 ## Recursion
+
 ```wsp
 fn factorial(n) {
     if n <= 1 { return 1 }
     return n * factorial(n - 1)
 }
-
-print factorial(5)   # 120
-print factorial(10)  # 3628800
+print factorial(5)    # 120
+print factorial(10)   # 3628800
 ```
-**File:** `examples/function_recursive.wsp`
 
 ---
 
-## Arrays — Basic
+## Lambdas (v5.0.0)
+
+```wsp
+# Store in a variable
+let double = fn(x) { return x * 2 }
+print double(7)   # 14
+
+# Pass as argument
+fn apply(f, x) { return f(x) }
+print apply(fn(n) { return n * n }, 5)   # 25
+
+# Store in an array
+let ops = [fn(x) { return x + 1 }, fn(x) { return x * 2 }]
+print ops[0](10)   # 11
+print ops[1](10)   # 20
+
+# Immediate call
+print fn(x) { return x * 2 }(7)   # 14
+```
+
+---
+
+## Closures (v5.0.0)
+
+### Adder factory
+
+```wsp
+fn make_adder(n) {
+    return fn(x) { return x + n }
+}
+let add5  = make_adder(5)
+let add10 = make_adder(10)
+print add5(3)    # 8
+print add10(3)   # 13
+```
+
+### Counter with mutable state
+
+```wsp
+fn make_counter() {
+    let count = 0
+    return fn() {
+        let count = count + 1
+        return count
+    }
+}
+let c = make_counter()
+print c()   # 1
+print c()   # 2
+print c()   # 3
+```
+
+### Two closures sharing state
+
+```wsp
+fn make_pair() {
+    let n = 0
+    let inc = fn() { let n = n + 1 }
+    let get = fn() { return n }
+    return [inc, get]
+}
+let p = make_pair()
+p[0]()
+p[0]()
+print p[1]()   # 2
+```
+
+### Nested closures
+
+```wsp
+fn outer(a) {
+    return fn(b) {
+        return fn(c) { return a + b + c }
+    }
+}
+print outer(1)(2)(3)   # 6
+```
+
+---
+
+## Higher-order functions
+
+```wsp
+fn map_array(arr, f) {
+    let result = []
+    for item in arr {
+        let result = push(result, f(item))
+    }
+    return result
+}
+
+fn filter_array(arr, pred) {
+    let result = []
+    for item in arr {
+        if pred(item) {
+            let result = push(result, item)
+        }
+    }
+    return result
+}
+
+let nums    = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+let evens   = filter_array(nums, fn(n) { return n % 2 == 0 })
+let doubled = map_array(evens, fn(n) { return n * 2 })
+print doubled   # [4, 8, 12, 16, 20]
+```
+
+---
+
+## Arrays
+
 ```wsp
 let numbers = [1, 2, 3, 4, 5]
+print numbers[0]
+numbers[2] = 10
 print numbers
 
-print numbers[0]   # 1
-numbers[2] = 10
-print numbers      # [1, 2, 10, 4, 5]
+print push([1,2,3], 4)
+print pop([1,2,3,4])
+print reverse([1,2,3])
+print slice([1,2,3,4,5], 1, 4)
+print range(0, 5)
 ```
-**File:** `examples/array_basic.wsp`
 
 ---
 
-## Arrays — Built-in Functions
-```wsp
-let items = [1, 2, 3]
+## Dictionaries
 
-print length(items)                      # 3
-print push(items, 4)                     # [1, 2, 3, 4]
-print pop([1, 2, 3, 4])                  # 4
-print reverse([1, 2, 3])                 # [3, 2, 1]
-print slice([1, 2, 3, 4, 5], 1, 4)      # [2, 3, 4]
-print range(0, 5)                        # [0, 1, 2, 3, 4]
-```
-**File:** `examples/array_functions.wsp`
-
----
-
-## Dictionaries — Basic
 ```wsp
 let person = {"name": "Em", "age": 26, "city": "Marseille"}
-
-print person["name"]           # Em
+print person["name"]
 person["city"] = "Paris"
-print person["city"]           # Paris
-
-print has_key(person, "name")  # true
-print has_key(person, "phone") # false
+print has_key(person, "name")
 print keys(person)
-print length(person)           # 3
+print length(person)
 ```
-**File:** `examples/dict_basic.wsp`
 
 ---
 
-## Dictionaries — Phonebook
+## `type_of` (v4.0.0+)
+
 ```wsp
-fn add_contact(book, name, phone) {
-    book[name] = phone
-    return book
-}
-
-fn lookup(book, name) {
-    if has_key(book, name) {
-        return book[name]
-    }
-    return "Contact not found"
-}
-
-let phonebook = {}
-let phonebook = add_contact(phonebook, "Alice", "06 12 34 56 78")
-let phonebook = add_contact(phonebook, "Bob",   "07 98 76 54 32")
-
-print lookup(phonebook, "Alice")
-print lookup(phonebook, "Charlie")
-```
-**File:** `examples/dict_phonebook.wsp`
-
----
-
-## `type_of` (v4.0.0)
-```wsp
-print type_of(42)           # number
-print type_of("hello")      # string
-print type_of(true)         # bool
-print type_of([1, 2, 3])    # array
-print type_of({"a": 1})     # dict
-
-fn safe_double(x) {
-    if type_of(x) != "number" {
-        return "error: expected number, got " + type_of(x)
-    }
-    return x * 2
-}
-
-print safe_double(5)      # 10
-print safe_double("hi")   # error: expected number, got string
+print type_of(42)                 # number
+print type_of("hello")            # string
+print type_of(true)               # bool
+print type_of([1, 2, 3])          # array
+print type_of({"a": 1})           # dict
+print type_of(fn(x){return x})    # function
 ```
 
 ---
 
-## `assert` (v4.0.0)
+## `assert` (v4.0.0+)
+
 ```wsp
 fn process(items) {
     assert(type_of(items) == "array", "expected array")
     assert(length(items) > 0, "items must not be empty")
-
-    let total = 0
     for n in items {
         assert(type_of(n) == "number", "all items must be numbers")
-        let total = total + n
     }
-    return total
 }
-
-print process([3, 8, 12, 7])   # 30
-# process([]) would raise: Assertion failed: items must not be empty
+print process([3, 8, 12, 7])
 ```
 
 ---
 
-## `exit` (v4.0.0)
+## `exit` (v4.0.0+)
+
 ```wsp
 let script_args = args()
-
 if length(script_args) == 0 {
     print "Usage: script.wsp <name>"
     exit(1)
 }
-
-print "Hello, " + script_args[0] + "!"
+print f"Hello, {script_args[0]}!"
 exit(0)
 ```
 
 ---
 
-## File I/O
-```wsp
-write_file("hello.txt", "Hello from Whispem 4.0!")
-
-let content = read_file("hello.txt")
-print content
-```
-**File:** `examples/file_io.wsp`
-
----
-
 ## Data Processing
+
 ```wsp
 fn filter_positive(numbers) {
     let result = []
     for num in numbers {
-        if num > 0 {
-            let result = push(result, num)
-        }
+        if num > 0 { let result = push(result, num) }
     }
     return result
 }
 
 fn sum_array(arr) {
     let total = 0
-    for num in arr {
-        let total = total + num
-    }
+    for num in arr { let total = total + num }
     return total
 }
 
 let data     = [-5, 3, -2, 8, 0, 12, -1, 7]
 let positive = filter_positive(data)
-
-print "Positive:"
 print positive
-print "Sum:"
 print sum_array(positive)
 ```
-**File:** `examples/data_processing.wsp`
 
 ---
 
 ## Prime Numbers
+
 ```wsp
 fn is_prime(n) {
     if n < 2 { return false }
     if n == 2 { return true }
-
     for i in range(2, n) {
         if n % i == 0 { return false }
     }
@@ -351,38 +366,35 @@ fn is_prime(n) {
 
 print "Primes up to 30:"
 for num in range(2, 31) {
-    if is_prime(num) {
-        print num
-    }
+    if is_prime(num) { print num }
 }
 ```
-**File:** `examples/prime_numbers.wsp`
 
 ---
 
-## Self-hosted Compiler (v3.0.0+)
+## File I/O
 
-```bash
-./wvm compiler/wsc.whbc examples/hello.wsp
-./wvm examples/hello.whbc
+```wsp
+write_file("hello.txt", "Hello from Whispem 5.0!")
+let content = read_file("hello.txt")
+print content
 ```
-
-`compiler/wsc.wsp` is a Whispem compiler written in Whispem. It reads a `.wsp` source file, compiles it through the full pipeline (lexer, parser, compiler, serialiser), and writes a `.whbc` bytecode file — byte-for-byte identical to the Rust compiler's output. Updated to v4.0 to support `else if`, `assert`, `type_of`, and `exit`.
 
 ---
 
 ## Notes
 
 - Examples are self-contained and runnable.
-- Functions can be called before they are defined (forward calls work since v2.0.0).
+- Functions can be called before they are defined.
 - Calling a function with the wrong number of arguments produces a clear runtime error.
-- Arrays use 0-based indexing.
 - `push()` returns a new array — the original is unchanged.
-- Dictionary keys are always strings internally.
-- `and`/`or` short-circuit correctly since v2.5.0.
-- `else if` is supported natively since v4.0.0.
-- Use `--dump` to inspect bytecode, `--compile` to produce `.whbc` files.
+- `and`/`or` short-circuit correctly.
+- `else if` is supported natively.
+- Lambdas are `fn(params) { body }` expressions.
+- Closures capture variables by shared mutable reference.
+- F-strings `f"..."` support `{expr}` interpolation.
+- Use `--dump` to inspect bytecode.
 
 ---
 
-**Whispem v4.0.0**
+**Whispem v5.0.0**

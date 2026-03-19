@@ -1,6 +1,6 @@
 # Whispem Tutorial
 
-**Version 4.0.0**
+**Version 5.0.0**
 
 Welcome to Whispem. This tutorial covers the entire language from first program to complete applications. By the end you'll know everything Whispem has — because everything it has fits in a single document.
 
@@ -11,16 +11,18 @@ Welcome to Whispem. This tutorial covers the entire language from first program 
 1. [Getting Started](#getting-started)
 2. [Variables and Types](#variables-and-types)
 3. [Expressions and Operators](#expressions-and-operators)
-4. [Strings](#strings)
+4. [Strings and F-strings](#strings-and-f-strings)
 5. [Conditionals](#conditionals)
 6. [Loops](#loops)
 7. [Functions](#functions)
-8. [Arrays](#arrays)
-9. [Dictionaries](#dictionaries)
-10. [User Input and File I/O](#user-input-and-file-io)
-11. [Introspection and Control](#introspection-and-control)
-12. [Complete Examples](#complete-examples)
-13. [Under the Hood](#under-the-hood)
+8. [Lambdas](#lambdas)
+9. [Closures](#closures)
+10. [Arrays](#arrays)
+11. [Dictionaries](#dictionaries)
+12. [User Input and File I/O](#user-input-and-file-io)
+13. [Introspection and Control](#introspection-and-control)
+14. [Complete Examples](#complete-examples)
+15. [Under the Hood](#under-the-hood)
 
 ---
 
@@ -28,24 +30,20 @@ Welcome to Whispem. This tutorial covers the entire language from first program 
 
 ### Install
 
-The only dependency is a C compiler.
-
 ```bash
-git clone https://github.com/whispem/whispem-lang.git
-cd whispem-lang
-make                                         # build the VM from vm/wvm.c
+cargo build --release
 ```
 
 ### Run a file
 
 ```bash
-./wvm compiler/wsc.whbc examples/hello.wsp   # compile + run
+cargo run -- examples/hello.wsp
 ```
 
 ### Inspect compiled bytecode
 
 ```bash
-./wvm --dump examples/hello.whbc
+cargo run -- --dump examples/hello.wsp
 ```
 
 ```
@@ -57,45 +55,26 @@ make                                         # build the VM from vm/wvm.c
 0007     2  HALT
 ```
 
-### Compile to bytecode
-
-```bash
-./wvm compiler/wsc.whbc examples/hello.wsp   # → examples/hello.whbc
-./wvm examples/hello.whbc                    # run precompiled — no recompilation
-```
-
 ### Interactive REPL
 
 ```bash
-./wvm
+cargo run
 ```
 
 ```
-Whispem v4.0.0 — REPL
+Whispem v5.0.0 — REPL
 Type 'exit' or press Ctrl-D to quit.
 
 >>> let x = 42
 >>> print x
 42
->>> exit
-Bye!
 ```
 
 ### Run the test suite
 
 ```bash
-./tests/run_tests.sh             # autonomous tests (no Rust needed)
-```
-
-### With the Rust reference implementation
-
-```bash
-cargo build --release
-cargo run -- examples/hello.wsp
-cargo run -- --compile examples/hello.wsp
-cargo run -- --dump examples/hello.wsp
-cargo run
-cargo test
+cargo test             # 130 Rust tests
+./tests/run_tests.sh   # 37 autonomous tests
 ```
 
 ---
@@ -104,19 +83,21 @@ cargo test
 
 ```wsp
 let name    = "Whispem"
-let version = 4.0
+let version = 5.0
 let ready   = true
 ```
 
-Variables are declared with `let`. Types are inferred automatically. There are five types:
+Variables are declared with `let`. Types are inferred automatically. There are seven types:
 
-| Type | Examples |
-|------|----------|
-| `number` | `42`, `3.14`, `-7` |
-| `string` | `"hello"`, `""` |
-| `bool` | `true`, `false` |
-| `array` | `[1, 2, 3]` |
-| `dict` | `{"key": "value"}` |
+| Type | Examples | `type_of` |
+|------|----------|-----------|
+| `number` | `42`, `3.14`, `-7` | `"number"` |
+| `string` | `"hello"`, `""` | `"string"` |
+| `bool` | `true`, `false` | `"bool"` |
+| `array` | `[1, 2, 3]` | `"array"` |
+| `dict` | `{"key": "value"}` | `"dict"` |
+| `function` | `fn(x){return x}`, closures | `"function"` |
+| `none` | returned by void functions | `"none"` |
 
 To update a variable, use `let` again:
 
@@ -137,21 +118,14 @@ print 10 + 3    # 13
 print 10 - 3    # 7
 print 10 * 3    # 30
 print 10 / 3    # 3.333...
-print 10 % 3    # 1  ← modulo
+print 10 % 3    # 1
 ```
 
-### Comparisons
+### Comparisons and logic
 
 ```wsp
 print 10 == 10   # true
 print 10 != 5    # true
-print 10 > 5     # true
-print 10 < 5     # false
-```
-
-### Logic
-
-```wsp
 print true and false   # false
 print true or false    # true
 print not true         # false
@@ -166,33 +140,40 @@ let r = true  or  expensive_call()   # true  — call never runs
 
 ---
 
-## Strings
+## Strings and F-strings
+
+### Plain strings
 
 ```wsp
 let greeting = "Hello"
 let name = "Whispem"
-print greeting + ", " + name + "!"   # Hello, Whispem!
+print greeting + ", " + name + "!"
 ```
+
+### F-strings
+
+`f"..."` strings with `{expr}` interpolation:
+
+```wsp
+let name  = "Em"
+let score = 42
+print f"Hello, {name}!"
+print f"Score: {score}, doubled: {score * 2}"
+print f"{length([1, 2, 3])} items"
+```
+
+Any expression works inside `{}` — variables, arithmetic, function calls. F-strings compile to `+` concatenation chains, so there's no performance overhead.
 
 ### Escape sequences
 
 ```wsp
 print "Line one\nLine two"
 print "She said \"hello\""
-print "Tab\there"
-```
-
-### Length
-
-```wsp
-print length("hello")   # 5
 ```
 
 ---
 
 ## Conditionals
-
-Basic `if / else`:
 
 ```wsp
 let temperature = 18
@@ -204,7 +185,7 @@ if temperature > 20 {
 }
 ```
 
-`else if` chains (v4.0.0):
+`else if` chains (native syntax):
 
 ```wsp
 let score = 85
@@ -220,14 +201,6 @@ if score >= 90 {
 }
 ```
 
-`else if` can also appear on the same line or on the next — both work:
-
-```wsp
-if x == 1 { print "one" }
-else if x == 2 { print "two" }
-else { print "other" }
-```
-
 ---
 
 ## Loops
@@ -240,7 +213,6 @@ while i < 5 {
     print i
     let i = i + 1
 }
-# prints 0 1 2 3 4
 ```
 
 ### For
@@ -253,7 +225,6 @@ for fruit in ["apple", "banana", "cherry"] {
 for n in range(0, 5) {
     print n
 }
-# prints 0 1 2 3 4
 ```
 
 ### Break and continue
@@ -262,7 +233,7 @@ for n in range(0, 5) {
 for n in range(1, 20) {
     if n > 10 { break }
     if n % 2 == 0 { continue }
-    print n   # 1 3 5 7 9
+    print n
 }
 ```
 
@@ -274,8 +245,7 @@ for n in range(1, 20) {
 fn greet(name) {
     return "Hello, " + name + "!"
 }
-
-print greet("world")   # Hello, world!
+print greet("world")
 ```
 
 ### Recursion
@@ -285,30 +255,7 @@ fn factorial(n) {
     if n <= 1 { return 1 }
     return n * factorial(n - 1)
 }
-
 print factorial(5)    # 120
-print factorial(10)   # 3628800
-```
-
-### Arity is checked
-
-```wsp
-fn add(a, b) { return a + b }
-add(1, 2, 3)   # Error: Function 'add' expected 2 arguments, got 3
-```
-
-### Scope
-
-Variables at the top level are globals. Variables inside a function are local. Functions can read globals but cannot mutate them.
-
-```wsp
-let greeting = "Hello"
-
-fn say(name) {
-    print greeting + ", " + name   # reads global
-}
-
-say("Em")   # Hello, Em
 ```
 
 ### Forward calls
@@ -321,6 +268,95 @@ fn triple(n) {
 }
 ```
 
+### Scope
+
+Variables at the top level are globals. Variables inside a function are local. Functions can read globals but cannot mutate them.
+
+---
+
+## Lambdas
+
+`fn(params) { body }` is a first-class expression:
+
+```wsp
+# Store in a variable
+let double = fn(x) { return x * 2 }
+print double(7)   # 14
+
+# Pass as an argument
+fn apply(f, x) { return f(x) }
+print apply(fn(n) { return n * n }, 5)   # 25
+
+# Return from a function
+fn make_double() { return fn(x) { return x * 2 } }
+print make_double()(7)   # 14
+
+# Store in an array
+let ops = [fn(x) { return x + 1 }, fn(x) { return x * 2 }]
+print ops[0](10)   # 11
+print ops[1](10)   # 20
+
+# Call immediately
+print fn(x) { return x * 2 }(7)   # 14
+```
+
+---
+
+## Closures
+
+A lambda defined inside a function captures variables from the enclosing scope:
+
+```wsp
+fn make_adder(n) {
+    return fn(x) { return x + n }
+}
+let add5 = make_adder(5)
+print add5(3)    # 8
+print add5(10)   # 15
+```
+
+Captured variables are **shared and mutable**:
+
+```wsp
+fn make_counter() {
+    let count = 0
+    return fn() {
+        let count = count + 1
+        return count
+    }
+}
+let c = make_counter()
+print c()   # 1
+print c()   # 2
+print c()   # 3
+```
+
+Each call to `make_counter()` creates an independent counter. Two closures in the same scope share the same cell:
+
+```wsp
+fn make_pair() {
+    let n = 0
+    let inc = fn() { let n = n + 1 }
+    let get = fn() { return n }
+    return [inc, get]
+}
+let p = make_pair()
+p[0]()
+p[0]()
+print p[1]()   # 2
+```
+
+Closures can be nested:
+
+```wsp
+fn outer(a) {
+    return fn(b) {
+        return fn(c) { return a + b + c }
+    }
+}
+print outer(1)(2)(3)   # 6
+```
+
 ---
 
 ## Arrays
@@ -329,7 +365,6 @@ fn triple(n) {
 
 ```wsp
 let fruits = ["apple", "banana", "cherry"]
-
 print fruits[0]        # apple
 print length(fruits)   # 3
 ```
@@ -346,12 +381,11 @@ print scores   # [10, 99, 30]
 
 ```wsp
 let nums = [1, 2, 3]
-
-let nums  = push(nums, 4)              # [1, 2, 3, 4]
-let last  = pop([1, 2, 3])             # 3
-let rev   = reverse([1, 2, 3])         # [3, 2, 1]
-let mid   = slice([1,2,3,4,5], 1, 4)   # [2, 3, 4]
-let seq   = range(0, 5)                # [0, 1, 2, 3, 4]
+let nums = push(nums, 4)              # [1, 2, 3, 4]
+let last = pop([1, 2, 3])             # 3
+let rev  = reverse([1, 2, 3])         # [3, 2, 1]
+let mid  = slice([1,2,3,4,5], 1, 4)  # [2, 3, 4]
+let seq  = range(0, 5)               # [0, 1, 2, 3, 4]
 ```
 
 ### Iterating
@@ -364,15 +398,26 @@ for n in [10, 20, 30, 40] {
 print total   # 100
 ```
 
+### Arrays of functions
+
+```wsp
+let transforms = [
+    fn(x) { return x + 1 },
+    fn(x) { return x * 2 },
+    fn(x) { return x * x },
+]
+for f in transforms {
+    print f(5)   # 6, 10, 25
+}
+```
+
 ---
 
 ## Dictionaries
 
 ```wsp
 let person = {"name": "Em", "city": "Marseille", "age": 26}
-
 print person["name"]   # Em
-print person["age"]    # 26
 ```
 
 ### Adding and updating keys
@@ -386,28 +431,10 @@ person["job"]  = "developer"
 
 ```wsp
 let d = {"b": 2, "a": 1, "c": 3}
-
 print has_key(d, "a")   # true
-print has_key(d, "z")   # false
 print keys(d)           # [a, b, c]  (sorted)
-print values(d)         # [1, 2, 3]  (sorted by key)
+print values(d)         # [1, 2, 3]
 print length(d)         # 3
-```
-
-Accessing a missing key raises a clear error:
-
-```wsp
-print d["z"]   # Error: key "z" not found in dict
-```
-
-Use `has_key` to guard access:
-
-```wsp
-if has_key(d, "z") {
-    print d["z"]
-} else {
-    print "not found"
-}
 ```
 
 ---
@@ -416,14 +443,14 @@ if has_key(d, "z") {
 
 ```wsp
 let name = input("What's your name? ")
-print "Hello, " + name + "!"
+print f"Hello, {name}!"
 
 write_file("output.txt", "Hello from Whispem!")
 let content = read_file("output.txt")
 print content
 ```
 
-Script arguments via `args()`:
+Script arguments:
 
 ```wsp
 let script_args = args()
@@ -431,7 +458,7 @@ if length(script_args) == 0 {
     print "Usage: script.wsp <name>"
     exit(1)
 }
-print "Hello, " + script_args[0]
+print f"Hello, {script_args[0]}!"
 ```
 
 ---
@@ -440,8 +467,6 @@ print "Hello, " + script_args[0]
 
 ### `type_of(value)`
 
-Returns the runtime type as a string. Useful for defensive functions:
-
 ```wsp
 fn safe_double(x) {
     if type_of(x) != "number" {
@@ -449,42 +474,31 @@ fn safe_double(x) {
     }
     return x * 2
 }
-
 print safe_double(5)      # 10
 print safe_double("hi")   # error: expected number, got string
+print type_of(fn(x){return x})  # function
 ```
 
-The six possible return values: `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, `"none"`.
-
 ### `assert(condition, message?)`
-
-Raises `Assertion failed: <message>` if the condition is falsy. Useful for catching incorrect assumptions early:
 
 ```wsp
 fn process(items) {
     assert(type_of(items) == "array", "process() expects an array")
     assert(length(items) > 0, "items must not be empty")
-    # ...
+    for n in items {
+        assert(type_of(n) == "number", "all items must be numbers")
+    }
 }
 ```
-
-The message is optional — `assert(condition)` uses `"assertion failed"` as the default.
-
-`assert` fails on any falsy value: `false`, `0`, `""`, `[]`, `{}`, `none`.
 
 ### `exit(code?)`
 
-Terminates the program immediately with the given exit code (default `0`). The exit code is passed to the OS, so it can be read by shell scripts:
-
 ```wsp
-let script_args = args()
-if length(script_args) < 2 {
-    print "Usage: script.wsp <input> <output>"
+if length(args()) == 0 {
+    print "Usage: script.wsp <name>"
     exit(1)
 }
 ```
-
-`exit()` in the REPL also terminates the session.
 
 ---
 
@@ -508,52 +522,55 @@ fn add(book, name, number) {
     book[name] = number
     return book
 }
-
 fn lookup(book, name) {
-    if has_key(book, name) {
-        return book[name]
-    }
+    if has_key(book, name) { return book[name] }
     return "not found"
 }
-
 let phonebook = {}
 let phonebook = add(phonebook, "Alice", "06 12 34 56 78")
-let phonebook = add(phonebook, "Bob",   "07 98 76 54 32")
-
 print lookup(phonebook, "Alice")    # 06 12 34 56 78
 print lookup(phonebook, "Charlie")  # not found
 ```
 
-### Validated data processing
+### Closures as event handlers
 
 ```wsp
-fn process(items) {
-    assert(type_of(items) == "array", "expected array")
-    assert(length(items) > 0, "array must not be empty")
-
-    let total = 0
-    for n in items {
-        assert(type_of(n) == "number", "all items must be numbers")
-        let total = total + n
+fn make_logger(prefix) {
+    return fn(msg) {
+        print f"[{prefix}] {msg}"
     }
-    return total
 }
-
-print process([3, 8, 12, 7])   # 30
+let info  = make_logger("INFO")
+let error = make_logger("ERROR")
+info("server started")    # [INFO] server started
+error("connection lost")  # [ERROR] connection lost
 ```
 
-### Script with argument handling
+### Higher-order functions
 
 ```wsp
-let script_args = args()
-if length(script_args) == 0 {
-    print "Usage: script.wsp <name>"
-    exit(1)
+fn map_array(arr, f) {
+    let result = []
+    for item in arr {
+        let result = push(result, f(item))
+    }
+    return result
 }
 
-let name = script_args[0]
-print "Hello, " + name + "!"
-exit(0)
+fn filter_array(arr, pred) {
+    let result = []
+    for item in arr {
+        if pred(item) {
+            let result = push(result, item)
+        }
+    }
+    return result
+}
+
+let nums    = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+let evens   = filter_array(nums,   fn(n) { return n % 2 == 0 })
+let doubled = map_array(evens, fn(n) { return n * 2 })
+print doubled   # [4, 8, 12, 16, 20]
 ```
 
 ---
@@ -566,31 +583,21 @@ Since v2.0.0, Whispem compiles source code to bytecode before executing it:
 Source → Lexer → Parser → AST → Compiler → Bytecode → VM
 ```
 
-Since v3.0.0, the bytecode can be serialised to a `.whbc` file:
+Since v3.0.0, bytecode can be saved to `.whbc` files and loaded directly.
 
-```
-Source → ... → Compiler → serialise() → .whbc file
-                                              ↓
-                                        deserialise()
-                                              ↓
-                                             VM
-```
+Since v5.0.0, the compiler performs **upvalue analysis** — it walks enclosing function scopes to detect captured variables and emits `MAKE_CLOSURE` instructions with inline variable-name descriptors.
 
-You can inspect the compiled bytecode with `--dump`:
+You can inspect compiled bytecode with `--dump`:
 
 ```bash
-./wvm --dump examples/fizzbuzz_proper.whbc
+cargo run -- --dump examples/fizzbuzz_proper.wsp
 ```
 
-The VM is a stack machine with **34 opcodes** and two implementations: `vm/wvm.c` (C, standalone) and `src/vm.rs` (Rust, reference). Both produce identical output.
+The VM has **38 opcodes** and two implementations: `src/vm.rs` (Rust reference) and `vm/wvm.c` (C standalone). Both produce identical output.
 
-`else if` compiles to exactly the same bytecode as nested `if / else { if ... }` — it is purely a lexer and parser transformation with no VM impact.
-
-`assert` and `type_of` and `exit` compile as regular function calls (`CALL assert`, `CALL type_of`, `CALL exit`) — they are builtins resolved at call time in the VM.
-
-See [`docs/vm.md`](vm.md) for the complete VM specification and the `.whbc` binary format.
+See [`docs/vm.md`](vm.md) for the complete VM specification.
 
 ---
 
-**Whispem v4.0.0**
+**Whispem v5.0.0**
 *You've seen the whole language. Everything Whispem has is in this document.*

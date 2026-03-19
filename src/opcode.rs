@@ -9,6 +9,9 @@ pub enum OpCode {
     Load        = 0x10,
     Store       = 0x11,
     LoadGlobal  = 0x12,
+    LoadUpvalue = 0x13,
+    StoreUpvalue= 0x14,
+    CloseUpvalue= 0x15,
 
     Add         = 0x20,
     Sub         = 0x21,
@@ -34,6 +37,7 @@ pub enum OpCode {
     Call        = 0x50,
     Return      = 0x51,
     ReturnNone  = 0x52,
+    MakeClosure = 0x53,
 
     MakeArray   = 0x60,
     MakeDict    = 0x61,
@@ -56,6 +60,9 @@ impl OpCode {
             0x10 => Some(Self::Load),
             0x11 => Some(Self::Store),
             0x12 => Some(Self::LoadGlobal),
+            0x13 => Some(Self::LoadUpvalue),
+            0x14 => Some(Self::StoreUpvalue),
+            0x15 => Some(Self::CloseUpvalue),
             0x20 => Some(Self::Add),
             0x21 => Some(Self::Sub),
             0x22 => Some(Self::Mul),
@@ -77,6 +84,7 @@ impl OpCode {
             0x50 => Some(Self::Call),
             0x51 => Some(Self::Return),
             0x52 => Some(Self::ReturnNone),
+            0x53 => Some(Self::MakeClosure),
             0x60 => Some(Self::MakeArray),
             0x61 => Some(Self::MakeDict),
             0x62 => Some(Self::GetIndex),
@@ -97,6 +105,9 @@ impl OpCode {
             Self::Load              => "LOAD",
             Self::Store             => "STORE",
             Self::LoadGlobal        => "LOAD_GLOBAL",
+            Self::LoadUpvalue       => "LOAD_UPVALUE",
+            Self::StoreUpvalue      => "STORE_UPVALUE",
+            Self::CloseUpvalue      => "CLOSE_UPVALUE",
             Self::Add               => "ADD",
             Self::Sub               => "SUB",
             Self::Mul               => "MUL",
@@ -118,6 +129,7 @@ impl OpCode {
             Self::Call              => "CALL",
             Self::Return            => "RETURN",
             Self::ReturnNone        => "RETURN_NONE",
+            Self::MakeClosure       => "MAKE_CLOSURE",
             Self::MakeArray         => "MAKE_ARRAY",
             Self::MakeDict          => "MAKE_DICT",
             Self::GetIndex          => "GET_INDEX",
@@ -128,12 +140,17 @@ impl OpCode {
         }
     }
 
+    /// Number of operand bytes that follow this opcode in the bytecode stream.
+    /// For MakeClosure the count is variable; callers handle it specially.
     pub fn operand_size(self) -> usize {
         match self {
             Self::PushConst
             | Self::Load
             | Self::LoadGlobal
             | Self::Store
+            | Self::LoadUpvalue
+            | Self::StoreUpvalue
+            | Self::CloseUpvalue
             | Self::MakeArray
             | Self::MakeDict  => 1,
             Self::Jump
@@ -142,6 +159,9 @@ impl OpCode {
             | Self::PeekJumpIfFalse
             | Self::PeekJumpIfTrue
             | Self::Call      => 2,
+            // MakeClosure: 2 fixed bytes (name_idx, upvalue_count)
+            // + upvalue_count * 2 variable bytes — handled at call sites
+            Self::MakeClosure => 2,
             _                 => 0,
         }
     }

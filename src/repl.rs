@@ -1,12 +1,12 @@
 use crate::compiler::Compiler;
+use crate::error::ErrorKind;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::vm::Vm;
-use crate::error::ErrorKind;
 use std::io::{self, Write};
 
 pub fn run_repl() {
-    println!("Whispem v4.0.0 — REPL");
+    println!("Whispem v5.0.0 — REPL");
     println!("Type 'exit' or press Ctrl-D to quit.\n");
 
     let mut vm = Vm::new();

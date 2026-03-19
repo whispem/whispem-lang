@@ -63,6 +63,7 @@ pub enum ErrorKind {
     SerializationError(String),
     AssertionFailed(String),
     Exit(i64),
+    UpvalueError(String),
 }
 
 impl fmt::Display for WhispemError {
@@ -123,6 +124,8 @@ impl fmt::Display for WhispemError {
                 format!("Assertion failed: {}", msg),
             ErrorKind::Exit(code) =>
                 format!("exit({})", code),
+            ErrorKind::UpvalueError(msg) =>
+                format!("Internal error: upvalue in invalid state: {}", msg),
         };
 
         if self.span.is_known() {

@@ -33,14 +33,12 @@ run_test() {
     src="$2"
     expected="$3"
 
-    # Compile .wsp → .whbc
     if ! "$WVM" "$WSC" "$src" > /dev/null 2>&1; then
         printf "SKIP  %s (compile failed)\n" "$name"
         skip=$((skip + 1))
         return
     fi
 
-    # Derive .whbc path (wsc.wsp writes it next to the source)
     whbc="${src%.wsp}.whbc"
     if [ ! -f "$whbc" ]; then
         printf "SKIP  %s (no .whbc produced)\n" "$name"
@@ -48,26 +46,28 @@ run_test() {
         return
     fi
 
-    # Run .whbc and capture output
     actual="$TMPDIR/$name.actual"
     "$WVM" "$whbc" > "$actual" 2>&1 || true
 
-    # Compare
-    if diff -q "$expected" "$actual" > /dev/null 2>&1; then
+    # Normalize trailing newlines before comparing
+    exp_norm="$TMPDIR/$name.expected"
+    printf '%s' "$(cat "$expected")" > "$exp_norm"
+    act_norm="$TMPDIR/$name.actual_norm"
+    printf '%s' "$(cat "$actual")"   > "$act_norm"
+
+    if diff -q "$exp_norm" "$act_norm" > /dev/null 2>&1; then
         printf "OK    %s\n" "$name"
         pass=$((pass + 1))
     else
         printf "FAIL  %s\n" "$name"
-        diff "$expected" "$actual" | head -10
+        diff "$exp_norm" "$act_norm" | head -10
         fail=$((fail + 1))
         errors="$errors $name"
     fi
 
-    # Clean up .whbc
     rm -f "$whbc"
 }
 
-# Check prerequisites
 if [ ! -x "$WVM" ]; then
     echo "Error: wvm not found. Run 'make' first."
     exit 1
@@ -81,7 +81,6 @@ echo "=== Whispem test suite (autonomous, no Rust) ==="
 echo ""
 
 if [ $# -gt 0 ]; then
-    # Run specific tests
     for name in "$@"; do
         if [ -f "examples/$name.wsp" ] && [ -f "$EXPECTED/$name.txt" ]; then
             run_test "$name" "examples/$name.wsp" "$EXPECTED/$name.txt"
@@ -93,7 +92,6 @@ if [ $# -gt 0 ]; then
         fi
     done
 else
-    # Run all example tests
     for exp in "$EXPECTED"/*.txt; do
         name=$(basename "$exp" .txt)
         if [ -f "examples/$name.wsp" ]; then
@@ -106,24 +104,26 @@ else
         fi
     done
 
-    # Bootstrap test
+    # Bootstrap test: verify the compiler reaches a fixed point.
+    # Compile wsc.wsp twice from the current wsc.whbc and compare gen1 vs gen2.
+    # This works regardless of whether wsc.whbc was produced by Rust or by itself.
     echo ""
     echo "--- Bootstrap ---"
-    cp "$WSC" "$TMPDIR/wsc_before.whbc"
     "$WVM" "$WSC" compiler/wsc.wsp > /dev/null 2>&1
-    sha_before=$(shasum "$TMPDIR/wsc_before.whbc" | cut -d' ' -f1)
-    sha_after=$(shasum "$WSC" | cut -d' ' -f1)
-    if [ "$sha_before" = "$sha_after" ]; then
-        printf "OK    bootstrap (SHA-1 %s)\n" "$sha_after"
+    sha1=$(shasum "$WSC" | cut -d' ' -f1)
+    cp "$WSC" "$TMPDIR/wsc_gen1.whbc"
+    "$WVM" "$TMPDIR/wsc_gen1.whbc" compiler/wsc.wsp > /dev/null 2>&1
+    sha2=$(shasum "$WSC" | cut -d' ' -f1)
+    if [ "$sha1" = "$sha2" ]; then
+        printf "OK    bootstrap (SHA-1 %s)\n" "$sha1"
         pass=$((pass + 1))
     else
-        printf "FAIL  bootstrap (SHA-1 mismatch: %s vs %s)\n" "$sha_before" "$sha_after"
+        printf "FAIL  bootstrap (gen1 %s != gen2 %s)\n" "$sha1" "$sha2"
         fail=$((fail + 1))
         errors="$errors bootstrap"
     fi
 fi
 
-# Summary
 echo ""
 total=$((pass + fail + skip))
 echo "--- Results: $pass passed, $fail failed, $skip skipped ($total total) ---"
