@@ -1,0 +1,42 @@
+# Higher-order functions — map, filter, reduce (v6.0.0)
+
+# map: transform every element
+let doubled = map([1, 2, 3, 4, 5], fn(x) { return x * 2 })
+print doubled   # [2, 4, 6, 8, 10]
+
+# filter: keep elements matching a predicate
+let evens = filter([1, 2, 3, 4, 5, 6, 7, 8], fn(n) { return n % 2 == 0 })
+print evens     # [2, 4, 6, 8]
+
+# reduce: fold left with an accumulator
+let total = reduce([1, 2, 3, 4, 5], fn(acc, n) { return acc + n }, 0)
+print total     # 15
+
+# Closures as arguments
+fn make_multiplier(factor) {
+    return fn(x) { return x * factor }
+}
+let triple = make_multiplier(3)
+print map([1, 2, 3, 4], triple)   # [3, 6, 9, 12]
+
+fn make_gt(threshold) {
+    return fn(n) { return n > threshold }
+}
+print filter([1, 5, 3, 8, 2, 7], make_gt(4))   # [5, 8, 7]
+
+# Pipeline: sum of squares of even numbers from 1 to 10
+let nums    = range(1, 11)
+let evens2  = filter(nums, fn(n) { return n % 2 == 0 })
+let squares = map(evens2, fn(n) { return n * n })
+let result  = reduce(squares, fn(acc, n) { return acc + n }, 0)
+print result   # 220
+
+# reduce: build a string
+let words  = ["Whispem", "is", "minimal"]
+let joined = reduce(words, fn(acc, w) { return acc + " " + w }, "")
+print joined   # " Whispem is minimal" (leading space from empty initial)
+
+# reduce: find maximum
+let data = [3, 1, 4, 1, 5, 9, 2, 6, 5]
+let mx   = reduce(data, fn(acc, n) { if n > acc { return n } return acc }, 0)
+print mx   # 9

@@ -1,0 +1,11 @@
+fn make_pair() {
+    let n = 0
+    let inc = fn() { let n = n + 1 }
+    let get = fn() { return n }
+    return [inc, get]
+}
+
+let p = make_pair()
+p[0]()          # increment
+p[0]()          # increment
+print p[1]()    # 2 — get shares same cell as inc

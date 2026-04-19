@@ -4,12 +4,11 @@ use crate::value::Value;
 
 #[derive(Debug, Clone)]
 pub struct Chunk {
-    pub code:         Vec<u8>,
-    pub constants:    Vec<Value>,
-    pub lines:        Vec<usize>,
-    pub name:         String,
-    pub param_count:  usize,
-    // Number of upvalues this function closes over.
+    pub code:          Vec<u8>,
+    pub constants:     Vec<Value>,
+    pub lines:         Vec<usize>,
+    pub name:          String,
+    pub param_count:   usize,
     pub upvalue_count: usize,
 }
 
@@ -43,8 +42,8 @@ impl Chunk {
     }
 
     pub fn emit_op_u16(&mut self, op: OpCode, operand: u16, line: usize) {
-        self.emit_byte(op as u8,              line);
-        self.emit_byte((operand >> 8) as u8,  line);
+        self.emit_byte(op as u8,               line);
+        self.emit_byte((operand >> 8) as u8,   line);
         self.emit_byte((operand & 0xFF) as u8, line);
     }
 
@@ -62,7 +61,6 @@ impl Chunk {
     }
 
     pub fn add_constant(&mut self, value: Value) -> u8 {
-        // Deduplicate strings and numbers — matches wsc.wsp behaviour.
         let duplicate = match &value {
             Value::Str(s) => self.constants.iter().position(|c| {
                 matches!(c, Value::Str(e) if e == s)
@@ -72,9 +70,7 @@ impl Chunk {
             }),
             _ => None,
         };
-        if let Some(idx) = duplicate {
-            return idx as u8;
-        }
+        if let Some(idx) = duplicate { return idx as u8; }
         assert!(self.constants.len() < 256, "constants pool overflow in '{}'", self.name);
         let idx = self.constants.len() as u8;
         self.constants.push(value);
@@ -292,19 +288,13 @@ impl Chunk {
     fn disassemble_instruction(&self, offset: usize) -> usize {
         print!("{:04}  ", offset);
         let line = self.lines[offset];
-        if offset > 0 && self.lines[offset - 1] == line {
-            print!("   |  ");
-        } else {
-            print!("{:4}  ", line);
-        }
+        if offset > 0 && self.lines[offset - 1] == line { print!("   |  "); }
+        else                                             { print!("{:4}  ", line); }
 
         let byte = self.code[offset];
         let op = match OpCode::from_byte(byte) {
             Some(op) => op,
-            None => {
-                println!("UNKNOWN({:#04x})", byte);
-                return offset + 1;
-            }
+            None     => { println!("UNKNOWN({:#04x})", byte); return offset + 1; }
         };
 
         match op {
@@ -315,10 +305,9 @@ impl Chunk {
                     "{:<20} {:3}    {} ({} upvalues)",
                     op.name(), name_idx, self.constant_annotation(name_idx), uv_count
                 );
-                // Variable-length descriptors: (is_local: 1) + (name_len: 1) + (name_len bytes)
                 let mut pos = offset + 3;
                 for _ in 0..uv_count {
-                    pos += 1; // is_local
+                    pos += 1;
                     if pos < self.code.len() {
                         let nl = self.code[pos] as usize;
                         pos += 1 + nl;
@@ -372,10 +361,10 @@ impl Chunk {
                 if n.fract() == 0.0 { format!("'{}'", *n as i64) }
                 else { format!("'{}'", n) }
             }
-            Value::Bool(b)   => format!("'{}'", b),
-            Value::None      => "'none'".to_string(),
-            Value::Array(_)  => "[array]".to_string(),
-            Value::Dict(_)   => "{dict}".to_string(),
+            Value::Bool(b)      => format!("'{}'", b),
+            Value::None         => "'none'".to_string(),
+            Value::Array(_)     => "[array]".to_string(),
+            Value::Dict(_)      => "{dict}".to_string(),
             Value::Closure {..} => "<closure>".to_string(),
         }
     }
@@ -392,9 +381,7 @@ fn need(data: &[u8], cursor: usize, n: usize) -> WhispemResult<()> {
             "unexpected end of bytecode at offset {} (need {} bytes, have {})",
             cursor, n, data.len().saturating_sub(cursor)
         )))
-    } else {
-        Ok(())
-    }
+    } else { Ok(()) }
 }
 
 fn read_u16(data: &[u8], cursor: usize) -> WhispemResult<u16> {

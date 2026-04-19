@@ -1,0 +1,7 @@
+File written!
+File contents:
+Hello from Whispem 6.0!
+Lines file:
+Line 1
+Line 2
+Line 3

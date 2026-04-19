@@ -1,0 +1,28 @@
+# reduce(array, f, initial) → left fold
+
+# Sum
+print reduce([1, 2, 3, 4, 5], fn(acc, n) { return acc + n }, 0)
+# 15
+
+# Product
+print reduce([1, 2, 3, 4, 5], fn(acc, n) { return acc * n }, 1)
+# 120
+
+# Max
+let data = [3, 1, 4, 1, 5, 9, 2, 6]
+let mx   = reduce(data, fn(acc, n) { if n > acc { return n } return acc }, 0)
+print mx
+# 9
+
+# String join
+print reduce(["b", "c", "d"], fn(acc, s) { return acc + s }, "a")
+# abcd
+
+# Collect even numbers using reduce + lambda stored in variable
+let collect_evens = fn(acc, n) {
+    if n % 2 == 0 { return push(acc, n) }
+    return acc
+}
+let evens = reduce(range(1, 11), collect_evens, [])
+print evens
+# [2, 4, 6, 8, 10]

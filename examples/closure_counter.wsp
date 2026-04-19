@@ -1,0 +1,17 @@
+fn make_counter() {
+    let count = 0
+    return fn() {
+        let count = count + 1
+        return count
+    }
+}
+
+let c1 = make_counter()
+let c2 = make_counter()
+
+print c1()   # 1
+print c1()   # 2
+print c1()   # 3
+print c2()   # 1  — independent instance
+print c2()   # 2
+print c1()   # 4

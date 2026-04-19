@@ -1,0 +1,6 @@
+Hello, Em!
+Score: 42
+Double: 84
+3 items
+Em lives in Marseille and scored 42 points.
+Hey Alice, welcome to Whispem 6!

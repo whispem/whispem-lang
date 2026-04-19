@@ -1,9 +1,10 @@
 # File I/O example
 
 # Write to file
-let message = "Hello from Whispem 1.0!"
+
+let message = "Hello from Whispem 6.0!"
 write_file("hello.txt", message)
-print "File written successfully!"
+print "File written!"
 
 # Read from file
 let content = read_file("hello.txt")

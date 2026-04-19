@@ -1,6 +1,6 @@
 # Whispem Examples
 
-**Version 5.0.0**
+**Version 6.0.0**
 
 A collection of Whispem programs demonstrating every language feature.
 
@@ -54,7 +54,7 @@ cargo run -- --dump examples/<file>.wsp       # disassemble
 | `prime_numbers.wsp` | Recursion + loops |
 | `fizzbuzz_proper.wsp` | FizzBuzz with `else if` and `range` |
 
-### Lambdas and closures (v5.0.0)
+### Lambdas and closures
 
 | File | What it shows |
 |------|---------------|
@@ -64,7 +64,13 @@ cargo run -- --dump examples/<file>.wsp       # disassemble
 | `closure_pair.wsp` | Two closures sharing the same upvalue cell |
 | `higher_order.wsp` | `map_array`, `filter_array` using lambdas |
 
-### F-strings (v5.0.0)
+### Higher-order builtins (v6.0.0)
+
+| File | What it shows |
+|------|---------------|
+| `higher_order_v6.wsp` | `map`, `filter`, `reduce`, closures as args, pipeline |
+
+### F-strings
 
 | File | What it shows |
 |------|---------------|
@@ -76,9 +82,9 @@ cargo run -- --dump examples/<file>.wsp       # disassemble
 |------|---------------|
 | `array_basic.wsp` | Literals, indexing, index assignment |
 | `array_functions.wsp` | `push`, `pop`, `reverse`, `slice`, `range`, `length` |
-| `array_advanced.wsp` | `pop`, `reverse`, `slice`, `range`, combining operations |
+| `array_advanced.wsp` | Combining operations |
 | `array_iteration.wsp` | While-loop iteration over array by index |
-| `array_mixed_types.wsp` | Arrays with mixed types, nested arrays |
+| `array_mixed_types.wsp` | Mixed types, nested arrays |
 | `array_build_dynamic.wsp` | Building arrays dynamically |
 | `array_with_functions.wsp` | `sum_array`, `find_max` |
 
@@ -90,13 +96,6 @@ cargo run -- --dump examples/<file>.wsp       # disassemble
 | `dict_nested.wsp` | Dict as a record type, nested data |
 | `dict_phonebook.wsp` | Dictionary as a data structure |
 | `dict_word_count.wsp` | Building a frequency table |
-
-### Introspection (v4.0.0+)
-
-| File | What it shows |
-|------|---------------|
-| `test_basic.wsp` | Integration test — types, control flow, functions, arrays, dicts |
-| `test_control_flow.wsp` | Control flow integration test |
 
 ### I/O
 
@@ -110,16 +109,53 @@ cargo run -- --dump examples/<file>.wsp       # disassemble
 
 | File | What it shows |
 |------|---------------|
-| `data_processing.wsp` | Filter, sum, max — higher-order patterns |
+| `data_processing.wsp` | Filter, sum, max |
 | `task_manager.wsp` | Simple task manager with arrays |
+
+---
+
+## v6.0.0 features
+
+### map, filter, reduce
+
+```wsp
+# map(array, f) → [f(x) for x in array]
+print map([1, 2, 3, 4], fn(x) { return x * 2 })
+# [2, 4, 6, 8]
+
+# filter(array, pred) → elements where pred(x) is truthy
+print filter([1,2,3,4,5,6], fn(n) { return n % 2 == 0 })
+# [2, 4, 6]
+
+# reduce(array, f, initial) → left fold
+print reduce([1,2,3,4,5], fn(acc,n) { return acc + n }, 0)
+# 15
+```
+
+They accept any callable — named functions, lambdas, or closures:
+
+```wsp
+fn make_gt(t) { return fn(n) { return n > t } }
+print filter([1, 5, 3, 8, 2, 7], make_gt(4))
+# [5, 8, 7]
+```
+
+And compose naturally:
+
+```wsp
+let total = reduce(
+    map(filter(range(1, 11), fn(n) { return n % 2 == 0 }),
+        fn(n) { return n * n }),
+    fn(acc, n) { return acc + n },
+    0)
+print total   # 220
+```
 
 ---
 
 ## v5.0.0 features
 
 ### Lambdas
-
-`fn(params) { body }` as a first-class expression:
 
 ```wsp
 let double = fn(x) { return x * 2 }
@@ -128,7 +164,6 @@ print double(7)   # 14
 fn apply(f, x) { return f(x) }
 print apply(fn(n) { return n * n }, 5)   # 25
 
-# Immediate call
 print fn(x) { return x + 1 }(10)   # 11
 ```
 
@@ -206,3 +241,4 @@ if length(args()) == 0 {
 - Step-by-step tutorial → [`docs/tutorial.md`](../docs/tutorial.md)
 - All examples with code inline → [`docs/examples.md`](../docs/examples.md)
 - VM specification and `.whbc` format → [`docs/vm.md`](../docs/vm.md)
+- Em's journey → [`docs/journey.md`](../docs/journey.md)

@@ -1,39 +1,29 @@
-# Simple Task Manager
-
-fn add_task(tasks, task) {
-    return push(tasks, task)
-}
+fn add_task(tasks, task) { return push(tasks, task) }
 
 fn show_tasks(tasks) {
     if length(tasks) == 0 {
         print "No tasks yet!"
         return
     }
-    
     print "Your Tasks:"
     let i = 1
     for task in tasks {
-        print i
-        print ". " + task
+        print num_to_str(i) + ". " + task
         let i = i + 1
     }
 }
 
 fn remove_last_task(tasks) {
-    if length(tasks) > 0 {
-        let removed = pop(tasks)
-        print "Removed: " + removed
-    }
-    return tasks
+    if length(tasks) == 0 { return tasks }
+    let removed = pop(tasks)
+    print "Removed: " + removed
+    return slice(tasks, 0, length(tasks) - 1)
 }
 
-# Main program
 print "=== Task Manager ==="
 print ""
 
 let my_tasks = []
-
-# Add some tasks
 let my_tasks = add_task(my_tasks, "Learn Whispem")
 let my_tasks = add_task(my_tasks, "Write code")
 let my_tasks = add_task(my_tasks, "Build something cool")

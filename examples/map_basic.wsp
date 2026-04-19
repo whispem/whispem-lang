@@ -1,0 +1,20 @@
+# map(array, f) → [f(x) for x in array]
+
+print map([1, 2, 3, 4, 5], fn(x) { return x * 2 })
+# [2, 4, 6, 8, 10]
+
+print map([1, 2, 3, 4, 5], fn(x) { return x * x })
+# [1, 4, 9, 16, 25]
+
+print map(["alice", "bob", "charlie"], fn(s) { return length(s) })
+# [5, 3, 7]
+
+# Lambda stored in a variable
+let square = fn(n) { return n * n }
+print map(range(1, 6), square)
+# [1, 4, 9, 16, 25]
+
+# Closure factory as argument
+fn make_adder(n) { return fn(x) { return x + n } }
+print map([1, 2, 3, 4], make_adder(10))
+# [11, 12, 13, 14]

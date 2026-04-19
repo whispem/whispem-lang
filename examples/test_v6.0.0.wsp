@@ -1,0 +1,75 @@
+# Whispem v6.0.0 — Autonomous Feature Test Suite
+
+print "=== v6.0.0 Feature Tests ==="
+
+# ── map ───────────────────────────────────────────────────────────────────────
+print ""
+print "=== map ==="
+
+print map([1, 2, 3, 4], fn(x) { return x * 2 })
+print map([], fn(x) { return x })
+print map(["a", "b", "c"], fn(s) { return s + "!" })
+
+fn make_multiplier(n) { return fn(x) { return x * n } }
+let triple = make_multiplier(3)
+print map([1, 2, 3], triple)
+
+# ── filter ────────────────────────────────────────────────────────────────────
+print ""
+print "=== filter ==="
+
+print filter([1, 2, 3, 4, 5, 6], fn(n) { return n % 2 == 0 })
+print filter([], fn(x) { return true })
+print filter([1, 2, 3], fn(n) { return n > 10 })
+print filter([1, 2, 3], fn(n) { return n > 0 })
+
+fn make_gt(t) { return fn(n) { return n > t } }
+print filter([1, 5, 3, 8, 2, 7], make_gt(4))
+
+# ── reduce ────────────────────────────────────────────────────────────────────
+print ""
+print "=== reduce ==="
+
+print reduce([1, 2, 3, 4, 5], fn(acc, n) { return acc + n }, 0)
+print reduce([1, 2, 3, 4], fn(acc, n) { return acc * n }, 1)
+print reduce([], fn(acc, n) { return acc + n }, 42)
+print reduce([3, 1, 4, 1, 5, 9, 2], fn(acc, n) { if n > acc { return n } return acc }, 0)
+
+# ── pipeline ──────────────────────────────────────────────────────────────────
+print ""
+print "=== pipeline ==="
+
+let nums    = range(1, 11)
+let evens   = filter(nums, fn(n) { return n % 2 == 0 })
+let squares = map(evens, fn(n) { return n * n })
+let total   = reduce(squares, fn(acc, n) { return acc + n }, 0)
+print total
+
+# ── nested closures (regression for lambda naming fix) ───────────────────────
+print ""
+print "=== nested closures ==="
+
+fn outer(a) {
+    return fn(b) {
+        return fn(c) { return a + b + c }
+    }
+}
+print outer(1)(2)(3)
+print outer(10)(20)(30)
+
+# ── f-strings ─────────────────────────────────────────────────────────────────
+print ""
+print "=== f-strings ==="
+
+let name  = "Em"
+let score = 42
+print f"Hello, {name}!"
+print f"Score: {score}, doubled: {score * 2}"
+print f"{length([1, 2, 3])} items"
+
+# ── exit ──────────────────────────────────────────────────────────────────────
+print ""
+print "=== exit ==="
+print "before exit"
+exit(0)
+print "after exit"

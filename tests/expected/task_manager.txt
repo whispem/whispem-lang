@@ -1,0 +1,13 @@
+=== Task Manager ===
+
+Your Tasks:
+1. Learn Whispem
+2. Write code
+3. Build something cool
+
+Removing last task...
+Removed: Build something cool
+
+Your Tasks:
+1. Learn Whispem
+2. Write code

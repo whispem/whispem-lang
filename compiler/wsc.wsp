@@ -1,10 +1,10 @@
-# wsc.wsp — Whispem Self-hosted Compiler v5.0
+# wsc.wsp — Whispem Self-hosted Compiler v6.0
 # Reads a .wsp source file, compiles it, writes a .whbc bytecode file.
 # Usage: whispem compiler/wsc.wsp <source.wsp>
 #
-# v5 changes vs v4:
-#   - Format version byte: 03 → 04
-#   - serialise_chunk emits upvalue_count = 0 after param_count
+# v6 vs v5: adds map/filter/reduce as builtin keywords in the lexer and
+# as variable-expression primaries (no new opcodes — they remain builtins).
+# Format version byte stays 04. upvalue_count emitted as 0.
 
 # ── Opcodes ───────────────────────────────────────────────────────────────────
 let OP_PUSH_CONST    = 0
@@ -83,6 +83,9 @@ fn keyword_kind(word) {
     if word == "assert"   { return "ASSERT" }
     if word == "type_of"  { return "TYPE_OF" }
     if word == "exit"     { return "EXIT" }
+    if word == "map"      { return "MAP" }
+    if word == "filter"   { return "FILTER" }
+    if word == "reduce"   { return "REDUCE" }
     return "IDENT"
 }
 
@@ -289,7 +292,6 @@ fn lex(src) {
 
     ls["tokens"] = push(ls["tokens"], make_tok("EOF", "", ls["line"]))
 
-    # Collapse ELSE NEWLINE* IF → ELSE_IF
     let raw  = ls["tokens"]
     let out  = []
     let ri   = 0
@@ -449,8 +451,6 @@ fn ps_ret(ps, val) {
     return ps
 }
 
-# ── AST node helper ──────────────────────────────────────────────────────────
-
 fn node(kind, data) {
     let n = {}
     n["kind"] = kind
@@ -482,6 +482,19 @@ fn parse_block(ps) {
         st["ps"] = ps_skip(st["ps"])
     }
     return ps_ret(st["ps"], st["stmts"])
+}
+
+fn is_builtin_call_kind(kind) {
+    return kind == "ASSERT" or kind == "EXIT" or kind == "MAP" or kind == "FILTER" or kind == "REDUCE"
+}
+
+fn builtin_name_for_kind(kind) {
+    if kind == "ASSERT" { return "assert" }
+    if kind == "EXIT"   { return "exit" }
+    if kind == "MAP"    { return "map" }
+    if kind == "FILTER" { return "filter" }
+    if kind == "REDUCE" { return "reduce" }
+    return kind
 }
 
 fn parse_stmt(ps) {
@@ -628,23 +641,26 @@ fn parse_stmt(ps) {
         return ps_ret(st["ps"], node("Function", d))
     }
 
-    if k == "ASSERT" {
+    if is_builtin_call_kind(k) {
+        let bname = builtin_name_for_kind(k)
         st["ps"] = ps_adv(st["ps"])
-        st["ps"] = ps_eat(st["ps"], "LPAREN")
         st["args"] = []
-        if ps_kind(st["ps"]) != "RPAREN" {
-            st["ps"] = parse_expr(st["ps"])
-            st["args"] = push(st["args"], st["ps"]["result"])
-            while ps_kind(st["ps"]) == "COMMA" {
-                st["ps"] = ps_adv(st["ps"])
+        if ps_kind(st["ps"]) == "LPAREN" {
+            st["ps"] = ps_eat(st["ps"], "LPAREN")
+            if ps_kind(st["ps"]) != "RPAREN" {
                 st["ps"] = parse_expr(st["ps"])
                 st["args"] = push(st["args"], st["ps"]["result"])
+                while ps_kind(st["ps"]) == "COMMA" {
+                    st["ps"] = ps_adv(st["ps"])
+                    st["ps"] = parse_expr(st["ps"])
+                    st["args"] = push(st["args"], st["ps"]["result"])
+                }
             }
+            st["ps"] = ps_eat(st["ps"], "RPAREN")
         }
-        st["ps"] = ps_eat(st["ps"], "RPAREN")
         let ce = {}
         ce["kind"] = "Call"
-        ce["name"] = "assert"
+        ce["name"] = bname
         ce["args"] = st["args"]
         let d = {}
         d["expr"] = ce
@@ -972,10 +988,6 @@ fn parse_postfix(ps) {
     return ps_ret(st["ps"], st["expr"])
 }
 
-# ── F-string desugaring ───────────────────────────────────────────────────────
-# Splits raw f-string content into literal and expression parts,
-# re-lexes each expression hole, and folds into a left-associative ADD chain.
-
 fn fstr_desugar(raw) {
     let st = {}
     st["i"]     = 0
@@ -1050,6 +1062,20 @@ fn fstr_desugar(raw) {
         let ni = ni + 1
     }
     return acc
+}
+
+fn is_builtin_primary_kind(kind) {
+    return kind == "TYPE_OF" or kind == "ASSERT" or kind == "EXIT" or kind == "MAP" or kind == "FILTER" or kind == "REDUCE"
+}
+
+fn builtin_primary_name(kind) {
+    if kind == "TYPE_OF" { return "type_of" }
+    if kind == "ASSERT"  { return "assert" }
+    if kind == "EXIT"    { return "exit" }
+    if kind == "MAP"     { return "map" }
+    if kind == "FILTER"  { return "filter" }
+    if kind == "REDUCE"  { return "reduce" }
+    return kind
 }
 
 fn parse_primary(ps) {
@@ -1169,8 +1195,8 @@ fn parse_primary(ps) {
         return ps_ret(st["ps"], e)
     }
 
-    if k == "TYPE_OF" or k == "ASSERT" or k == "EXIT" {
-        let name = ps_val(ps)
+    if is_builtin_primary_kind(k) {
+        let name = builtin_primary_name(k)
         let p2 = ps_adv(ps)
         let e = {}
         e["kind"] = "Variable"
@@ -1762,8 +1788,7 @@ fn serialise_chunk(c) {
     }
 
     acc["out"] = acc["out"] + byte_to_hex(pc)
-    # v5: emit upvalue_count = 0 (self-hosted compiler does not compile closures)
-    acc["out"] = acc["out"] + "00"
+    acc["out"] = acc["out"] + "00"   # upvalue_count = 0 (self-hosted compiler does not compile closures)
     acc["out"] = acc["out"] + byte_to_hex(nc)
     st["ci"] = 0
     while st["ci"] < nc {
@@ -1793,8 +1818,7 @@ fn serialise_chunk(c) {
 
 fn serialise(ctx) {
     let acc     = {}
-    # v5: version byte 04 (was 03 in v4)
-    acc["out"]  = "57484243" + "04"
+    acc["out"]  = "57484243" + "04"   # magic "WHBC" + version 04
     acc["all"]  = [ctx["chunk"]]
     let fn_keys = keys(ctx["functions"])
     let st = {}
@@ -1828,7 +1852,7 @@ fn main() {
     let slen = length(source_path)
     let out_path = substr(source_path, 0, slen - 4) + ".whbc"
 
-    print "=== wsc.wsp -- Whispem Self-hosted Compiler v5.0 ==="
+    print "=== wsc.wsp -- Whispem Self-hosted Compiler v6.0 ==="
     print ""
     print "Source: " + source_path
     print ""

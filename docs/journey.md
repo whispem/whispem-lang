@@ -1,7 +1,7 @@
 # My Journey: From Literature to Programming Languages
 
 *Hi, I'm Emilie — everyone calls me Em'.*
-*This is the story of how I went from studying literature and linguistics to building a self-hosting programming language with closures, lambdas, and a bytecode VM in Rust.*
+*This is the story of how I went from studying literature and linguistics to building a self-hosting programming language with closures, lambdas, higher-order functions, and a bytecode VM in Rust.*
 
 ---
 
@@ -63,13 +63,7 @@ In January 2026 I also founded **Rust Aix-Marseille (RAM)**, an inclusive Rust c
 
 After several months of Rust, I wanted to build something different: a programming language you could *fully understand* — including its own implementation.
 
-Not a toy. Not a clone. Something with a clear philosophy:
-
-> *Code should whisper intent, not shout complexity.*
-
 **February 1, 2026** — Whispem 1.0.0.
-
-**February 19, 2026** — Whispem 1.5.0. Dictionaries, modulo, interactive REPL.
 
 **February 25, 2026** — Whispem 2.0.0. The tree-walking interpreter replaced by a bytecode compiler and a stack-based virtual machine.
 
@@ -77,28 +71,28 @@ Not a toy. Not a clone. Something with a clear philosophy:
 
 ---
 
-## March 2026 — Self-hosting, polish, and closures
+## March 2026 — Self-hosting, closures, and higher-order functions
 
 **March 2, 2026** — Whispem 3.0.0. The self-hosting release. Bytecode serialisation, `LOAD_GLOBAL`, `compiler/wsc.wsp`, verified bootstrap, standalone C VM.
 
-**March 16, 2026** — Whispem 4.0.0. The polish release. `else if`, `assert`, `type_of`, `exit`. Zero VM changes — purely lexer, parser, and builtins. 147 tests.
+**March 16, 2026** — Whispem 4.0.0. `else if`, `assert`, `type_of`, `exit`. Zero VM changes. 147 tests.
 
-**March 18, 2026** — Whispem 5.0.0. The closure release.
+**March 19, 2026** — Whispem 5.0.0. The closure release. Lambdas, closures with shared mutable state, f-strings. The upvalue machinery was the most interesting engineering challenge so far.
 
-Three additions that change what programs can express: **lambdas** (first-class anonymous functions), **closures** (capturing variables from enclosing scopes with shared mutable state), and **f-strings** (string interpolation with arbitrary expressions).
+**April 19, 2026** — Whispem 6.0.0. `map`, `filter`, `reduce`.
 
-The upvalue machinery was the most interesting engineering challenge so far. The problem: how do you share a mutable variable between a function and the closures it creates, so that writes from either side are visible to the other? The answer in Whispem uses `Rc<RefCell<Upvalue>>` — a reference-counted heap cell — shared between the enclosing frame's `open_upvalues` table and the closure's upvalue list. When the enclosing scope stores a new value, it writes through the cell. When the closure reads it via `LOAD_UPVALUE`, it reads from the same cell.
+Three builtins that were implicit in the language from the moment closures arrived — Whispem just needed the plumbing to support them. The implementation is clean: no new opcodes, no format changes. `map`, `filter`, and `reduce` call user-supplied closures through `invoke_closure`, a small helper that runs a bounded slice of the dispatch loop.
 
-The whole mechanism is ~150 lines of Rust and ~100 lines of C. Readable enough that you can understand it in one sitting — which was the point.
+This release also surfaced and fixed a bug from v5: nested lambdas on the same source line received duplicate internal names because the naming counter (`functions.len()`) was evaluated during recursive compilation of inner lambdas. The fix was one field and one increment. The kind of bug that is invisible until you write the test `print outer(1)(2)(3)` and get a closure instead of `6`.
 
-Writing the first closure test that actually worked — `make_counter()` returning `1, 2, 3` across three calls — was quietly satisfying. Small moment, big milestone.
+Writing the pipeline test — `reduce(map(filter(range(1, 11), ...), ...), ..., 0)` producing `220` — was satisfying in the same way as the first working counter: small output, correct behavior, real expressiveness.
 
 ---
 
 ## What building Whispem taught me
 
 **v1.x — the interpreter:**
-How lexers tokenize. How parsers build ASTs. How tree-walking interpreters execute. How to make error messages useful.
+How lexers tokenize. How parsers build ASTs. How tree-walking interpreters execute.
 
 **v2.0.0 — the VM:**
 How bytecode compilers translate AST nodes into instructions. How stack machines execute. How constants pools, jump patching, and parameter binding work.
@@ -107,13 +101,18 @@ How bytecode compilers translate AST nodes into instructions. How stack machines
 How to write an in-process test harness. How short-circuit evaluation works at the bytecode level.
 
 **v3.0.0 — self-hosting:**
-How binary formats are structured. What it means for a language to describe its own compilation. That the gap between "working interpreter" and "self-hosting" is mostly conceptual.
+How binary formats are structured. What it means for a language to describe its own compilation.
 
 **v4.0.0 — polish:**
-That syntax sugar done right is invisible. That `else if` emits identical bytecode to the nested form. That zero warnings is a discipline worth keeping.
+That syntax sugar done right is invisible. That zero warnings is a discipline worth keeping.
 
 **v5.0.0 — closures:**
-How upvalue analysis works in a scope-stack compiler. How to share mutable state between frames using reference-counted heap cells. That the inline-name encoding for `MAKE_CLOSURE` — writing variable names as raw bytes in the bytecode stream instead of using constant-pool indices — is the cleanest solution because it makes descriptors self-contained. That `Rc<RefCell<T>>` is the right tool when you need shared mutable state with deterministic cleanup in Rust.
+How upvalue analysis works in a scope-stack compiler. How to share mutable state between frames using reference-counted heap cells. That `Rc<RefCell<T>>` is the right tool when you need shared mutable state with deterministic cleanup in Rust.
+
+**v6.0.0 — higher-order functions:**
+That `map`/`filter`/`reduce` are not primarily *features* — they are *consequences* of having first-class functions. Once closures exist, these three patterns are inevitable. The interesting engineering was the `invoke_closure` mechanism: how to call a user-supplied closure from inside a builtin, synchronously, without duplicating the entire dispatch loop. The answer — record `target_depth`, push the frame, run `execute_until(target_depth)`, pop the result — is about twenty lines and reuses all existing opcode logic via `step()`.
+
+Also: never use a mutable collection's length as a naming counter when compiling nested structures. A dedicated monotone counter is one line and never wrong.
 
 ---
 
@@ -143,6 +142,7 @@ The skills that matter most in programming — careful observation, systematic t
 | March 2, 2026 | Whispem 3.0.0 — self-hosting, C VM, 125 tests |
 | March 16, 2026 | Whispem 4.0.0 — `else if`, `assert`, `type_of`, `exit`, 147 tests |
 | March 19, 2026 | Whispem 5.0.0 — closures, lambdas, f-strings, 130 Rust + 37 autonomous tests |
+| April 19, 2026 | Whispem 6.0.0 — `map`, `filter`, `reduce`, lambda naming fix, 153 Rust + 51 autonomous tests |
 
 ---
 
@@ -153,4 +153,4 @@ The skills that matter most in programming — careful observation, systematic t
 
 ---
 
-*Em' — Marseille, March 2026*
+*Em' — Marseille, April 2026*

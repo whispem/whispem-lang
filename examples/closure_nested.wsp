@@ -1,0 +1,13 @@
+fn outer(a) {
+    return fn(b) {
+        return fn(c) { return a + b + c }
+    }
+}
+
+print outer(1)(2)(3)    # 6
+print outer(10)(20)(30) # 60
+
+# Store intermediate steps
+let add1 = outer(1)
+let add1_2 = add1(2)
+print add1_2(3)   # 6

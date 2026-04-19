@@ -6,7 +6,7 @@ use crate::vm::Vm;
 use std::io::{self, Write};
 
 pub fn run_repl() {
-    println!("Whispem v5.0.0 — REPL");
+    println!("Whispem v6.0.0 — REPL");
     println!("Type 'exit' or press Ctrl-D to quit.\n");
 
     let mut vm = Vm::new();
@@ -23,12 +23,8 @@ pub fn run_repl() {
         }
 
         let trimmed = line.trim();
-        if trimmed == "exit" || trimmed == "quit" {
-            break;
-        }
-        if trimmed.is_empty() {
-            continue;
-        }
+        if trimmed == "exit" || trimmed == "quit" { break; }
+        if trimmed.is_empty() { continue; }
 
         let mut source = line.clone();
         if trimmed.ends_with('{') {
@@ -66,8 +62,6 @@ fn run_source(source: &str, vm: &mut Vm) -> Result<(), crate::error::WhispemErro
     let program    = parser.parse_program()?;
     let compiler   = Compiler::new();
     let (main_chunk, fn_chunks) = compiler.compile(program)?;
-    for (name, chunk) in fn_chunks {
-        vm.functions.insert(name, chunk);
-    }
+    for (name, chunk) in fn_chunks { vm.functions.insert(name, chunk); }
     vm.run(main_chunk)
 }

@@ -1,0 +1,16 @@
+let name  = "Em"
+let score = 42
+let items = [1, 2, 3]
+
+print f"Hello, {name}!"
+print f"Score: {score}"
+print f"Double: {score * 2}"
+print f"{length(items)} items"
+
+let city = "Marseille"
+print f"{name} lives in {city} and scored {score} points."
+
+fn greet(person) {
+    return f"Hey {person}, welcome to Whispem 6!"
+}
+print greet("Alice")

@@ -1,0 +1,16 @@
+fn side_effect() {
+    print "called!"
+    return true
+}
+
+print "and with false left:"
+let r1 = false and side_effect()   # side_effect never runs
+print r1
+
+print "or with true left:"
+let r2 = true or side_effect()    # side_effect never runs
+print r2
+
+print "and with true left:"
+let r3 = true and side_effect()   # side_effect runs
+print r3

@@ -1,0 +1,35 @@
+=== v6.0.0 Feature Tests ===
+
+=== map ===
+[2, 4, 6, 8]
+[]
+[a!, b!, c!]
+[3, 6, 9]
+
+=== filter ===
+[2, 4, 6]
+[]
+[]
+[1, 2, 3]
+[5, 8, 7]
+
+=== reduce ===
+15
+24
+42
+9
+
+=== pipeline ===
+220
+
+=== nested closures ===
+6
+60
+
+=== f-strings ===
+Hello, Em!
+Score: 42, doubled: 84
+3 items
+
+=== exit ===
+before exit

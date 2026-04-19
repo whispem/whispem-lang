@@ -10,12 +10,7 @@ pub struct Lexer {
 
 impl Lexer {
     pub fn new(input: &str) -> Self {
-        Self {
-            input:    input.chars().collect(),
-            position: 0,
-            line:     1,
-            column:   1,
-        }
+        Self { input: input.chars().collect(), position: 0, line: 1, column: 1 }
     }
 
     pub fn tokenize(&mut self) -> WhispemResult<Vec<Spanned>> {
@@ -33,30 +28,22 @@ impl Lexer {
     fn peek(&self) -> Option<char> { self.input.get(self.position + 1).copied() }
 
     fn advance(&mut self) {
-        if let Some('\n') = self.cur() {
-            self.line  += 1;
-            self.column = 1;
-        } else {
-            self.column += 1;
-        }
+        if let Some('\n') = self.cur() { self.line += 1; self.column = 1; }
+        else                           { self.column += 1; }
         self.position += 1;
     }
 
     fn next_spanned(&mut self) -> WhispemResult<Spanned> {
-        while matches!(self.cur(), Some(' ') | Some('\t') | Some('\r')) {
-            self.advance();
-        }
+        while matches!(self.cur(), Some(' ') | Some('\t') | Some('\r')) { self.advance(); }
 
         let line = self.line;
         let col  = self.column;
 
         let token = match self.cur() {
-            None        => Token::Eof,
-            Some('\n')  => { self.advance(); Token::Newline }
-            Some('#')   => {
-                while !matches!(self.cur(), Some('\n') | None) {
-                    self.advance();
-                }
+            None       => Token::Eof,
+            Some('\n') => { self.advance(); Token::Newline }
+            Some('#')  => {
+                while !matches!(self.cur(), Some('\n') | None) { self.advance(); }
                 return self.next_spanned();
             }
             Some('(') => { self.advance(); Token::LParen }
@@ -74,23 +61,27 @@ impl Lexer {
             Some('-') => { self.advance(); Token::Minus }
             Some('=') => {
                 self.advance();
-                if self.cur() == Some('=') { self.advance(); Token::EqualEqual } else { Token::Equals }
+                if self.cur() == Some('=') { self.advance(); Token::EqualEqual }
+                else { Token::Equals }
             }
             Some('!') => {
                 self.advance();
-                if self.cur() == Some('=') { self.advance(); Token::BangEqual } else { Token::Bang }
+                if self.cur() == Some('=') { self.advance(); Token::BangEqual }
+                else { Token::Bang }
             }
             Some('<') => {
                 self.advance();
-                if self.cur() == Some('=') { self.advance(); Token::LessEqual } else { Token::Less }
+                if self.cur() == Some('=') { self.advance(); Token::LessEqual }
+                else { Token::Less }
             }
             Some('>') => {
                 self.advance();
-                if self.cur() == Some('=') { self.advance(); Token::GreaterEqual } else { Token::Greater }
+                if self.cur() == Some('=') { self.advance(); Token::GreaterEqual }
+                else { Token::Greater }
             }
             Some('"') => self.read_string(line, col)?,
             Some('f') if self.peek() == Some('"') => {
-                self.advance(); // consume 'f'
+                self.advance();
                 self.read_fstring(line, col)?
             }
             Some(c) if c.is_ascii_digit()            => self.read_number(),
@@ -98,10 +89,7 @@ impl Lexer {
             Some(c) => {
                 let ch = c;
                 self.advance();
-                return Err(WhispemError::new(
-                    ErrorKind::UnexpectedCharacter(ch),
-                    Span::new(line, col),
-                ));
+                return Err(WhispemError::new(ErrorKind::UnexpectedCharacter(ch), Span::new(line, col)));
             }
         };
 
@@ -113,18 +101,10 @@ impl Lexer {
         let mut dot = false;
         while let Some(c) = self.cur() {
             if c.is_ascii_digit() {
-                s.push(c);
-                self.advance();
-            } else if c == '.'
-                && !dot
-                && self.peek().map_or(false, |x| x.is_ascii_digit())
-            {
-                dot = true;
-                s.push(c);
-                self.advance();
-            } else {
-                break;
-            }
+                s.push(c); self.advance();
+            } else if c == '.' && !dot && self.peek().map_or(false, |x| x.is_ascii_digit()) {
+                dot = true; s.push(c); self.advance();
+            } else { break; }
         }
         Token::Number(s.parse().unwrap_or(0.0))
     }
@@ -132,12 +112,8 @@ impl Lexer {
     fn read_ident(&mut self) -> Token {
         let mut s = String::new();
         while let Some(c) = self.cur() {
-            if c.is_alphanumeric() || c == '_' {
-                s.push(c);
-                self.advance();
-            } else {
-                break;
-            }
+            if c.is_alphanumeric() || c == '_' { s.push(c); self.advance(); }
+            else { break; }
         }
         match s.as_str() {
             "let"        => Token::Let,
@@ -159,6 +135,9 @@ impl Lexer {
             "assert"     => Token::Assert,
             "type_of"    => Token::TypeOf,
             "exit"       => Token::Exit,
+            "map"        => Token::Map,
+            "filter"     => Token::Filter,
+            "reduce"     => Token::Reduce,
             "length"     => Token::Length,
             "push"       => Token::Push,
             "pop"        => Token::Pop,
@@ -183,13 +162,13 @@ impl Lexer {
     }
 
     fn read_string(&mut self, line: usize, col: usize) -> WhispemResult<Token> {
-        self.advance(); // opening "
+        self.advance();
         let span = Span::new(line, col);
         let mut val = String::new();
         loop {
             match self.cur() {
                 None | Some('\n') => return Err(WhispemError::new(ErrorKind::UnterminatedString, span)),
-                Some('"') => { self.advance(); break; }
+                Some('"')  => { self.advance(); break; }
                 Some('\\') => {
                     self.advance();
                     match self.cur() {
@@ -209,28 +188,22 @@ impl Lexer {
     }
 
     fn read_fstring(&mut self, line: usize, col: usize) -> WhispemResult<Token> {
-        self.advance(); // opening "
+        self.advance();
         let span = Span::new(line, col);
         let mut parts: Vec<FStrPart> = Vec::new();
-        let mut lit   = String::new();
+        let mut lit = String::new();
 
         loop {
             match self.cur() {
                 None | Some('\n') => return Err(WhispemError::new(ErrorKind::UnterminatedString, span)),
                 Some('"') => {
                     self.advance();
-                    if !lit.is_empty() {
-                        parts.push(FStrPart::Literal(lit.clone()));
-                        lit.clear();
-                    }
+                    if !lit.is_empty() { parts.push(FStrPart::Literal(lit.clone())); lit.clear(); }
                     break;
                 }
                 Some('{') => {
                     self.advance();
-                    if !lit.is_empty() {
-                        parts.push(FStrPart::Literal(lit.clone()));
-                        lit.clear();
-                    }
+                    if !lit.is_empty() { parts.push(FStrPart::Literal(lit.clone())); lit.clear(); }
                     let mut expr_src = String::new();
                     let mut depth    = 1usize;
                     loop {
@@ -240,8 +213,7 @@ impl Lexer {
                             Some('}') => {
                                 depth -= 1;
                                 if depth == 0 { self.advance(); break; }
-                                expr_src.push('}');
-                                self.advance();
+                                expr_src.push('}'); self.advance();
                             }
                             Some(c) => { expr_src.push(c); self.advance(); }
                         }
@@ -275,15 +247,9 @@ fn collapse_else_if(tokens: Vec<Spanned>) -> Vec<Spanned> {
     while i < tokens.len() {
         if tokens[i].token == Token::Else {
             let mut j = i + 1;
-            while j < tokens.len() && tokens[j].token == Token::Newline {
-                j += 1;
-            }
+            while j < tokens.len() && tokens[j].token == Token::Newline { j += 1; }
             if j < tokens.len() && tokens[j].token == Token::If {
-                out.push(Spanned {
-                    token:  Token::ElseIf,
-                    line:   tokens[i].line,
-                    column: tokens[i].column,
-                });
+                out.push(Spanned { token: Token::ElseIf, line: tokens[i].line, column: tokens[i].column });
                 i = j + 1;
                 continue;
             }

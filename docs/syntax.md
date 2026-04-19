@@ -1,6 +1,6 @@
 # Whispem Syntax Reference
 
-**Version 5.0.0**
+**Version 6.0.0**
 
 Complete reference for the Whispem programming language syntax.
 
@@ -55,15 +55,15 @@ There is no bare assignment — only `let x = expr` and `x[i] = expr`.
 
 ## Types
 
-| Type       | Examples                        | `type_of` |
-|------------|---------------------------------|-----------|
-| `number`   | `42`, `3.14`, `-7`              | `"number"` |
-| `string`   | `"hello"`, `""`                 | `"string"` |
-| `bool`     | `true`, `false`                 | `"bool"` |
-| `array`    | `[1, "two", true]`              | `"array"` |
-| `dict`     | `{"key": "value"}`              | `"dict"` |
-| `function` | `fn(x) { return x }`, closures  | `"function"` |
-| `none`     | returned by void functions      | `"none"` |
+| Type       | Examples                        | `type_of`   |
+|------------|---------------------------------|-------------|
+| `number`   | `42`, `3.14`, `-7`              | `"number"`  |
+| `string`   | `"hello"`, `""`                 | `"string"`  |
+| `bool`     | `true`, `false`                 | `"bool"`    |
+| `array`    | `[1, "two", true]`              | `"array"`   |
+| `dict`     | `{"key": "value"}`              | `"dict"`    |
+| `function` | `fn(x) { return x }`, closures  | `"function"`|
+| `none`     | returned by void functions      | `"none"`    |
 
 Types are inferred automatically.
 
@@ -109,21 +109,14 @@ let empty  = {}
 
 Keys must be strings. Values can be any type — including functions and closures.
 
-### Access
+### Access and assignment
 
 ```wsp
-print person["name"]   # Em
-print person["age"]    # 26
+print person["name"]       # Em
+person["city"] = "Paris"   # update or add key
 ```
 
 Accessing a key that does not exist raises: `key "foo" not found in dict`.
-
-### Assignment
-
-```wsp
-person["city"] = "Paris"       # update existing key
-person["job"]  = "developer"   # add new key
-```
 
 ---
 
@@ -136,14 +129,7 @@ person["job"]  = "developer"   # add new key
 10 - 5    # 5
 10 * 5    # 50
 10 / 3    # 3.333...
-10 % 3    # 1  ← modulo
-```
-
-### Unary
-
-```wsp
-let n = -42
-let b = not true
+10 % 3    # 1
 ```
 
 ### String concatenation
@@ -152,34 +138,31 @@ let b = not true
 "Hello" + ", " + "world!"
 ```
 
-Numbers and booleans are coerced to string automatically:
-
-```wsp
-print "Count: " + 42   # Count: 42
-```
+Numbers and booleans are coerced to string automatically when concatenated with a string.
 
 ### Chained calls
 
-Calls can be chained on any expression value:
+Calls chain left-to-right on any expression value:
 
 ```wsp
-make_adder(5)(3)        # 8
-fns[0](10)              # calls closure stored at index 0
-fn(x) { return x*2 }(7) # 14 — immediate lambda call
+make_adder(5)(3)              # 8
+fns[0](10)                    # calls closure at index 0
+fn(x) { return x*2 }(7)      # 14 — immediate lambda call
+outer(1)(2)(3)                # nested closure chain
 ```
 
 ---
 
 ## Comparisons
 
-| Operator | Meaning |
-|----------|---------|
-| `==` | equal |
-| `!=` | not equal |
-| `<` | less than |
-| `<=` | less than or equal |
-| `>` | greater than |
-| `>=` | greater than or equal |
+| Operator | Meaning          |
+|----------|-----------------|
+| `==`     | equal            |
+| `!=`     | not equal        |
+| `<`      | less than        |
+| `<=`     | less than or equal |
+| `>`      | greater than     |
+| `>=`     | greater than or equal |
 
 Works on numbers, strings (lexicographic), and booleans.
 
@@ -211,19 +194,7 @@ if condition {
 }
 ```
 
-Both `else if` and `else` are optional. `else if` is native syntax — no need to nest `if` inside `else`.
-
-```wsp
-if score >= 90 {
-    print "A"
-} else if score >= 80 {
-    print "B"
-} else if score >= 70 {
-    print "C"
-} else {
-    print "F"
-}
-```
+Both `else if` and `else` are optional. `else if` is native syntax.
 
 ---
 
@@ -246,8 +217,6 @@ for item in [1, 2, 3] { print item }
 for i in range(0, 10) { print i }
 ```
 
-`for` desugars to a counter-based while loop at compile time. The iterable must be an array.
-
 ### Break and continue
 
 ```wsp
@@ -269,42 +238,25 @@ fn greet(name) {
 print greet("world")
 ```
 
-Functions can be called before they are defined (forward calls work). Arity is checked at call time.
-
-### Scope
-
-Top-level `let` bindings are globals. Variables inside a function are locals. Functions can read globals (via `LOAD_GLOBAL`); they cannot mutate globals.
-
-### Return values
-
-A function with no explicit `return` returns `none`. A bare `return` also returns `none`.
+Functions can be called before they are defined (forward calls work). Arity is checked at call time. A function with no explicit `return` returns `none`.
 
 ---
 
 ## Lambdas
 
-`fn(params) { body }` is a first-class expression. It can be stored, passed, returned, and called immediately.
+`fn(params) { body }` is a first-class expression:
 
 ```wsp
-# Store
 let double = fn(x) { return x * 2 }
 print double(7)   # 14
 
-# Pass as argument
 fn apply(f, x) { return f(x) }
 print apply(fn(n) { return n * n }, 5)   # 25
 
-# Return from function
-fn make_double() { return fn(x) { return x * 2 } }
-print make_double()(7)   # 14
-
-# Store in array
 let fns = [fn(x) { return x + 1 }, fn(x) { return x * 2 }]
 print fns[0](10)   # 11
-print fns[1](10)   # 20
 
-# Immediate call
-print fn(x) { return x * 2 }(7)   # 14
+print fn(x) { return x * 2 }(7)   # 14 — immediate call
 ```
 
 `type_of(fn(x){return x})` returns `"function"`.
@@ -313,18 +265,17 @@ print fn(x) { return x * 2 }(7)   # 14
 
 ## Closures
 
-A function defined inside another function automatically captures variables from the enclosing scope.
+A function defined inside another function automatically captures variables from the enclosing scope:
 
 ```wsp
 fn make_adder(n) {
-    return fn(x) { return x + n }   # n is captured
+    return fn(x) { return x + n }
 }
 let add5 = make_adder(5)
 print add5(3)    # 8
-print add5(10)   # 15
 ```
 
-Captured variables are **shared and mutable** — all closures created in the same scope share the same cell:
+Captured variables are **shared and mutable**:
 
 ```wsp
 fn make_counter() {
@@ -340,17 +291,22 @@ print c()   # 2
 print c()   # 3
 ```
 
-Each call to `make_counter()` creates an independent counter:
+Two closures in the same scope share the same cell:
 
 ```wsp
-let c1 = make_counter()
-let c2 = make_counter()
-print c1()   # 1
-print c1()   # 2
-print c2()   # 1  ← independent
+fn make_pair() {
+    let n = 0
+    let inc = fn() { let n = n + 1 }
+    let get = fn() { return n }
+    return [inc, get]
+}
+let p = make_pair()
+p[0]()
+p[0]()
+print p[1]()   # 2
 ```
 
-Closures can be nested to arbitrary depth:
+Closures nest to arbitrary depth:
 
 ```wsp
 fn outer(a) {
@@ -365,7 +321,7 @@ print outer(1)(2)(3)   # 6
 
 ## F-strings
 
-`f"..."` strings support `{expr}` interpolation. Any expression is valid inside braces.
+`f"..."` strings with `{expr}` interpolation. Any expression is valid inside braces:
 
 ```wsp
 let name  = "Em"
@@ -375,9 +331,7 @@ print f"Score: {score}, doubled: {score * 2}"
 print f"{length([1, 2, 3])} items"
 ```
 
-Escape sequences work normally inside f-strings. To include a literal `{` or `}`, use `\{` or `\}`.
-
-F-strings compile to a chain of `+` concatenations — identical performance to hand-written concatenation. No runtime overhead.
+F-strings compile to `+` concatenation chains — identical performance to hand-written concatenation.
 
 ---
 
@@ -385,21 +339,15 @@ F-strings compile to a chain of `+` concatenations — identical performance to 
 
 ### Escape sequences
 
-| Sequence | Character |
-|----------|-----------|
-| `\n` | newline |
-| `\t` | tab |
-| `\r` | carriage return |
-| `\\` | backslash |
-| `\"` | double quote |
-| `\{` | literal `{` (in f-strings) |
-| `\}` | literal `}` (in f-strings) |
-
-### Concatenation
-
-```wsp
-let full = "Hello" + ", " + "world!"
-```
+| Sequence | Character   |
+|----------|-------------|
+| `\n`     | newline     |
+| `\t`     | tab         |
+| `\r`     | carriage return |
+| `\\`     | backslash   |
+| `\"`     | double quote |
+| `\{`     | literal `{` (in f-strings) |
+| `\}`     | literal `}` (in f-strings) |
 
 ---
 
@@ -407,52 +355,66 @@ let full = "Hello" + ", " + "world!"
 
 ### Arrays
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `length` | `(array\|string\|dict) → number` | Number of elements |
-| `push` | `(array, value) → array` | New array with value appended |
-| `pop` | `(array) → value` | Last element (error if empty) |
-| `reverse` | `(array) → array` | New reversed array |
-| `slice` | `(array, start, end) → array` | Sub-array `[start, end)` |
-| `range` | `(start, end) → array` | Integer range `[start, end)` |
+| Function  | Signature                       | Description                    |
+|-----------|---------------------------------|--------------------------------|
+| `length`  | `(array\|string\|dict) → number`| Number of elements             |
+| `push`    | `(array, value) → array`        | New array with value appended  |
+| `pop`     | `(array) → value`               | Last element (error if empty)  |
+| `reverse` | `(array) → array`               | New reversed array             |
+| `slice`   | `(array, start, end) → array`   | Sub-array `[start, end)`       |
+| `range`   | `(start, end) → array`          | Integer range `[start, end)`   |
+
+### Higher-order (v6.0.0)
+
+| Function | Signature                        | Description                                      |
+|----------|----------------------------------|--------------------------------------------------|
+| `map`    | `(array, f) → array`             | `[f(x) for x in array]`                          |
+| `filter` | `(array, pred) → array`          | `[x for x in array if pred(x)]`                  |
+| `reduce` | `(array, f, initial) → value`    | `f(…f(f(initial, a[0]), a[1])…, a[n-1])`         |
+
+```wsp
+print map([1, 2, 3], fn(x) { return x * 2 })              # [2, 4, 6]
+print filter([1,2,3,4,5], fn(n) { return n % 2 == 0 })    # [2, 4]
+print reduce([1,2,3,4,5], fn(acc,n) { return acc+n }, 0)  # 15
+```
 
 ### Dictionaries
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `keys` | `(dict) → array` | Sorted list of keys |
-| `values` | `(dict) → array` | Values in key-sorted order |
-| `has_key` | `(dict, key) → bool` | Check if key exists |
+| Function  | Signature                    | Description                |
+|-----------|------------------------------|----------------------------|
+| `keys`    | `(dict) → array`             | Sorted list of keys        |
+| `values`  | `(dict) → array`             | Values in key-sorted order |
+| `has_key` | `(dict, key) → bool`         | Check if key exists        |
 
 ### Strings
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `length` | `(string) → number` | Character count (UTF-8 aware) |
-| `char_at` | `(string, index) → string` | Single character at index |
-| `substr` | `(string, start, len) → string` | Substring |
-| `ord` | `(string) → number` | Unicode codepoint of first character |
-| `num_to_str` | `(number) → string` | Number to string |
-| `str_to_num` | `(string) → number` | String to number |
+| Function     | Signature                        | Description                          |
+|--------------|----------------------------------|--------------------------------------|
+| `length`     | `(string) → number`              | Character count (UTF-8 aware)        |
+| `char_at`    | `(string, index) → string`       | Single character at index            |
+| `substr`     | `(string, start, len) → string`  | Substring                            |
+| `ord`        | `(string) → number`              | Unicode codepoint of first character |
+| `num_to_str` | `(number) → string`              | Number to string                     |
+| `str_to_num` | `(string) → number`              | String to number                     |
 
 ### I/O
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `input` | `(prompt?) → string` | Read line from stdin |
-| `read_file` | `(path) → string` | Read file contents |
-| `write_file` | `(path, content) → none` | Write string to file |
-| `args` | `() → array` | Script arguments |
-| `write_hex` | `(path, hex) → none` | Decode hex string to bytes, write to file |
-| `num_to_hex` | `(n) → string` | IEEE-754 f64 as 16-char hex string |
+| Function     | Signature                    | Description                             |
+|--------------|------------------------------|-----------------------------------------|
+| `input`      | `(prompt?) → string`         | Read line from stdin                    |
+| `read_file`  | `(path) → string`            | Read file contents                      |
+| `write_file` | `(path, content) → none`     | Write string to file                    |
+| `args`       | `() → array`                 | Script arguments                        |
+| `write_hex`  | `(path, hex) → none`         | Decode hex string to bytes, write file  |
+| `num_to_hex` | `(n) → string`               | IEEE-754 f64 as 16-char hex string      |
 
 ### Introspection and control
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `type_of` | `(value) → string` | Runtime type: `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, `"function"`, `"none"` |
-| `assert` | `(condition, message?) → none` | Raises `AssertionFailed` if condition is falsy |
-| `exit` | `(code?) → none` | Terminates the program with the given exit code (default `0`) |
+| Function  | Signature                 | Description                                                    |
+|-----------|---------------------------|----------------------------------------------------------------|
+| `type_of` | `(value) → string`        | `"number"`, `"string"`, `"bool"`, `"array"`, `"dict"`, `"function"`, `"none"` |
+| `assert`  | `(condition, message?) → none` | Raises `AssertionFailed` if condition is falsy            |
+| `exit`    | `(code?) → none`          | Terminates with exit code (default `0`)                        |
 
 ---
 
@@ -469,18 +431,18 @@ let x = 10   # inline comment
 
 From highest to lowest:
 
-| Level | Operators |
-|-------|-----------|
-| 1 (highest) | `( )` parentheses |
-| 2 | `[ ]` indexing, `( )` call (postfix) |
-| 3 | unary `-`, `not` |
-| 4 | `*`, `/`, `%` |
-| 5 | `+`, `-` |
-| 6 | `<`, `>`, `<=`, `>=`, `==`, `!=` |
-| 7 | `and` |
-| 8 (lowest) | `or` |
+| Level       | Operators                                    |
+|-------------|----------------------------------------------|
+| 1 (highest) | `( )` parentheses                            |
+| 2           | `[ ]` indexing, `( )` call (postfix)         |
+| 3           | unary `-`, `not`                             |
+| 4           | `*`, `/`, `%`                                |
+| 5           | `+`, `-`                                     |
+| 6           | `<`, `>`, `<=`, `>=`, `==`, `!=`             |
+| 7           | `and`                                        |
+| 8 (lowest)  | `or`                                         |
 
-Chained calls and index accesses associate left-to-right: `f(1)(2)`, `a[0][1]`, `f(1)[0](2)`.
+Chained calls and index accesses associate left-to-right: `f(1)(2)`, `a[0][1]`, `f(1)[0](2)`, `outer(1)(2)(3)`.
 
 ---
 
@@ -491,9 +453,10 @@ let  print  if  else  while  for  in  fn  return  break  continue
 and  or  not  true  false  assert  type_of  exit
 ```
 
-Built-in function names:
+Built-in function names (also reserved):
+
 ```
-length  push  pop  reverse  slice  range
+length  push  pop  reverse  slice  range  map  filter  reduce
 input  read_file  write_file  args  write_hex
 keys  values  has_key
 char_at  substr  ord  num_to_str  str_to_num  num_to_hex
@@ -517,4 +480,4 @@ Errors include source location as `[line N, col M]`:
 
 ---
 
-**Whispem v5.0.0 — Complete Syntax Reference**
+**Whispem v6.0.0 — Complete Syntax Reference**

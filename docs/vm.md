@@ -1,11 +1,10 @@
 # Whispem VM — Specification
 
-**Version 5.0.0**
+**Version 6.0.0**
 
 > *"A virtual machine should be as simple as the language it runs."*
 
-This document is the complete specification of the Whispem Virtual Machine (WVM).
-It is intentionally written to be readable by a human — and by a Whispem program.
+This document is the complete specification of the Whispem Virtual Machine (WVM). It is intentionally written to be readable by a human — and by a Whispem program.
 
 ---
 
@@ -46,7 +45,7 @@ The WVM is a **stack-based virtual machine**.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                      Whispem v5.0.0                     │
+│                      Whispem v6.0.0                     │
 │                                                         │
 │  source.wsp ──► Compiler ──► Chunks ──► VM ──► output  │
 │                                │                        │
@@ -67,11 +66,12 @@ The WVM is a **stack-based virtual machine**.
 
 - **Compiler** — AST → one `Chunk` per function/lambda + one for `<main>`
 - **Chunk** — flat byte array + constants pool + per-byte line numbers + `param_count` + `upvalue_count`
-- **VM** — reads one opcode at a time, executes it
+- **VM** — reads one opcode at a time, executes it via `execute()` / `step()`
 - **Stack** — shared `Vec<Value>` across all frames
 - **Call frames** — one `CallFrame` per active call, each with its own `ip`, `locals`, `upvalues`, and `open_upvalues`
 - **Globals** — `HashMap<String, Value>` for top-level variables
 - **Upvalue cells** — `Rc<RefCell<Upvalue>>` heap-allocated cells shared between frames for mutable closure state
+- **`invoke_closure`** — bounded execution helper used by `map`/`filter`/`reduce` to call user-supplied closures synchronously
 
 ---
 
@@ -150,8 +150,7 @@ OPCODE <u8> <u8>    — two separate one-byte operands
 
 ### `MAKE_CLOSURE` encoding
 
-`MAKE_CLOSURE` has a variable-length encoding because each upvalue descriptor
-embeds the variable name string inline:
+`MAKE_CLOSURE` has a variable-length encoding because each upvalue descriptor embeds the variable name string inline:
 
 ```
 0x53                      — MAKE_CLOSURE opcode
@@ -176,7 +175,7 @@ pub struct Chunk {
     pub lines:         Vec<usize>,
     pub name:          String,
     pub param_count:   usize,
-    pub upvalue_count: usize,   // v5: number of upvalues this function closes over
+    pub upvalue_count: usize,
 }
 ```
 
@@ -186,7 +185,7 @@ pub struct Chunk {
 
 ```
 Magic:          4 bytes   "WHBC"  (0x57 0x48 0x42 0x43)
-Version:        1 byte    0x04 for v5.0.0
+Version:        1 byte    0x04 for v5.0.0 and v6.0.0
 
 fn_count:       u16 big-endian   (number of chunks, ≥ 1)
 
@@ -194,7 +193,7 @@ For each chunk  (index 0 = <main>):
   name_len:     u16 big-endian
   name:         UTF-8 bytes (name_len bytes)
   param_count:  u8
-  upvalue_count:u8                          ← NEW in v5
+  upvalue_count:u8
   const_count:  u8                          (0–255)
   For each constant:
     tag:        u8
@@ -210,9 +209,9 @@ For each chunk  (index 0 = <main>):
 
 **Version history:**
 - `0x03` — v3.0.0 / v4.0.0 (no `upvalue_count` field)
-- `0x04` — v5.0.0 (adds `upvalue_count` field per chunk)
+- `0x04` — v5.0.0 and v6.0.0 (adds `upvalue_count` field per chunk)
 
-Files from different versions are not interchangeable. Recompile from source when upgrading.
+Files from different major format versions are not interchangeable. Recompile from source when upgrading from v3/v4 to v5/v6.
 
 ---
 
@@ -223,8 +222,8 @@ struct CallFrame {
     chunk:         Rc<Chunk>,
     ip:            usize,
     locals:        HashMap<String, Value>,
-    upvalues:      Vec<Rc<RefCell<Upvalue>>>,  // captured from enclosing scope
-    open_upvalues: HashMap<String, Rc<RefCell<Upvalue>>>, // locals this frame has shared
+    upvalues:      Vec<Rc<RefCell<Upvalue>>>,
+    open_upvalues: HashMap<String, Rc<RefCell<Upvalue>>>,
 }
 ```
 
@@ -251,6 +250,16 @@ struct CallFrame {
 
 ## Execution Model
 
+The VM has three entry points:
+
+```
+execute()          — main loop, runs until HALT
+execute_until(n)   — runs until frame depth drops to n (used by invoke_closure)
+step(op)           — executes a single non-terminal opcode
+```
+
+`execute()` and `execute_until()` handle `Return`, `ReturnNone`, and `Halt`. Everything else is delegated to `step()`.
+
 ```
 loop:
   byte = frame.chunk.code[frame.ip]; frame.ip += 1
@@ -266,7 +275,7 @@ loop:
     ...
 ```
 
-**Truthiness:** `false`, `0`, `""`, `[]`, `{}`, `none` are falsy. Everything else (including closures) is truthy.
+**Truthiness:** `false`, `0`, `""`, `[]`, `{}`, `none` are falsy. Everything else — including functions — is truthy.
 
 ---
 
@@ -296,19 +305,20 @@ Whispem uses **eager capture with shared mutation**:
 4. When the enclosing frame later `STORE`s to the variable, it also writes through the cell — so the closure sees the new value.
 5. When multiple closures capture the same variable, they all share the same `Rc`. Mutations via `STORE_UPVALUE` are immediately visible to all sharers.
 
-### Example
+### `invoke_closure`
 
-```wsp
-fn make_counter() {
-    let count = 0
-    return fn() {
-        let count = count + 1   # LOAD_UPVALUE 0, ADD, STORE_UPVALUE 0
-        return count             # LOAD_UPVALUE 0
-    }
-}
-```
+`map`, `filter`, and `reduce` need to call user-supplied closures synchronously and collect return values. The implementation:
 
-The inner lambda captures `count` as upvalue slot 0. Each call reads and writes through the shared cell. Across calls, the cell retains the updated value.
+1. Records `target_depth = frames.len()`.
+2. Pushes the closure frame and arguments.
+3. Calls `execute_until(target_depth)` — the dispatch loop exits when the frame count drops back to `target_depth`.
+4. Pops and returns the result from the stack.
+
+No opcode duplication: all opcodes except `Return`, `ReturnNone`, and `Halt` are handled by the shared `step()` method.
+
+### Lambda naming
+
+Each lambda gets a unique internal name `__lambda_{line}_{count}` where `count` is a monotonically increasing field (`lambda_count`) on the `Compiler` struct. Using `functions.len()` as the counter (done in v5) caused name collisions for nested lambdas defined on the same source line, because the inner lambda was inserted before the counter was read. The `lambda_count` field increments before each `compile_fn_body` call, guaranteeing uniqueness at all nesting depths.
 
 ---
 
@@ -319,12 +329,6 @@ All errors are `WhispemError { kind: ErrorKind, span: Span }`.
 ```rust
 pub struct Span { pub line: usize, pub column: usize }
 ```
-
-### v5.0.0 new error kinds
-
-| Kind | When |
-|------|------|
-| `UpvalueError(String)` | Internal upvalue invariant violated (compiler bug) |
 
 ### Full error kind table
 
@@ -341,7 +345,7 @@ pub struct Span { pub line: usize, pub column: usize }
 | `StackUnderflow` | Compiler bug |
 | `AssertionFailed(String)` | `assert()` called with falsy condition |
 | `Exit(i64)` | `exit(code)` — propagates to CLI, not printed |
-| `UpvalueError(String)` | v5.0.0 — upvalue in invalid state |
+| `UpvalueError(String)` | Upvalue in invalid state |
 
 `Exit` is caught by the CLI and passed to `process::exit` without printing.
 
@@ -355,11 +359,11 @@ pub struct Span { pub line: usize, pub column: usize }
 2. **Second pass** — compile all named `fn` declarations (enables forward calls).
 3. **Third pass** — compile the main body.
 
-### f-strings — zero VM impact
+### F-strings — zero VM impact
 
-`f"Hello, {name}!"` is desugared by the **parser** into a chain of `Binary::Add` nodes before the compiler sees it. The compiler emits the same `ADD` sequences as hand-written `"Hello, " + name + "!"`. No new opcodes, no new AST nodes visible to the compiler.
+`f"Hello, {name}!"` is desugared by the **parser** into a chain of `Binary::Add` nodes before the compiler sees it. No new opcodes, no new AST nodes visible to the compiler.
 
-### Lambdas — `MAKE_CLOSURE` with empty upvalue list (or captured vars)
+### Lambdas — `MAKE_CLOSURE` with upvalue list
 
 ```
 fn(x) { return x * 2 }
@@ -368,31 +372,24 @@ compiles to:
 ```
 MAKE_CLOSURE '__lambda_1_0' (0 upvalues)
 ```
-The lambda chunk is stored in `functions` under its generated name.
+
+Each lambda gets a unique name via the compiler's `lambda_count` field.
+
+### `map`, `filter`, `reduce` — pure builtins
+
+`map`, `filter`, and `reduce` compile identically to any other builtin call:
+```
+CALL   'map'   2
+```
+The VM intercepts the name in `call_builtin`, calls `invoke_closure` for each element, and returns a new array. No new opcodes.
 
 ### `else if` — zero bytecode impact
 
-`else if` is collapsed to `ElseIf` by the lexer; the parser builds nested `Stmt::If` nodes — identical AST to `else { if ... }`. The compiler sees no difference.
+`else if` is collapsed to `ElseIf` by the lexer; the parser builds nested `Stmt::If` nodes. The compiler sees no difference.
 
 ### Jump patching
 
 Jumps are emitted with a `0xFFFF` placeholder, then patched once the target offset is known.
-
-### `for` loop desugaring
-
-```
-STORE __iter_N
-PUSH_CONST 0; STORE __idx_N
-loop_start:
-  LOAD __idx_N; LOAD __iter_N; CALL length 1; LT
-  JUMP_IF_FALSE [after]
-  LOAD __iter_N; LOAD __idx_N; GET_INDEX; STORE x
-  <body>
-continue_target:
-  LOAD __idx_N; PUSH_CONST 1; ADD; STORE __idx_N
-  JUMP [loop_start]
-after:
-```
 
 ---
 
@@ -412,34 +409,49 @@ fn make_counter() {
 
 ```
 == make_counter ==
-0000     2  STORE                0    'count'        ← param_count=0, stores 0
-0002     3  PUSH_CONST           0    '0'
-0004     3  STORE                0    'count'
-0006     4  MAKE_CLOSURE         1    '__lambda_4_0' (1 upvalues)
+0000     2  PUSH_CONST           0    '0'
+0002     2  STORE                0    'count'
+0004     3  MAKE_CLOSURE         1    '__lambda_3_0' (1 upvalues)
               [is_local=1 name='count']
-0014     4  RETURN
-0015     4  RETURN_NONE
+0013     3  RETURN
+0014     3  RETURN_NONE
 
-== __lambda_4_0 ==
-0000     5  LOAD_UPVALUE         0               ← read count from shared cell
-0002     5  PUSH_CONST           0    '1'
-0004     5  ADD
-0005     5  STORE_UPVALUE        0               ← write back through shared cell
-0007     6  LOAD_UPVALUE         0
-0009     6  RETURN
-0010     6  RETURN_NONE
+== __lambda_3_0 ==
+0000     4  LOAD_UPVALUE         0
+0002     4  PUSH_CONST           0    '1'
+0004     4  ADD
+0005     4  STORE_UPVALUE        0
+0007     5  LOAD_UPVALUE         0
+0009     5  RETURN
+0010     5  RETURN_NONE
 ```
 
-### f-string desugaring
+### map with a closure
 
 ```wsp
-let name = "Em"
-print f"Hello, {name}!"
+print map([1, 2, 3], fn(x) { return x * 2 })
 ```
-Compiles identically to:
-```wsp
-let name = "Em"
-print "Hello, " + name + "!"
+
+compiles to approximately:
+
+```
+== <main> ==
+PUSH_CONST   '1'
+PUSH_CONST   '2'
+PUSH_CONST   '3'
+MAKE_ARRAY   3
+MAKE_CLOSURE '__lambda_1_0'  (0 upvalues)
+CALL         'map'  2
+PRINT
+HALT
+
+== __lambda_1_0 ==
+STORE  'x'
+LOAD   'x'
+PUSH_CONST  '2'
+MUL
+RETURN
+RETURN_NONE
 ```
 
 ---
@@ -456,6 +468,9 @@ Built-ins are resolved at `CALL` time before checking user-defined functions or 
 | `reverse`    | `(array) → array`                      |                                |
 | `slice`      | `(array, start, end) → array`          | `[start, end)`                 |
 | `range`      | `(start, end) → array`                 | Integer range                  |
+| `map`        | `(array, f) → array`                   | `[f(x) for x in array]`        |
+| `filter`     | `(array, pred) → array`                | `[x for x in array if pred(x)]`|
+| `reduce`     | `(array, f, initial) → value`          | Left fold                      |
 | `input`      | `(prompt?) → string`                   |                                |
 | `read_file`  | `(path) → string`                      |                                |
 | `write_file` | `(path, content) → none`               |                                |
@@ -483,17 +498,17 @@ Built-ins are resolved at `CALL` time before checking user-defined functions or 
 | `src/value.rs`    | `Value` enum — includes `Closure`, `Upvalue`      |
 | `src/opcode.rs`   | `OpCode` enum — 38 opcodes                        |
 | `src/chunk.rs`    | `Chunk` + `serialise` + `deserialise`             |
-| `src/compiler.rs` | AST → bytecode — upvalue analysis, closure emit   |
-| `src/vm.rs`       | Rust VM loop — closure dispatch, upvalue cells    |
+| `src/compiler.rs` | AST → bytecode — upvalue analysis, `lambda_count` |
+| `src/vm.rs`       | VM loop — `execute`, `execute_until`, `step`, `invoke_closure` |
 | `src/error.rs`    | `WhispemError`, `ErrorKind`, `Span`               |
-| `src/lexer.rs`    | Tokeniser — `else if` collapse, f-string lexing   |
-| `src/parser.rs`   | Parser — lambdas, f-string desugaring, `CallExpr` |
-| `src/token.rs`    | Token types — `FStr`, `ElseIf`, `Assert`, `TypeOf`, `Exit` |
+| `src/lexer.rs`    | Tokeniser — `else if` collapse, f-string lexing, `map`/`filter`/`reduce` |
+| `src/parser.rs`   | Parser — lambdas, f-string desugaring, `CallExpr`, builtins |
+| `src/token.rs`    | Token types — `Map`, `Filter`, `Reduce`, `FStr`, `ElseIf`, … |
 | `src/ast.rs`      | AST — `Lambda`, `CallExpr`, `FStr`, `FStrPart`    |
-| `src/main.rs`     | CLI — `handle_vm_error`, 130 Rust tests · 37 autonomous tests           |
-| `vm/wvm.c`        | Standalone C VM — full v5 support, ~1000 lines    |
+| `src/main.rs`     | CLI — `handle_vm_error`, 153 Rust tests           |
+| `vm/wvm.c`        | Standalone C VM — full v5 support (~1000 lines); `map`/`filter`/`reduce` pending |
 
 ---
 
-**Whispem VM — v5.0.0**
-*Closures. Lambdas. F-strings. Self-hosted. Standalone.*
+**Whispem VM — v6.0.0**
+*map · filter · reduce · closures · lambdas · f-strings · self-hosted · standalone*

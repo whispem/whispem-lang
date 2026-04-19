@@ -1,6 +1,6 @@
 # Whispem Examples
 
-**Version 5.0.0**
+**Version 6.0.0**
 
 Example programs covering all Whispem language features.
 
@@ -19,38 +19,10 @@ cargo run -- --dump examples/<file>.wsp
 let message = "Hello, Whispem!"
 print message
 ```
-**File:** `examples/hello.wsp`
 
 ---
 
-## Variables
-
-```wsp
-let x = 10
-let y = 20
-let name = "Whispem"
-print x
-print y
-print name
-```
-
----
-
-## Arithmetic
-
-```wsp
-let a = 10
-let b = 3
-print a + b   # 13
-print a - b   # 7
-print a * b   # 30
-print a / b   # 3.333...
-print a % b   # 1
-```
-
----
-
-## F-strings (v5.0.0)
+## F-strings
 
 ```wsp
 let name  = "Em"
@@ -72,103 +44,28 @@ for n in range(1, 101) {
     else { print n }
 }
 ```
-**File:** `examples/fizzbuzz_proper.wsp`
 
 ---
 
-## Conditionals with `else if`
+## Lambdas
 
 ```wsp
-let score = 85
-
-if score >= 90 { print "A" }
-else if score >= 80 { print "B" }
-else if score >= 70 { print "C" }
-else { print "F" }
-```
-
----
-
-## While Loops
-
-```wsp
-let counter = 0
-while counter < 5 {
-    print counter
-    let counter = counter + 1
-}
-```
-
----
-
-## For Loops
-
-```wsp
-for num in [1, 2, 3, 4, 5] { print num }
-for i in range(0, 10) { print i }
-```
-
----
-
-## Break and Continue
-
-```wsp
-for num in range(1, 20) {
-    if num > 10 { break }
-    if num % 2 == 0 { continue }
-    print num
-}
-```
-
----
-
-## Functions
-
-```wsp
-fn greet(name) {
-    return "Hello, " + name + "!"
-}
-print greet("World")
-```
-
----
-
-## Recursion
-
-```wsp
-fn factorial(n) {
-    if n <= 1 { return 1 }
-    return n * factorial(n - 1)
-}
-print factorial(5)    # 120
-print factorial(10)   # 3628800
-```
-
----
-
-## Lambdas (v5.0.0)
-
-```wsp
-# Store in a variable
 let double = fn(x) { return x * 2 }
 print double(7)   # 14
 
-# Pass as argument
 fn apply(f, x) { return f(x) }
 print apply(fn(n) { return n * n }, 5)   # 25
 
-# Store in an array
-let ops = [fn(x) { return x + 1 }, fn(x) { return x * 2 }]
-print ops[0](10)   # 11
-print ops[1](10)   # 20
+let fns = [fn(x) { return x + 1 }, fn(x) { return x * 2 }]
+print fns[0](10)   # 11
+print fns[1](10)   # 20
 
-# Immediate call
 print fn(x) { return x * 2 }(7)   # 14
 ```
 
 ---
 
-## Closures (v5.0.0)
+## Closures
 
 ### Adder factory
 
@@ -226,31 +123,55 @@ print outer(1)(2)(3)   # 6
 
 ---
 
-## Higher-order functions
+## map, filter, reduce (v6.0.0)
+
+### map
 
 ```wsp
-fn map_array(arr, f) {
-    let result = []
-    for item in arr {
-        let result = push(result, f(item))
-    }
-    return result
-}
+print map([1, 2, 3, 4], fn(x) { return x * 2 })
+# [2, 4, 6, 8]
 
-fn filter_array(arr, pred) {
-    let result = []
-    for item in arr {
-        if pred(item) {
-            let result = push(result, item)
-        }
-    }
-    return result
-}
+fn make_multiplier(n) { return fn(x) { return x * n } }
+print map([1, 2, 3], make_multiplier(3))
+# [3, 6, 9]
+```
 
-let nums    = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-let evens   = filter_array(nums, fn(n) { return n % 2 == 0 })
-let doubled = map_array(evens, fn(n) { return n * 2 })
-print doubled   # [4, 8, 12, 16, 20]
+### filter
+
+```wsp
+print filter([1, 2, 3, 4, 5, 6], fn(n) { return n % 2 == 0 })
+# [2, 4, 6]
+
+fn make_gt(t) { return fn(n) { return n > t } }
+print filter([1, 5, 3, 8, 2, 7], make_gt(4))
+# [5, 8, 7]
+```
+
+### reduce
+
+```wsp
+print reduce([1, 2, 3, 4, 5], fn(acc, n) { return acc + n }, 0)
+# 15
+
+print reduce([1, 2, 3, 4], fn(acc, n) { return acc * n }, 1)
+# 24
+
+print reduce(["b","c","d"], fn(acc, s) { return acc + s }, "a")
+# abcd
+```
+
+### Pipeline
+
+```wsp
+# Sum of squares of even numbers from 1 to 10
+let total = reduce(
+    map(
+        filter(range(1, 11), fn(n) { return n % 2 == 0 }),
+        fn(n) { return n * n }
+    ),
+    fn(acc, n) { return acc + n },
+    0)
+print total   # 220
 ```
 
 ---
@@ -285,44 +206,44 @@ print length(person)
 
 ---
 
-## `type_of` (v4.0.0+)
+## `type_of`
 
 ```wsp
-print type_of(42)                 # number
-print type_of("hello")            # string
-print type_of(true)               # bool
-print type_of([1, 2, 3])          # array
-print type_of({"a": 1})           # dict
-print type_of(fn(x){return x})    # function
+print type_of(42)                     # number
+print type_of("hello")                # string
+print type_of(true)                   # bool
+print type_of([1, 2, 3])              # array
+print type_of({"a": 1})               # dict
+print type_of(fn(x) { return x })     # function
 ```
 
 ---
 
-## `assert` (v4.0.0+)
+## `assert`
 
 ```wsp
 fn process(items) {
     assert(type_of(items) == "array", "expected array")
     assert(length(items) > 0, "items must not be empty")
-    for n in items {
-        assert(type_of(n) == "number", "all items must be numbers")
-    }
 }
-print process([3, 8, 12, 7])
 ```
 
 ---
 
-## `exit` (v4.0.0+)
+## Recursion
 
 ```wsp
-let script_args = args()
-if length(script_args) == 0 {
-    print "Usage: script.wsp <name>"
-    exit(1)
+fn factorial(n) {
+    if n <= 1 { return 1 }
+    return n * factorial(n - 1)
 }
-print f"Hello, {script_args[0]}!"
-exit(0)
+print factorial(10)   # 3628800
+
+fn fib(n) {
+    if n <= 1 { return n }
+    return fib(n-1) + fib(n-2)
+}
+print fib(10)   # 55
 ```
 
 ---
@@ -331,43 +252,17 @@ exit(0)
 
 ```wsp
 fn filter_positive(numbers) {
-    let result = []
-    for num in numbers {
-        if num > 0 { let result = push(result, num) }
-    }
-    return result
+    return filter(numbers, fn(n) { return n > 0 })
 }
 
 fn sum_array(arr) {
-    let total = 0
-    for num in arr { let total = total + num }
-    return total
+    return reduce(arr, fn(acc, n) { return acc + n }, 0)
 }
 
 let data     = [-5, 3, -2, 8, 0, 12, -1, 7]
 let positive = filter_positive(data)
-print positive
-print sum_array(positive)
-```
-
----
-
-## Prime Numbers
-
-```wsp
-fn is_prime(n) {
-    if n < 2 { return false }
-    if n == 2 { return true }
-    for i in range(2, n) {
-        if n % i == 0 { return false }
-    }
-    return true
-}
-
-print "Primes up to 30:"
-for num in range(2, 31) {
-    if is_prime(num) { print num }
-}
+print positive            # [3, 8, 12, 7]
+print sum_array(positive) # 30
 ```
 
 ---
@@ -375,7 +270,7 @@ for num in range(2, 31) {
 ## File I/O
 
 ```wsp
-write_file("hello.txt", "Hello from Whispem 5.0!")
+write_file("hello.txt", "Hello from Whispem 6.0!")
 let content = read_file("hello.txt")
 print content
 ```
@@ -386,15 +281,15 @@ print content
 
 - Examples are self-contained and runnable.
 - Functions can be called before they are defined.
-- Calling a function with the wrong number of arguments produces a clear runtime error.
 - `push()` returns a new array — the original is unchanged.
 - `and`/`or` short-circuit correctly.
 - `else if` is supported natively.
 - Lambdas are `fn(params) { body }` expressions.
 - Closures capture variables by shared mutable reference.
 - F-strings `f"..."` support `{expr}` interpolation.
+- `map`, `filter`, `reduce` accept any callable: named functions, lambdas, or closures.
 - Use `--dump` to inspect bytecode.
 
 ---
 
-**Whispem v5.0.0**
+**Whispem v6.0.0**

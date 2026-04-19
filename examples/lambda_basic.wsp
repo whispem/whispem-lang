@@ -1,0 +1,19 @@
+# Store in a variable
+let double = fn(x) { return x * 2 }
+print double(7)   # 14
+
+# Pass as argument
+fn apply(f, x) { return f(x) }
+print apply(fn(n) { return n * n }, 5)   # 25
+
+# Store in an array
+let ops = [fn(x) { return x + 1 }, fn(x) { return x * 2 }]
+print ops[0](10)   # 11
+print ops[1](10)   # 20
+
+# Return from a function
+fn make_double() { return fn(x) { return x * 2 } }
+print make_double()(7)   # 14
+
+# Immediate call
+print fn(x) { return x * 3 }(9)   # 27

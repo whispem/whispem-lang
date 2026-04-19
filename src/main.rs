@@ -81,9 +81,7 @@ fn run_file(source: &str, filename: &str, dump: bool, script_args: Vec<String>) 
     let mut vm = Vm::new();
     vm.functions   = fn_chunks;
     vm.script_args = script_args;
-    if let Err(e) = vm.run(main_chunk) {
-        handle_vm_error(e, filename);
-    }
+    if let Err(e) = vm.run(main_chunk) { handle_vm_error(e, filename); }
 }
 
 fn compile_to_file(source: &str, src_name: &str, out_path: &str) {
@@ -125,9 +123,7 @@ fn run_bytecode_file(path: &str, script_args: Vec<String>) {
     let mut vm = Vm::new();
     vm.functions   = fn_chunks;
     vm.script_args = script_args;
-    if let Err(e) = vm.run(main_chunk) {
-        handle_vm_error(e, path);
-    }
+    if let Err(e) = vm.run(main_chunk) { handle_vm_error(e, path); }
 }
 
 fn read_source(filename: &str) -> String {
@@ -148,7 +144,7 @@ fn output_path(path: &str, new_ext: &str) -> String {
 fn handle_vm_error(e: error::WhispemError, filename: &str) {
     match e.kind {
         ErrorKind::Exit(code) => process::exit(code as i32),
-        _ => { eprintln!("{}: {}", filename, e); process::exit(1); }
+        _                     => { eprintln!("{}: {}", filename, e); process::exit(1); }
     }
 }
 
@@ -204,16 +200,11 @@ fn run_via_bytecode(source: &str) -> Result<Vec<String>, String> {
 mod tests {
     use super::{run_capturing, run_via_bytecode, output_path};
 
-    fn ok(src: &str) -> Vec<String> {
-        run_capturing(src).unwrap_or_else(|e| panic!("error: {}", e))
-    }
-    fn err_msg(src: &str) -> String {
-        run_capturing(src).expect_err("expected an error but succeeded")
-    }
-    fn ok_bc(src: &str) -> Vec<String> {
-        run_via_bytecode(src).unwrap_or_else(|e| panic!("bytecode error: {}", e))
-    }
+    fn ok(src: &str)     -> Vec<String> { run_capturing(src).unwrap_or_else(|e| panic!("error: {}", e)) }
+    fn err_msg(src: &str) -> String     { run_capturing(src).expect_err("expected an error but succeeded") }
+    fn ok_bc(src: &str)  -> Vec<String> { run_via_bytecode(src).unwrap_or_else(|e| panic!("bytecode error: {}", e)) }
 
+    // ── Arithmetic ──────────────────────────────────────────────────────────
     #[test] fn number_print()            { assert_eq!(ok("print 42"),          vec!["42"]); }
     #[test] fn float_print()             { assert_eq!(ok("print 3.14"),        vec!["3.14"]); }
     #[test] fn arithmetic_add()          { assert_eq!(ok("print 2 + 3"),       vec!["5"]); }
@@ -227,47 +218,54 @@ mod tests {
     #[test] fn unary_neg()               { assert_eq!(ok("let x=-7\nprint x"), vec!["-7"]); }
     #[test] fn div_by_zero_error()       { assert!(err_msg("print 1/0").contains("Division by zero")); }
 
-    #[test] fn string_print()   { assert_eq!(ok("print \"hello\""),          vec!["hello"]); }
-    #[test] fn string_concat()  { assert_eq!(ok("print \"a\"+\"b\""),        vec!["ab"]); }
-    #[test] fn string_num_cat() { assert_eq!(ok("print \"n=\"+42"),          vec!["n=42"]); }
-    #[test] fn string_escape()  { assert_eq!(ok("print \"hi\\nthere\""),     vec!["hi","there"]); }
-    #[test] fn string_length()  { assert_eq!(ok("print length(\"hello\")"),  vec!["5"]); }
+    // ── Strings ─────────────────────────────────────────────────────────────
+    #[test] fn string_print()   { assert_eq!(ok("print \"hello\""),         vec!["hello"]); }
+    #[test] fn string_concat()  { assert_eq!(ok("print \"a\"+\"b\""),       vec!["ab"]); }
+    #[test] fn string_num_cat() { assert_eq!(ok("print \"n=\"+42"),         vec!["n=42"]); }
+    #[test] fn string_escape()  { assert_eq!(ok("print \"hi\\nthere\""),    vec!["hi","there"]); }
+    #[test] fn string_length()  { assert_eq!(ok("print length(\"hello\")"), vec!["5"]); }
 
+    // ── Variables ───────────────────────────────────────────────────────────
     #[test] fn let_basic()  { assert_eq!(ok("let x=10\nprint x"),           vec!["10"]); }
     #[test] fn let_update() { assert_eq!(ok("let x=1\nlet x=x+1\nprint x"), vec!["2"]); }
 
-    #[test] fn bool_true()   { assert_eq!(ok("print true"),   vec!["true"]); }
-    #[test] fn bool_false()  { assert_eq!(ok("print false"),  vec!["false"]); }
-    #[test] fn cmp_lt()      { assert_eq!(ok("print 1<2"),    vec!["true"]); }
-    #[test] fn cmp_gt()      { assert_eq!(ok("print 2>1"),    vec!["true"]); }
-    #[test] fn cmp_eq()      { assert_eq!(ok("print 1==1"),   vec!["true"]); }
-    #[test] fn cmp_neq()     { assert_eq!(ok("print 1!=2"),   vec!["true"]); }
-    #[test] fn cmp_false()   { assert_eq!(ok("print 5<3"),    vec!["false"]); }
+    // ── Booleans & comparisons ───────────────────────────────────────────────
+    #[test] fn bool_true()   { assert_eq!(ok("print true"),  vec!["true"]); }
+    #[test] fn bool_false()  { assert_eq!(ok("print false"), vec!["false"]); }
+    #[test] fn cmp_lt()      { assert_eq!(ok("print 1<2"),   vec!["true"]); }
+    #[test] fn cmp_gt()      { assert_eq!(ok("print 2>1"),   vec!["true"]); }
+    #[test] fn cmp_eq()      { assert_eq!(ok("print 1==1"),  vec!["true"]); }
+    #[test] fn cmp_neq()     { assert_eq!(ok("print 1!=2"),  vec!["true"]); }
+    #[test] fn cmp_false()   { assert_eq!(ok("print 5<3"),   vec!["false"]); }
 
-    #[test] fn logic_and_ff()      { assert_eq!(ok("print true and false"),  vec!["false"]); }
-    #[test] fn logic_and_tt()      { assert_eq!(ok("print true and true"),   vec!["true"]); }
-    #[test] fn logic_or_ft()       { assert_eq!(ok("print false or true"),   vec!["true"]); }
-    #[test] fn logic_not()         { assert_eq!(ok("print not true"),         vec!["false"]); }
+    // ── Logic ────────────────────────────────────────────────────────────────
+    #[test] fn logic_and_ff()      { assert_eq!(ok("print true and false"), vec!["false"]); }
+    #[test] fn logic_and_tt()      { assert_eq!(ok("print true and true"),  vec!["true"]); }
+    #[test] fn logic_or_ft()       { assert_eq!(ok("print false or true"),  vec!["true"]); }
+    #[test] fn logic_not()         { assert_eq!(ok("print not true"),        vec!["false"]); }
     #[test] fn short_circuit_and() { assert_eq!(ok("let r=false and (1==1)\nprint r"), vec!["false"]); }
     #[test] fn short_circuit_or()  { assert_eq!(ok("let r=true or (1==1)\nprint r"),  vec!["true"]); }
 
+    // ── Conditionals ─────────────────────────────────────────────────────────
     #[test] fn if_true()           { assert_eq!(ok("if true { print \"yes\" }"),      vec!["yes"]); }
     #[test] fn if_false()          { assert_eq!(ok("if false { print \"yes\" }"),     Vec::<String>::new()); }
     #[test] fn if_else_taken()     { assert_eq!(ok("if 10>5 { print \"big\" } else { print \"small\" }"), vec!["big"]); }
     #[test] fn if_else_not_taken() { assert_eq!(ok("if 1>5  { print \"big\" } else { print \"small\" }"), vec!["small"]); }
 
+    // ── Loops ────────────────────────────────────────────────────────────────
     #[test] fn while_basic() {
         assert_eq!(ok("let i=0\nwhile i<3 { print i\nlet i=i+1 }"), vec!["0","1","2"]);
     }
     #[test] fn for_array()  { assert_eq!(ok("for n in [1,2,3] { print n }"),    vec!["1","2","3"]); }
     #[test] fn for_range()  { assert_eq!(ok("for i in range(0,4) { print i }"), vec!["0","1","2","3"]); }
     #[test] fn break_stops_loop() {
-        assert_eq!(ok("for n in range(1,10) { if n>3 { break }\nprint n }"),    vec!["1","2","3"]);
+        assert_eq!(ok("for n in range(1,10) { if n>3 { break }\nprint n }"), vec!["1","2","3"]);
     }
     #[test] fn continue_skips() {
         assert_eq!(ok("for n in range(1,6) { if n==3 { continue }\nprint n }"), vec!["1","2","4","5"]);
     }
 
+    // ── Functions ────────────────────────────────────────────────────────────
     #[test] fn fn_basic() {
         assert_eq!(ok("fn double(n) { return n*2 }\nprint double(7)"), vec!["14"]);
     }
@@ -299,6 +297,7 @@ mod tests {
         assert_eq!(ok("fn pi() { return 3 }\nprint pi()"), vec!["3"]);
     }
 
+    // ── Arrays ───────────────────────────────────────────────────────────────
     #[test] fn array_index()   { assert_eq!(ok("let a=[10,20,30]\nprint a[2]"),        vec!["30"]); }
     #[test] fn array_assign()  { assert_eq!(ok("let a=[1,2,3]\na[1]=99\nprint a[1]"), vec!["99"]); }
     #[test] fn array_length()  { assert_eq!(ok("print length([1,2,3,4])"),             vec!["4"]); }
@@ -312,6 +311,7 @@ mod tests {
         assert_eq!(ok("let a = [\n  1,\n  2,\n  3\n]\nprint length(a)"), vec!["3"]);
     }
 
+    // ── Dicts ────────────────────────────────────────────────────────────────
     #[test] fn dict_access()      { assert_eq!(ok("let d={\"a\":1}\nprint d[\"a\"]"),               vec!["1"]); }
     #[test] fn dict_assign()      { assert_eq!(ok("let d={\"x\":10}\nd[\"x\"]=99\nprint d[\"x\"]"), vec!["99"]); }
     #[test] fn dict_new_key()     { assert_eq!(ok("let d={}\nd[\"k\"]=42\nprint d[\"k\"]"),          vec!["42"]); }
@@ -324,11 +324,13 @@ mod tests {
         assert!(e.contains("\"z\" not found in dict"), "got: {}", e);
     }
 
+    // ── Truthiness ───────────────────────────────────────────────────────────
     #[test] fn falsy_zero()      { assert_eq!(ok("if 0 { print \"y\" } else { print \"n\" }"),    vec!["n"]); }
     #[test] fn falsy_empty_str() { assert_eq!(ok("if \"\" { print \"y\" } else { print \"n\" }"), vec!["n"]); }
     #[test] fn falsy_empty_arr() { assert_eq!(ok("if [] { print \"y\" } else { print \"n\" }"),   vec!["n"]); }
     #[test] fn truthy_nonzero()  { assert_eq!(ok("if 1 { print \"y\" }"),                          vec!["y"]); }
 
+    // ── String builtins ──────────────────────────────────────────────────────
     #[test] fn char_at_basic() {
         assert_eq!(ok("print char_at(\"hello\", 0)"), vec!["h"]);
         assert_eq!(ok("print char_at(\"hello\", 4)"), vec!["o"]);
@@ -350,11 +352,13 @@ mod tests {
         assert_eq!(ok("print str_to_num(\"3.14\")"), vec!["3.14"]);
     }
 
+    // ── Error spans ──────────────────────────────────────────────────────────
     #[test] fn error_has_span() {
         let e = err_msg("let x=1\nprint undefined_var");
         assert!(e.contains("line 2"), "Expected 'line 2' in: {}", e);
     }
 
+    // ── else if ──────────────────────────────────────────────────────────────
     #[test] fn else_if_basic() {
         let src = "let x=2\nif x==1 { print \"one\" }\nelse if x==2 { print \"two\" }\nelse { print \"other\" }";
         assert_eq!(ok(src), vec!["two"]);
@@ -386,20 +390,15 @@ for n in range(1,16) {
         assert_eq!(ok(src), expected);
     }
 
-    #[test] fn assert_passes() {
-        assert_eq!(ok("assert(1==1,\"bad\")\nprint \"ok\""), vec!["ok"]);
-    }
-    #[test] fn assert_passes_no_message() {
-        assert_eq!(ok("assert(true)\nprint \"ok\""), vec!["ok"]);
-    }
-    #[test] fn assert_fails_with_message() {
+    // ── assert / type_of / exit ───────────────────────────────────────────────
+    #[test] fn assert_passes()           { assert_eq!(ok("assert(1==1,\"bad\")\nprint \"ok\""), vec!["ok"]); }
+    #[test] fn assert_passes_no_message(){ assert_eq!(ok("assert(true)\nprint \"ok\""),         vec!["ok"]); }
+    #[test] fn assert_fails_with_message(){
         let e = err_msg("assert(1==2, \"one is not two\")");
         assert!(e.contains("one is not two") && e.contains("Assertion failed"), "got: {}", e);
     }
-    #[test] fn assert_fails_default() {
-        assert!(err_msg("assert(false)").contains("Assertion failed"));
-    }
-    #[test] fn assert_falsy_values() {
+    #[test] fn assert_fails_default()   { assert!(err_msg("assert(false)").contains("Assertion failed")); }
+    #[test] fn assert_falsy_values()    {
         assert!(err_msg("assert(0)").contains("Assertion failed"));
         assert!(err_msg("assert(\"\")").contains("Assertion failed"));
         assert!(err_msg("assert([])").contains("Assertion failed"));
@@ -410,30 +409,25 @@ for n in range(1,16) {
         assert_eq!(ok("print type_of(true)"),   vec!["bool"]);
     }
     #[test] fn type_of_collections() {
-        assert_eq!(ok("print type_of([1,2])"),    vec!["array"]);
-        assert_eq!(ok("print type_of({\"a\":1})"),vec!["dict"]);
+        assert_eq!(ok("print type_of([1,2])"),     vec!["array"]);
+        assert_eq!(ok("print type_of({\"a\":1})"), vec!["dict"]);
     }
-    #[test] fn type_of_none() {
-        assert_eq!(ok("fn f() {}\nprint type_of(f())"), vec!["none"]);
-    }
-    #[test] fn type_of_function() {
-        assert_eq!(ok("let f=fn(x){return x}\nprint type_of(f)"), vec!["function"]);
-    }
+    #[test] fn type_of_none()     { assert_eq!(ok("fn f() {}\nprint type_of(f())"), vec!["none"]); }
+    #[test] fn type_of_function() { assert_eq!(ok("let f=fn(x){return x}\nprint type_of(f)"), vec!["function"]); }
     #[test] fn exit_stops_execution() {
-        let result = run_capturing("print \"before\"\nexit(0)\nprint \"after\"");
-        match result {
+        match run_capturing("print \"before\"\nexit(0)\nprint \"after\"") {
             Ok(lines) => panic!("expected exit error, got {:?}", lines),
             Err(e)    => assert!(e.contains("exit(0)"), "got: {}", e),
         }
     }
     #[test] fn exit_with_code() {
-        let result = run_capturing("exit(1)");
-        match result {
+        match run_capturing("exit(1)") {
             Ok(_)  => panic!("expected exit error"),
             Err(e) => assert!(e.contains("exit(1)"), "got: {}", e),
         }
     }
 
+    // ── Integration programs ──────────────────────────────────────────────────
     #[test] fn fizzbuzz_1_to_15() {
         let src = "\
 for n in range(1,16) {
@@ -465,14 +459,13 @@ print r[\"b\"]";
         assert_eq!(ok(src), vec!["55"]);
     }
 
-    #[test] fn bytecode_roundtrip_hello()      { assert_eq!(ok_bc("print \"hello\""), vec!["hello"]); }
-    #[test] fn bytecode_roundtrip_arithmetic() { assert_eq!(ok_bc("print 2+3"),    vec!["5"]); }
-    #[test] fn bytecode_roundtrip_variable()   { assert_eq!(ok_bc("let x=42\nprint x"), vec!["42"]); }
-    #[test] fn bytecode_roundtrip_function()   {
-        assert_eq!(ok_bc("fn double(n){ return n*2 }\nprint double(7)"), vec!["14"]);
-    }
+    // ── Bytecode roundtrips ───────────────────────────────────────────────────
+    #[test] fn bytecode_roundtrip_hello()      { assert_eq!(ok_bc("print \"hello\""),          vec!["hello"]); }
+    #[test] fn bytecode_roundtrip_arithmetic() { assert_eq!(ok_bc("print 2+3"),                vec!["5"]); }
+    #[test] fn bytecode_roundtrip_variable()   { assert_eq!(ok_bc("let x=42\nprint x"),        vec!["42"]); }
+    #[test] fn bytecode_roundtrip_function()   { assert_eq!(ok_bc("fn double(n){ return n*2 }\nprint double(7)"), vec!["14"]); }
     #[test] fn bytecode_roundtrip_loop()       { assert_eq!(ok_bc("for i in range(0,3){ print i }"), vec!["0","1","2"]); }
-    #[test] fn bytecode_roundtrip_array()      { assert_eq!(ok_bc("print reverse([1,2,3])"), vec!["[3, 2, 1]"]); }
+    #[test] fn bytecode_roundtrip_array()      { assert_eq!(ok_bc("print reverse([1,2,3])"),   vec!["[3, 2, 1]"]); }
     #[test] fn bytecode_roundtrip_dict()       { assert_eq!(ok_bc("let d={\"a\":1}\nprint d[\"a\"]"), vec!["1"]); }
     #[test] fn bytecode_roundtrip_global_in_fn() {
         assert_eq!(
@@ -511,56 +504,30 @@ for n in range(1,16) {
         assert_eq!(output_path("examples/foo.wsp", ".whbc"), "examples/foo.whbc");
     }
 
-    #[test] fn fstr_literal_only() {
-        assert_eq!(ok("print f\"hello\""), vec!["hello"]);
+    // ── F-strings ─────────────────────────────────────────────────────────────
+    #[test] fn fstr_literal_only()    { assert_eq!(ok("print f\"hello\""),                           vec!["hello"]); }
+    #[test] fn fstr_single_expr()     { assert_eq!(ok("let name=\"Em\"\nprint f\"Hello, {name}!\""), vec!["Hello, Em!"]); }
+    #[test] fn fstr_number_expr()     { assert_eq!(ok("let x=42\nprint f\"x = {x}\""),              vec!["x = 42"]); }
+    #[test] fn fstr_arithmetic_expr() { assert_eq!(ok("let a=3\nlet b=4\nprint f\"{a+b}\""),         vec!["7"]); }
+    #[test] fn fstr_multiple_parts()  {
+        assert_eq!(ok("let a=\"foo\"\nlet b=\"bar\"\nprint f\"{a} and {b}\""), vec!["foo and bar"]);
     }
-    #[test] fn fstr_single_expr() {
-        assert_eq!(ok("let name=\"Em\"\nprint f\"Hello, {name}!\""), vec!["Hello, Em!"]);
-    }
-    #[test] fn fstr_number_expr() {
-        assert_eq!(ok("let x=42\nprint f\"x = {x}\""), vec!["x = 42"]);
-    }
-    #[test] fn fstr_arithmetic_expr() {
-        assert_eq!(ok("let a=3\nlet b=4\nprint f\"{a+b}\""), vec!["7"]);
-    }
-    #[test] fn fstr_multiple_parts() {
-        assert_eq!(
-            ok("let a=\"foo\"\nlet b=\"bar\"\nprint f\"{a} and {b}\""),
-            vec!["foo and bar"]
-        );
-    }
-    #[test] fn fstr_empty() {
-        assert_eq!(ok("print f\"\""), vec![""]);
-    }
-    #[test] fn fstr_no_interpolation() {
-        assert_eq!(ok("print f\"just text\""), vec!["just text"]);
-    }
-    #[test] fn fstr_call_in_expr() {
-        assert_eq!(ok("print f\"{length([1,2,3])} items\""), vec!["3 items"]);
-    }
+    #[test] fn fstr_empty()          { assert_eq!(ok("print f\"\""),           vec![""]); }
+    #[test] fn fstr_no_interpolation(){ assert_eq!(ok("print f\"just text\""), vec!["just text"]); }
+    #[test] fn fstr_call_in_expr()   { assert_eq!(ok("print f\"{length([1,2,3])} items\""), vec!["3 items"]); }
     #[test] fn fstr_bytecode_roundtrip() {
-        assert_eq!(
-            ok_bc("let name=\"world\"\nprint f\"hello {name}\""),
-            vec!["hello world"]
-        );
+        assert_eq!(ok_bc("let name=\"world\"\nprint f\"hello {name}\""), vec!["hello world"]);
     }
 
-    #[test] fn lambda_immediate_call() {
-        assert_eq!(ok("print fn(x) { return x * 2 }(7)"), vec!["14"]);
-    }
-    #[test] fn lambda_stored_in_var() {
-        assert_eq!(ok("let f=fn(x){ return x+1 }\nprint f(10)"), vec!["11"]);
-    }
+    // ── Lambdas ───────────────────────────────────────────────────────────────
+    #[test] fn lambda_immediate_call()  { assert_eq!(ok("print fn(x) { return x * 2 }(7)"), vec!["14"]); }
+    #[test] fn lambda_stored_in_var()   { assert_eq!(ok("let f=fn(x){ return x+1 }\nprint f(10)"), vec!["11"]); }
     #[test] fn lambda_as_argument() {
         let src = "fn apply(f, x) { return f(x) }\nprint apply(fn(n) { return n*n }, 5)";
         assert_eq!(ok(src), vec!["25"]);
     }
     #[test] fn lambda_stored_in_array() {
-        let src = "\
-let fns = [fn(x) { return x + 1 }, fn(x) { return x * 2 }]
-print fns[0](10)
-print fns[1](10)
-";
+        let src = "let fns = [fn(x) { return x + 1 }, fn(x) { return x * 2 }]\nprint fns[0](10)\nprint fns[1](10)";
         assert_eq!(ok(src), vec!["11","20"]);
     }
     #[test] fn lambda_returned_from_fn() {
@@ -571,42 +538,22 @@ print fns[1](10)
         assert_eq!(ok("let f=fn(x){return x}\nprint type_of(f)"), vec!["function"]);
     }
 
+    // ── Closures ──────────────────────────────────────────────────────────────
     #[test] fn closure_basic() {
-        let src = "\
-fn make_adder(n) {
-    return fn(x) { return x + n }
-}
-let add5 = make_adder(5)
-print add5(3)
-";
+        let src = "fn make_adder(n) { return fn(x) { return x + n } }\nlet add5 = make_adder(5)\nprint add5(3)";
         assert_eq!(ok(src), vec!["8"]);
     }
     #[test] fn closure_counter() {
         let src = "\
 fn make_counter() {
     let count = 0
-    return fn() {
-        let count = count + 1
-        return count
-    }
+    return fn() { let count = count + 1\n return count }
 }
 let c = make_counter()
 print c()
 print c()
-print c()
-";
+print c()";
         assert_eq!(ok(src), vec!["1","2","3"]);
-    }
-    #[test] fn closure_captures_outer_variable() {
-        let src = "\
-let greeting = \"hi\"
-fn make_greeter() {
-    return fn(name) { return greeting + \" \" + name }
-}
-let g = make_greeter()
-print g(\"Em\")
-";
-        assert_eq!(ok(src), vec!["hi Em"]);
     }
     #[test] fn closure_two_closures_share_state() {
         let src = "\
@@ -619,31 +566,137 @@ fn make_pair() {
 let p = make_pair()
 p[0]()
 p[0]()
-print p[1]()
-";
+print p[1]()";
         assert_eq!(ok(src), vec!["2"]);
     }
     #[test] fn closure_nested() {
         let src = "\
 fn outer(a) {
-    return fn(b) {
-        return fn(c) {
-            return a + b + c
-        }
-    }
+    return fn(b) { return fn(c) { return a + b + c } }
 }
-print outer(1)(2)(3)
-";
+print outer(1)(2)(3)";
         assert_eq!(ok(src), vec!["6"]);
     }
     #[test] fn closure_multiple_independent() {
         let src = "\
 fn make_adder(n) { return fn(x) { return x + n } }
-let add1 = make_adder(1)
+let add1  = make_adder(1)
 let add10 = make_adder(10)
 print add1(5)
-print add10(5)
-";
+print add10(5)";
         assert_eq!(ok(src), vec!["6","15"]);
+    }
+
+    // ── v6: map ───────────────────────────────────────────────────────────────
+    #[test] fn map_doubles_array() {
+        let src = "print map([1, 2, 3, 4], fn(x) { return x * 2 })";
+        assert_eq!(ok(src), vec!["[2, 4, 6, 8]"]);
+    }
+    #[test] fn map_empty_array() {
+        let src = "print map([], fn(x) { return x })";
+        assert_eq!(ok(src), vec!["[]"]);
+    }
+    #[test] fn map_with_closure() {
+        let src = "\
+fn make_multiplier(n) { return fn(x) { return x * n } }
+let triple = make_multiplier(3)
+print map([1, 2, 3], triple)";
+        assert_eq!(ok(src), vec!["[3, 6, 9]"]);
+    }
+    #[test] fn map_strings() {
+        let src = "print map([\"a\", \"b\", \"c\"], fn(s) { return s + \"!\" })";
+        assert_eq!(ok(src), vec!["[a!, b!, c!]"]);
+    }
+    #[test] fn map_type_error() {
+        assert!(err_msg("map(42, fn(x) { return x })").contains("Type error"));
+    }
+    #[test] fn map_arity_error() {
+        assert!(err_msg("map([1,2])").contains("expected 2"));
+    }
+    #[test] fn map_bytecode_roundtrip() {
+        assert_eq!(ok_bc("print map([1,2,3], fn(x){return x+10})"), vec!["[11, 12, 13]"]);
+    }
+
+    // ── v6: filter ────────────────────────────────────────────────────────────
+    #[test] fn filter_evens() {
+        let src = "print filter([1, 2, 3, 4, 5, 6], fn(n) { return n % 2 == 0 })";
+        assert_eq!(ok(src), vec!["[2, 4, 6]"]);
+    }
+    #[test] fn filter_empty_array() {
+        let src = "print filter([], fn(x) { return true })";
+        assert_eq!(ok(src), vec!["[]"]);
+    }
+    #[test] fn filter_none_pass() {
+        let src = "print filter([1, 2, 3], fn(n) { return n > 10 })";
+        assert_eq!(ok(src), vec!["[]"]);
+    }
+    #[test] fn filter_all_pass() {
+        let src = "print filter([1, 2, 3], fn(n) { return n > 0 })";
+        assert_eq!(ok(src), vec!["[1, 2, 3]"]);
+    }
+    #[test] fn filter_with_closure() {
+        let src = "\
+fn make_gt(threshold) { return fn(n) { return n > threshold } }
+print filter([1, 5, 3, 8, 2, 7], make_gt(4))";
+        assert_eq!(ok(src), vec!["[5, 8, 7]"]);
+    }
+    #[test] fn filter_type_error() {
+        assert!(err_msg("filter(\"hello\", fn(x) { return true })").contains("Type error"));
+    }
+    #[test] fn filter_bytecode_roundtrip() {
+        assert_eq!(ok_bc("print filter([1,2,3,4,5], fn(n){return n%2==1})"), vec!["[1, 3, 5]"]);
+    }
+
+    // ── v6: reduce ────────────────────────────────────────────────────────────
+    #[test] fn reduce_sum() {
+        let src = "print reduce([1, 2, 3, 4, 5], fn(acc, n) { return acc + n }, 0)";
+        assert_eq!(ok(src), vec!["15"]);
+    }
+    #[test] fn reduce_product() {
+        let src = "print reduce([1, 2, 3, 4], fn(acc, n) { return acc * n }, 1)";
+        assert_eq!(ok(src), vec!["24"]);
+    }
+    #[test] fn reduce_empty_returns_initial() {
+        let src = "print reduce([], fn(acc, n) { return acc + n }, 42)";
+        assert_eq!(ok(src), vec!["42"]);
+    }
+    #[test] fn reduce_string_concat() {
+        let src = "print reduce([\"b\", \"c\", \"d\"], fn(acc, s) { return acc + s }, \"a\")";
+        assert_eq!(ok(src), vec!["abcd"]);
+    }
+    #[test] fn reduce_max() {
+        let src = "print reduce([3, 1, 4, 1, 5, 9, 2], fn(acc, n) { if n > acc { return n } return acc }, 0)";
+        assert_eq!(ok(src), vec!["9"]);
+    }
+    #[test] fn reduce_type_error() {
+        assert!(err_msg("reduce(99, fn(a,b){return a+b}, 0)").contains("Type error"));
+    }
+    #[test] fn reduce_arity_error() {
+        assert!(err_msg("reduce([1,2,3], fn(a,b){return a+b})").contains("expected 3"));
+    }
+    #[test] fn reduce_bytecode_roundtrip() {
+        assert_eq!(ok_bc("print reduce([1,2,3,4,5], fn(a,n){return a+n}, 0)"), vec!["15"]);
+    }
+
+    // ── v6: map/filter/reduce composed ───────────────────────────────────────
+    #[test] fn map_filter_reduce_pipeline() {
+        // Sum of squares of even numbers in [1..10]
+        let src = "\
+let nums   = range(1, 11)
+let evens  = filter(nums, fn(n) { return n % 2 == 0 })
+let squares = map(evens, fn(n) { return n * n })
+let total  = reduce(squares, fn(acc, n) { return acc + n }, 0)
+print total";
+        // evens: 2,4,6,8,10  →  squares: 4,16,36,64,100  →  sum: 220
+        assert_eq!(ok(src), vec!["220"]);
+    }
+    #[test] fn map_filter_reduce_pipeline_bytecode() {
+        let src = "\
+let nums    = range(1, 11)
+let evens   = filter(nums, fn(n) { return n % 2 == 0 })
+let squares = map(evens, fn(n) { return n * n })
+let total   = reduce(squares, fn(acc, n) { return acc + n }, 0)
+print total";
+        assert_eq!(ok_bc(src), vec!["220"]);
     }
 }

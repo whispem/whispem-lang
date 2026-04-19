@@ -20,11 +20,11 @@ impl FnScope {
     fn new(params: &[String]) -> Self {
         Self { locals: params.to_vec(), upvalues: Vec::new() }
     }
-    fn has_local(&self, name: &str) -> bool { self.locals.iter().any(|n| n == name) }
+    fn has_local(&self, name: &str)   -> bool          { self.locals.iter().any(|n| n == name) }
     fn add_local(&mut self, name: &str) {
         if !self.has_local(name) { self.locals.push(name.to_string()); }
     }
-    fn upvalue_slot(&self, name: &str) -> Option<u8> {
+    fn upvalue_slot(&self, name: &str) -> Option<u8>   {
         self.upvalues.iter().position(|(n, _)| n == name).map(|i| i as u8)
     }
     fn add_upvalue(&mut self, name: &str, desc: UpvalueDesc) -> u8 {
@@ -44,6 +44,7 @@ pub struct Compiler {
     loop_stack:   Vec<LoopContext>,
     global_names: Vec<String>,
     scope_stack:  Vec<FnScope>,
+    lambda_count: usize,
 }
 
 struct LoopContext {
@@ -59,6 +60,7 @@ impl Compiler {
             loop_stack:   Vec::new(),
             global_names: Vec::new(),
             scope_stack:  Vec::new(),
+            lambda_count: 0,
         }
     }
 
@@ -143,7 +145,6 @@ impl Compiler {
             Stmt::Let { name, value, line } => {
                 self.compile_expr(value, line)?;
                 let depth = self.scope_stack.len();
-                // If the name is an upvalue in the current scope, write through the cell.
                 if depth > 0 {
                     if let Some(slot) = self.scope_stack[depth - 1].upvalue_slot(&name) {
                         self.current.emit_op_u8(OpCode::StoreUpvalue, slot, line);
@@ -201,9 +202,9 @@ impl Compiler {
                 self.compile_expr(iterable, line)?;
                 let iter_c = self.name_const(&iter_name, line)?;
                 self.current.emit_op_u8(OpCode::Store, iter_c, line);
-                let zero = self.current.add_constant(Value::Number(0.0));
+                let zero   = self.current.add_constant(Value::Number(0.0));
                 self.current.emit_op_u8(OpCode::PushConst, zero, line);
-                let idx_c = self.name_const(&idx_name, line)?;
+                let idx_c  = self.name_const(&idx_name, line)?;
                 self.current.emit_op_u8(OpCode::Store, idx_c, line);
 
                 let loop_start = self.current.current_offset();
@@ -372,7 +373,8 @@ impl Compiler {
                 self.current.emit_byte(argc, call_line);
             }
             Expr::Lambda { params, body, line: lline } => {
-                let lambda_name = format!("__lambda_{}_{}", lline, self.functions.len());
+                let lambda_name = format!("__lambda_{}_{}", lline, self.lambda_count);
+                self.lambda_count += 1;
                 let (chunk, uv_descs) =
                     self.compile_fn_body(&lambda_name, &params, &body, lline)?;
                 self.emit_make_closure(&chunk.name, &uv_descs, lline)?;
@@ -444,9 +446,7 @@ impl Compiler {
 
     fn name_const(&mut self, name: &str, line: usize) -> WhispemResult<u8> {
         if self.current.constants.len() >= 256 {
-            return Err(WhispemError::new(
-                ErrorKind::TooManyConstants, Span::new(line, 0),
-            ));
+            return Err(WhispemError::new(ErrorKind::TooManyConstants, Span::new(line, 0)));
         }
         Ok(self.current.add_constant(Value::Str(name.to_string())))
     }

@@ -5,6 +5,6 @@ Positive numbers:
 Sum of positive:
 30
 Average of positive:
-30
+7.5
 Maximum:
 12

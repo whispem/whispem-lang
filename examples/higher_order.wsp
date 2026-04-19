@@ -1,0 +1,28 @@
+# Higher-order patterns using lambdas (hand-rolled, pre-v6 style)
+
+fn map_array(arr, f) {
+    let result = []
+    for item in arr { let result = push(result, f(item)) }
+    return result
+}
+
+fn filter_array(arr, pred) {
+    let result = []
+    for item in arr {
+        if pred(item) { let result = push(result, item) }
+    }
+    return result
+}
+
+fn reduce_array(arr, f, initial) {
+    let acc = initial
+    for item in arr { let acc = f(acc, item) }
+    return acc
+}
+
+let nums    = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+let evens   = filter_array(nums, fn(n) { return n % 2 == 0 })
+let doubled = map_array(evens, fn(n) { return n * 2 })
+let total   = reduce_array(doubled, fn(acc, n) { return acc + n }, 0)
+print doubled   # [4, 8, 12, 16, 20]
+print total     # 60
