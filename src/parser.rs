@@ -410,6 +410,7 @@ impl Parser {
             }
             Token::True  => { self.advance(); Ok(Expr::Bool(true)) }
             Token::False => { self.advance(); Ok(Expr::Bool(false)) }
+            Token::None  => { self.advance(); Ok(Expr::None) }
 
             Token::Fn => {
                 let line = s.line; self.advance();

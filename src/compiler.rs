@@ -291,6 +291,7 @@ impl Compiler {
             }
             Expr::Bool(true)  => self.current.emit_op(OpCode::PushTrue,  line),
             Expr::Bool(false) => self.current.emit_op(OpCode::PushFalse, line),
+            Expr::None        => self.current.emit_op(OpCode::PushNone,  line),
             Expr::FStr(_)     => unreachable!("FStr must be desugared by the parser"),
             Expr::Variable(name) => { self.emit_load(&name, line)?; }
             Expr::Array(elems) => {

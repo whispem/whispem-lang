@@ -12,6 +12,7 @@ pub enum Expr {
     #[allow(dead_code)]
     FStr(Vec<FStrPart>),
     Bool(bool),
+    None,
     Variable(String),
     Array(Vec<Expr>),
     Dict(Vec<(Expr, Expr)>),

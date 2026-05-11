@@ -132,6 +132,7 @@ impl Lexer {
             "continue"   => Token::Continue,
             "true"       => Token::True,
             "false"      => Token::False,
+            "none"       => Token::None,
             "assert"     => Token::Assert,
             "type_of"    => Token::TypeOf,
             "exit"       => Token::Exit,
