@@ -328,6 +328,7 @@ mod tests {
     #[test] fn falsy_zero()      { assert_eq!(ok("if 0 { print \"y\" } else { print \"n\" }"),    vec!["n"]); }
     #[test] fn falsy_empty_str() { assert_eq!(ok("if \"\" { print \"y\" } else { print \"n\" }"), vec!["n"]); }
     #[test] fn falsy_empty_arr() { assert_eq!(ok("if [] { print \"y\" } else { print \"n\" }"),   vec!["n"]); }
+    #[test] fn falsy_none()      { assert_eq!(ok("if none { print \"y\" } else { print \"n\" }"), vec!["n"]); }
     #[test] fn truthy_nonzero()  { assert_eq!(ok("if 1 { print \"y\" }"),                          vec!["y"]); }
 
     // ── String builtins ──────────────────────────────────────────────────────
@@ -350,6 +351,11 @@ mod tests {
     #[test] fn str_to_num_basic() {
         assert_eq!(ok("print str_to_num(\"42\")"),   vec!["42"]);
         assert_eq!(ok("print str_to_num(\"3.14\")"), vec!["3.14"]);
+    }
+    #[test] fn string_methods_basic() {
+        assert_eq!(ok("print to_upper(\"abc\")"),    vec!["ABC"]);
+        assert_eq!(ok("print to_lower(\"ABC\")"),    vec!["abc"]);
+        assert_eq!(ok("print trim(\"  hi  \")"),     vec!["hi"]);
     }
 
     // ── Error spans ──────────────────────────────────────────────────────────
@@ -412,7 +418,8 @@ for n in range(1,16) {
         assert_eq!(ok("print type_of([1,2])"),     vec!["array"]);
         assert_eq!(ok("print type_of({\"a\":1})"), vec!["dict"]);
     }
-    #[test] fn type_of_none()     { assert_eq!(ok("fn f() {}\nprint type_of(f())"), vec!["none"]); }
+    #[test] fn type_of_none()     { assert_eq!(ok("print type_of(none)"), vec!["none"]); }
+    #[test] fn type_of_none_fn()  { assert_eq!(ok("fn f() {}\nprint type_of(f())"), vec!["none"]); }
     #[test] fn type_of_function() { assert_eq!(ok("let f=fn(x){return x}\nprint type_of(f)"), vec!["function"]); }
     #[test] fn exit_stops_execution() {
         match run_capturing("print \"before\"\nexit(0)\nprint \"after\"") {
