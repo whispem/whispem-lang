@@ -158,6 +158,9 @@ impl Lexer {
             "str_to_num" => Token::StrToNum,
             "args"       => Token::Args,
             "write_hex"  => Token::WriteHex,
+            "to_upper"   => Token::ToUpper,
+            "to_lower"   => Token::ToLower,
+            "trim"       => Token::Trim,
             _            => Token::Identifier(s),
         }
     }

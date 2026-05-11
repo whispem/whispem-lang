@@ -603,6 +603,27 @@ impl Vm {
                     other => return Err(self.type_err_at("string", other.type_name(), line)),
                 }
             }
+            "to_upper" => {
+                self.arity(name, 1, args.len(), line)?;
+                match &args[0] {
+                    Value::Str(s) => Value::Str(s.to_uppercase()),
+                    other => return Err(self.type_err_at("string", other.type_name(), line)),
+                }
+            }
+            "to_lower" => {
+                self.arity(name, 1, args.len(), line)?;
+                match &args[0] {
+                    Value::Str(s) => Value::Str(s.to_lowercase()),
+                    other => return Err(self.type_err_at("string", other.type_name(), line)),
+                }
+            }
+            "trim" => {
+                self.arity(name, 1, args.len(), line)?;
+                match &args[0] {
+                    Value::Str(s) => Value::Str(s.trim().to_string()),
+                    other => return Err(self.type_err_at("string", other.type_name(), line)),
+                }
+            }
             "args" => {
                 self.arity(name, 0, args.len(), line)?;
                 Value::Array(Rc::new(self.script_args.iter().map(|s| Value::Str(s.clone())).collect()))
