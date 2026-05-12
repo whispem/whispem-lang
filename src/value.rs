@@ -71,7 +71,7 @@ impl Value {
                 format!("{{{}}}", parts.join(", "))
             }
             Value::Closure { chunk, .. } => format!("<fn {}>", chunk.name),
-            Value::None => String::new(),
+            Value::None => "none".to_string(),
         }
     }
 
