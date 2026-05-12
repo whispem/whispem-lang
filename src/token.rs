@@ -9,9 +9,9 @@ pub enum Token {
     Let, Print, If, Else, ElseIf, While, For, In, And, Or, Not, Fn, Return, Break, Continue,
     Length, Push, Pop, Reverse, Slice, Range, Input, ReadFile, WriteFile, Keys, Values, HasKey,
     CharAt, Substr, Ord, NumToStr, StrToNum, Args, WriteHex,
-    Assert, TypeOf, Exit,
+    Assert, TypeOf, Exit, ToUpper, ToLower, Trim, Join, Split,
     Map, Filter, Reduce,
-    True, False, Identifier(String), Number(f64), Str(String), FStr(Vec<FStrPart>),
+    True, False, None, Identifier(String), Number(f64), Str(String), FStr(Vec<FStrPart>),
     Plus, Minus, Star, Slash, Percent,
     Equals, EqualEqual, Bang, BangEqual, Less, LessEqual, Greater, GreaterEqual,
     LParen, RParen, LeftBrace, RightBrace, LeftBracket, RightBracket, Comma, Colon,
@@ -38,6 +38,7 @@ impl std::fmt::Display for Token {
             Token::Continue      => "'continue'".to_string(),
             Token::True          => "'true'".to_string(),
             Token::False         => "'false'".to_string(),
+            Token::None          => "'none'".to_string(),
             Token::Assert        => "'assert'".to_string(),
             Token::TypeOf        => "'type_of'".to_string(),
             Token::Exit          => "'exit'".to_string(),
@@ -90,6 +91,11 @@ impl std::fmt::Display for Token {
             Token::StrToNum      => "'str_to_num'".to_string(),
             Token::Args          => "'args'".to_string(),
             Token::WriteHex      => "'write_hex'".to_string(),
+            Token::ToUpper       => "'to_upper'".to_string(),
+            Token::ToLower       => "'to_lower'".to_string(),
+            Token::Trim          => "'trim'".to_string(),
+            Token::Join          => "'join'".to_string(),
+            Token::Split         => "'split'".to_string(),
         };
         write!(f, "{}", s)
     }

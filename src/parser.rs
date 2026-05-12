@@ -410,6 +410,7 @@ impl Parser {
             }
             Token::True  => { self.advance(); Ok(Expr::Bool(true)) }
             Token::False => { self.advance(); Ok(Expr::Bool(false)) }
+            Token::None  => { self.advance(); Ok(Expr::None) }
 
             Token::Fn => {
                 let line = s.line; self.advance();
@@ -437,6 +438,11 @@ impl Parser {
             Token::StrToNum  => { self.advance(); Ok(Expr::Variable("str_to_num".to_string())) }
             Token::Args      => { self.advance(); Ok(Expr::Variable("args".to_string())) }
             Token::WriteHex  => { self.advance(); Ok(Expr::Variable("write_hex".to_string())) }
+            Token::ToUpper   => { self.advance(); Ok(Expr::Variable("to_upper".to_string())) }
+            Token::ToLower   => { self.advance(); Ok(Expr::Variable("to_lower".to_string())) }
+            Token::Trim      => { self.advance(); Ok(Expr::Variable("trim".to_string())) }
+            Token::Join      => { self.advance(); Ok(Expr::Variable("join".to_string())) }
+            Token::Split     => { self.advance(); Ok(Expr::Variable("split".to_string())) }
             Token::Assert    => { self.advance(); Ok(Expr::Variable("assert".to_string())) }
             Token::TypeOf    => { self.advance(); Ok(Expr::Variable("type_of".to_string())) }
             Token::Exit      => { self.advance(); Ok(Expr::Variable("exit".to_string())) }

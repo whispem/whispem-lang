@@ -132,6 +132,7 @@ impl Lexer {
             "continue"   => Token::Continue,
             "true"       => Token::True,
             "false"      => Token::False,
+            "none"       => Token::None,
             "assert"     => Token::Assert,
             "type_of"    => Token::TypeOf,
             "exit"       => Token::Exit,
@@ -157,6 +158,11 @@ impl Lexer {
             "str_to_num" => Token::StrToNum,
             "args"       => Token::Args,
             "write_hex"  => Token::WriteHex,
+            "to_upper"   => Token::ToUpper,
+            "to_lower"   => Token::ToLower,
+            "trim"       => Token::Trim,
+            "join"       => Token::Join,
+            "split"      => Token::Split,
             _            => Token::Identifier(s),
         }
     }

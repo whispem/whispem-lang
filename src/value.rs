@@ -28,6 +28,21 @@ pub enum Value {
     None,
 }
 
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Number(a),  Value::Number(b))  => a == b,
+            (Value::Bool(a),    Value::Bool(b))    => a == b,
+            (Value::Str(a),     Value::Str(b))     => a == b,
+            (Value::Array(a),   Value::Array(b))   => a == b,
+            (Value::Dict(a),    Value::Dict(b))    => a == b,
+            (Value::None,       Value::None)       => true,
+            (Value::Closure { chunk: a, .. }, Value::Closure { chunk: b, .. }) => Rc::ptr_eq(a, b),
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.format())
@@ -36,27 +51,40 @@ impl fmt::Display for Value {
 
 impl Value {
     pub fn format(&self) -> String {
+        let mut s = String::new();
+        let _ = self.format_to(&mut s);
+        s
+    }
+
+    fn format_to(&self, f: &mut impl fmt::Write) -> fmt::Result {
         match self {
             Value::Number(n) => {
-                if n.fract() == 0.0 && n.abs() < 1e15 { format!("{}", *n as i64) }
-                else { n.to_string() }
+                if n.fract() == 0.0 && n.abs() < 1e15 { write!(f, "{}", *n as i64) }
+                else { write!(f, "{}", n) }
             }
-            Value::Bool(b)   => b.to_string(),
-            Value::Str(s)    => s.clone(),
+            Value::Bool(b)   => write!(f, "{}", b),
+            Value::Str(s)    => write!(f, "{}", s),
             Value::Array(elements) => {
-                let parts: Vec<String> = elements.iter().map(|v| v.format()).collect();
-                format!("[{}]", parts.join(", "))
+                write!(f, "[")?;
+                for (i, v) in elements.iter().enumerate() {
+                    if i > 0 { write!(f, ", ")?; }
+                    v.format_to(f)?;
+                }
+                write!(f, "]")
             }
             Value::Dict(map) => {
-                let mut parts: Vec<String> = map
-                    .iter()
-                    .map(|(k, v)| format!("\"{}\": {}", k, v.format()))
-                    .collect();
-                parts.sort();
-                format!("{{{}}}", parts.join(", "))
+                write!(f, "{{")?;
+                let mut keys: Vec<&String> = map.keys().collect();
+                keys.sort();
+                for (i, k) in keys.iter().enumerate() {
+                    if i > 0 { write!(f, ", ")?; }
+                    write!(f, "\"{}\": ", k)?;
+                    map.get(*k).unwrap().format_to(f)?;
+                }
+                write!(f, "}}")
             }
-            Value::Closure { chunk, .. } => format!("<fn {}>", chunk.name),
-            Value::None => String::new(),
+            Value::Closure { chunk, .. } => write!(f, "<fn {}>", chunk.name),
+            Value::None => write!(f, "none"),
         }
     }
 
