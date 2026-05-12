@@ -624,6 +624,26 @@ impl Vm {
                     other => return Err(self.type_err_at("string", other.type_name(), line)),
                 }
             }
+            "join" => {
+                self.arity(name, 2, args.len(), line)?;
+                match (&args[0], &args[1]) {
+                    (Value::Array(elems), Value::Str(sep)) => {
+                        let parts: Vec<String> = elems.iter().map(|v| v.format()).collect();
+                        Value::Str(parts.join(sep))
+                    }
+                    (a, b) => return Err(self.type_err_at("array and string", &format!("{} and {}", a.type_name(), b.type_name()), line)),
+                }
+            }
+            "split" => {
+                self.arity(name, 2, args.len(), line)?;
+                match (&args[0], &args[1]) {
+                    (Value::Str(s), Value::Str(sep)) => {
+                        let parts: Vec<Value> = s.split(sep).map(|p| Value::Str(p.to_string())).collect();
+                        Value::Array(Rc::new(parts))
+                    }
+                    (a, b) => return Err(self.type_err_at("string and string", &format!("{} and {}", a.type_name(), b.type_name()), line)),
+                }
+            }
             "args" => {
                 self.arity(name, 0, args.len(), line)?;
                 Value::Array(Rc::new(self.script_args.iter().map(|s| Value::Str(s.clone())).collect()))

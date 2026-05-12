@@ -161,6 +161,8 @@ impl Lexer {
             "to_upper"   => Token::ToUpper,
             "to_lower"   => Token::ToLower,
             "trim"       => Token::Trim,
+            "join"       => Token::Join,
+            "split"      => Token::Split,
             _            => Token::Identifier(s),
         }
     }

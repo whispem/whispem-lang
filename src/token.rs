@@ -9,7 +9,7 @@ pub enum Token {
     Let, Print, If, Else, ElseIf, While, For, In, And, Or, Not, Fn, Return, Break, Continue,
     Length, Push, Pop, Reverse, Slice, Range, Input, ReadFile, WriteFile, Keys, Values, HasKey,
     CharAt, Substr, Ord, NumToStr, StrToNum, Args, WriteHex,
-    Assert, TypeOf, Exit, ToUpper, ToLower, Trim,
+    Assert, TypeOf, Exit, ToUpper, ToLower, Trim, Join, Split,
     Map, Filter, Reduce,
     True, False, None, Identifier(String), Number(f64), Str(String), FStr(Vec<FStrPart>),
     Plus, Minus, Star, Slash, Percent,
@@ -94,6 +94,8 @@ impl std::fmt::Display for Token {
             Token::ToUpper       => "'to_upper'".to_string(),
             Token::ToLower       => "'to_lower'".to_string(),
             Token::Trim          => "'trim'".to_string(),
+            Token::Join          => "'join'".to_string(),
+            Token::Split         => "'split'".to_string(),
         };
         write!(f, "{}", s)
     }
