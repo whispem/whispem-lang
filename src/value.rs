@@ -28,6 +28,21 @@ pub enum Value {
     None,
 }
 
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Number(a),  Value::Number(b))  => a == b,
+            (Value::Bool(a),    Value::Bool(b))    => a == b,
+            (Value::Str(a),     Value::Str(b))     => a == b,
+            (Value::Array(a),   Value::Array(b))   => a == b,
+            (Value::Dict(a),    Value::Dict(b))    => a == b,
+            (Value::None,       Value::None)       => true,
+            (Value::Closure { chunk: a, .. }, Value::Closure { chunk: b, .. }) => Rc::ptr_eq(a, b),
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.format())

@@ -840,13 +840,7 @@ impl Vm {
     }
 
     fn eq_val(&self, a: &Value, b: &Value) -> bool {
-        match (a, b) {
-            (Value::Number(x), Value::Number(y)) => x == y,
-            (Value::Str(x),    Value::Str(y))    => x == y,
-            (Value::Bool(x),   Value::Bool(y))   => x == y,
-            (Value::None,      Value::None)       => true,
-            _                                    => false,
-        }
+        a == b
     }
 
     fn cmp(&self, a: Value, b: Value, nf: impl Fn(f64,f64)->bool, sf: impl Fn(&str,&str)->bool) -> WhispemResult<Value> {
