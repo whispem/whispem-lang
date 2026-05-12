@@ -461,19 +461,34 @@ impl Vm {
             }
             "slice" => {
                 self.arity(name, 3, args.len(), line)?;
-                let start = self.to_usize(&args[1], line)?;
-                let end   = self.to_usize(&args[2], line)?;
+                let start_i = self.to_i64(&args[1], line)?;
+                let end_i   = self.to_i64(&args[2], line)?;
                 match &args[0] {
-                    Value::Array(a) => {
-                        if start > end {
-                            return Err(WhispemError::new(ErrorKind::InvalidSlice { start, end }, Span::new(line, 0)));
-                        }
-                        if end > a.len() {
-                            return Err(WhispemError::new(ErrorKind::SliceOutOfBounds { end, length: a.len() }, Span::new(line, 0)));
-                        }
-                        Value::Array(Rc::new(a[start..end].to_vec()))
+                    Value::Array(elems) => {
+                        let len = elems.len();
+                        let mut start = start_i;
+                        let mut end   = end_i;
+                        if start < 0 { start += len as i64; }
+                        if end < 0   { end   += len as i64; }
+                        let start = start.max(0) as usize;
+                        let end   = end.max(0)   as usize;
+                        if end > len { return Err(WhispemError::new(ErrorKind::SliceOutOfBounds { end, length: len }, Span::new(line, 0))); }
+                        if start > end { return Err(WhispemError::new(ErrorKind::InvalidSlice { start, end }, Span::new(line, 0))); }
+                        Value::Array(Rc::new(elems[start..end].to_vec()))
                     }
-                    other => return Err(self.type_err_at("array", other.type_name(), line)),
+                    Value::Str(s) => {
+                        let len = s.chars().count();
+                        let mut start = start_i;
+                        let mut end   = end_i;
+                        if start < 0 { start += len as i64; }
+                        if end < 0   { end   += len as i64; }
+                        let start = start.max(0) as usize;
+                        let end   = end.max(0)   as usize;
+                        if end > len { return Err(WhispemError::new(ErrorKind::SliceOutOfBounds { end, length: len }, Span::new(line, 0))); }
+                        if start > end { return Err(WhispemError::new(ErrorKind::InvalidSlice { start, end }, Span::new(line, 0))); }
+                        Value::Str(s.chars().skip(start).take(end - start).collect())
+                    }
+                    other => return Err(self.type_err_at("array or string", other.type_name(), line)),
                 }
             }
             "range" => {
