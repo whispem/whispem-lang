@@ -357,6 +357,19 @@ mod tests {
         assert_eq!(ok("print to_lower(\"ABC\")"),    vec!["abc"]);
         assert_eq!(ok("print trim(\"  hi  \")"),     vec!["hi"]);
     }
+    #[test] fn split_join() {
+        assert_eq!(ok("print split(\"a,b,c\", \",\")"), vec!["[a, b, c]"]);
+        assert_eq!(ok("print join([1, 2, 3], \"-\")"),  vec!["1-2-3"]);
+    }
+    #[test] fn slice_enhanced() {
+        assert_eq!(ok("print slice([1,2,3,4], 1, -1)"), vec!["[2, 3]"]);
+        assert_eq!(ok("print slice(\"hello\", -3, -1)"), vec!["ll"]);
+    }
+    #[test] fn collection_equality_deep() {
+        assert_eq!(ok("print [1, [2]] == [1, [2]]"),    vec!["true"]);
+        assert_eq!(ok("print {\"a\": 1} == {\"a\": 1}"), vec!["true"]);
+        assert_eq!(ok("print [1] == [2]"),               vec!["false"]);
+    }
 
     // ── Error spans ──────────────────────────────────────────────────────────
     #[test] fn error_has_span() {

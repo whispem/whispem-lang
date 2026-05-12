@@ -508,8 +508,10 @@ impl Vm {
                              else { match &args[0] { Value::Str(s) => s.clone(), other => return Err(self.type_err_at("string", other.type_name(), line)) } };
                 if !prompt.is_empty() { print!("{}", prompt); io::stdout().flush().unwrap(); }
                 let mut buf = String::new();
-                io::stdin().read_line(&mut buf).unwrap();
-                Value::Str(buf.trim_end_matches('\n').trim_end_matches('\r').to_string())
+                match io::stdin().read_line(&mut buf) {
+                    Ok(0) | Err(_) => Value::None,
+                    Ok(_) => Value::Str(buf.trim_end_matches('\n').trim_end_matches('\r').to_string()),
+                }
             }
             "read_file" => {
                 self.arity(name, 1, args.len(), line)?;
