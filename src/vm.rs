@@ -88,7 +88,7 @@ impl Vm {
 
     // Push a closure frame and run until it returns.  Returns the result value.
     // Used by map/filter/reduce to call user-supplied functions synchronously.
-    fn invoke_closure(&mut self, callee: Value, args: Vec<Value>) -> WhispemResult<Value> {
+    fn invoke_closure(&mut self, callee: Value, args: &[Value]) -> WhispemResult<Value> {
         match callee {
             Value::Closure { chunk, upvalues } => {
                 if args.len() != chunk.param_count {
@@ -103,7 +103,7 @@ impl Vm {
                 }
                 let target_depth = self.frames.len();
                 let new_frame    = CallFrame::new(chunk, upvalues);
-                for arg in args { self.stack.push(arg); }
+                for arg in args { self.stack.push(arg.clone()); }
                 self.frames.push(new_frame);
                 self.run_until(target_depth)?;
                 self.pop()
@@ -719,8 +719,10 @@ impl Vm {
                 };
                 let f = args[1].clone();
                 let mut result = Vec::with_capacity(arr.len());
+                let mut call_args = [Value::None];
                 for item in arr {
-                    let out = self.invoke_closure(f.clone(), vec![item])?;
+                    call_args[0] = item;
+                    let out = self.invoke_closure(f.clone(), &call_args)?;
                     result.push(out);
                 }
                 Value::Array(Rc::new(result))
@@ -735,8 +737,10 @@ impl Vm {
                 };
                 let f = args[1].clone();
                 let mut result = Vec::new();
+                let mut call_args = [Value::None];
                 for item in arr {
-                    let keep = self.invoke_closure(f.clone(), vec![item.clone()])?;
+                    call_args[0] = item.clone();
+                    let keep = self.invoke_closure(f.clone(), &call_args)?;
                     if keep.is_truthy() { result.push(item); }
                 }
                 Value::Array(Rc::new(result))
@@ -751,8 +755,11 @@ impl Vm {
                 };
                 let f         = args[1].clone();
                 let mut accum = args[2].clone();
+                let mut call_args = [Value::None, Value::None];
                 for item in arr {
-                    accum = self.invoke_closure(f.clone(), vec![accum, item])?;
+                    call_args[0] = accum;
+                    call_args[1] = item;
+                    accum = self.invoke_closure(f.clone(), &call_args)?;
                 }
                 accum
             }
